@@ -110,8 +110,8 @@ the option with only one wall.
 Checking ordinary JavaScript at build, with no compiler that owns the language, is not on the list. It rejects
 what it recognises, and that has a long record of being got round.
 
-**Lean:** let a spike settle it. Start with compiled JavaScript in the page, with loop counters, and fall back to
-the WebAssembly runtime if the single wall is not enough.
+This can't be chosen until the language is known. [The language](10-language.md) is a first sketch of it, and
+ends with the choices that decide this one.
 
 ## What it does to the requirements
 
