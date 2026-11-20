@@ -27,7 +27,7 @@ tailor.config.ts   identity, adapters and the default layout
 
 | File | Shows | Requirements |
 | --- | --- | --- |
-| [api/todos.ts](api/todos.ts) | Endpoints with their scopes. Endpoints needing two scopes. A record with a field scope. | A2, A3, A11, A12 |
+| [api/todos.ts](api/todos.ts) | Endpoints with their scopes. Endpoints needing two scopes. A record. Data that needs another scope as its own endpoint. | A2, A3, A11, A12 |
 | [app/slots.ts](app/slots.ts) | Two slots with contracts: context in, events out. One holds a single plugin, one holds many. | S5, S11, S12 |
 | [app/shell.tsx](app/shell.tsx) | An ordinary React app. No frame or message code. | S1, S7 |
 | [plugins/todo-list/plugin.tsx](plugins/todo-list/plugin.tsx) | Scopes derived from imports. Required and optional endpoints. A grayed-out action. | P2, P4, P5, P13 |
@@ -55,7 +55,7 @@ Nobody writes these. They are what the registry would record for each plugin.
 | --- | --- |
 | Slot | `todo-detail` |
 | Required scopes | `todos.read` |
-| Optional scopes | `people.read` |
+| Optional scopes | none |
 | Data | Annotation on `todo`: `dueOn` (date). Private store `prefs`: `warnDaysBefore` (number). |
 | Summary | Reads todos. Adds a due date to todos. Keeps a private setting. |
 
@@ -94,8 +94,9 @@ question.
 7. **Scopes need words.** The plain summary shown at submission comes from a description on each scope.
 8. **Plugins need React helpers.** `useQuery`, `useCan`, `useAnnotation` and `useStore` are assumed here. Which
    helpers Tailor ships, and how they report loading and errors, is not designed.
-9. **Handlers shouldn't filter fields by hand.** An earlier draft had each handler strip `assignee` for callers
-   without `people.read`, and two of the five forgot. The scope now sits on the field and Tailor filters. (A12)
+9. **Scopes are about calls, not data.** An earlier draft had each handler strip `assignee` for callers without
+   `people.read`, and two of the five forgot. Field-level permission is not Tailor's job. Assignees are now their own
+   endpoint with their own scope. (A12)
 
 ## What a second test surfaced
 

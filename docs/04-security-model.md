@@ -16,11 +16,10 @@ its author.
 | Leaking data to the outside | A plugin allowed to read todos sends them to an outside server. | This document, with gaps |
 | Reaching into the app | A plugin reads or changes the shell's page, or another plugin's. | This document, with gaps |
 | Destroying data | A plugin version wipes what another version wrote. | [Plugin data](05-plugin-data.md) |
-| Using scopes it honestly declared | A plugin that openly imports a payroll endpoint is shared, and an admin uses it. | **Not covered** |
+| Using an admin's access | A plugin that openly imports a payroll endpoint is shared by someone who can't run payroll, and an admin uses it. | The author cap (P14) |
 | Moving data between users | A plugin reads with one user's access and writes into a shared store its author can read. | **Not covered** |
 
-The last two rows are the most important open question in the project. See
-[what P1 does not cover](#what-p1-does-not-cover).
+The last row is not solved. See [what P1 does not cover](#what-p1-does-not-cover).
 
 The first target is colleagues in one company, where the likely cause is a mistake or an agent doing more than it
 was asked. The model is built for the stranger case anyway (W4), because retrofitting isolation is the hard
@@ -80,16 +79,19 @@ That is why this layer isn't trusted alone.
 
 - **The plugin holds no token (P8).** The broker in the shell makes the call.
 - **Narrowed token (P9).** The token names the user and the plugin version. The API accepts it only for endpoints in
-  that version's manifest, within the user's scopes.
+  that version's manifest, within the scopes the user and the plugin's author both hold (P14).
 
 ## What P1 does not cover
 
-P1 stops a plugin doing what it was not built to do. It does not stop a plugin doing what it openly was built to do,
-in front of someone with more access than its author.
+P1 stops a plugin doing what it was not built to do. Two more rules cover a plugin doing what it openly was built to
+do:
 
-- **Declared scopes are not consented scopes.** An author can import any endpoint. A user is offered a plugin when
-  they hold its required scopes (G1), and is not asked to approve them (P7). Nothing stands between a shared plugin
-  and an admin's access.
+- **The author cap (P14).** A plugin never runs with more than its author could do. A plugin written by someone who
+  can't run payroll can't run payroll for an admin either.
+- **Using it is agreeing to it (P15).** The registry shows what a plugin uses. There is no prompt (P7).
+
+What is still open:
+
 - **Shared plugin data is a way out.** A plugin can read with the current user's access and write what it read into
   a shared store or annotation. Its author can read that. No network is needed, so the browser layer doesn't help.
 - **A later version can ask for more.** If users follow the newest version of a shared plugin, its author can add an
@@ -97,8 +99,6 @@ in front of someone with more access than its author.
 - **The authoring agent reads other people's plugins.** Text in a plugin's source or description could steer the
   agent when it works for someone else.
 
-Ways to close this, none chosen: review when a plugin is shared, a rule that a plugin can never be used with more
-than its author's scopes, a policy per scope set by the implementor, or approval when a new version adds endpoints.
 See [open questions](08-open-questions.md#1-who-agrees-to-a-plugins-scopes).
 
 ## The spike

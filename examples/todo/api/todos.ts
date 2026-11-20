@@ -15,9 +15,6 @@ export const Todo = record("todo", {
     id: t.string(),
     title: t.string(),
     done: t.boolean(),
-    // A field scope (A12). Tailor leaves this field out of every response to
-    // a caller without people.read. No handler below filters it by hand.
-    assignee: t.optional(t.string()).needs("people.read"),
   },
 });
 
@@ -36,6 +33,16 @@ export const getTodo = endpoint({
   input: t.object({ id: t.string() }),
   output: Todo,
   handler: async ({ input }) => db.todos.get(input.id),
+});
+
+// Scopes are about which calls can be made, not which data comes back (A12).
+// Who a todo is assigned to needs another scope, so it is another endpoint.
+export const listAssignees = endpoint({
+  method: "GET",
+  path: "/assignees",
+  scopes: ["todos.read", "people.read"],
+  output: t.array(t.object({ todoId: t.string(), name: t.string() })),
+  handler: async () => db.assignees.all(),
 });
 
 export const createTodo = endpoint({

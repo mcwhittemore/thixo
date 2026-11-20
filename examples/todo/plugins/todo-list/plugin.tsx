@@ -6,15 +6,15 @@
 // Its scopes are not written anywhere. The build reads them from these
 // imports (P2, P13):
 //   required: todos.read, todos.write   (listTodos, createTodo, updateTodo)
-//   optional: todos.delete              (deleteTodo, an optional endpoint)
-//   optional: people.read               (a field scope on the Todo it reads)
+//   optional: todos.delete, people.read (deleteTodo and listAssignees, both
+//                                        optional endpoints)
 
 import { useState } from "react";
 import { definePlugin, useCan, useQuery } from "tailor/plugin";
 import { Button, Checkbox, Stack, TextInput } from "tailor/ui";
 import { main } from "@app/slots";
 import { listTodos, createTodo, updateTodo } from "@app/sdk";
-import { deleteTodo } from "@app/sdk/optional";
+import { deleteTodo, listAssignees } from "@app/sdk/optional";
 
 export default definePlugin(
   main,
@@ -26,6 +26,9 @@ export default definePlugin(
     const todos = useQuery(listTodos);
     const [title, setTitle] = useState("");
     const canDelete = useCan(deleteTodo);
+    // Loads nothing for a user who can't call it.
+    const assignees = useQuery(listAssignees);
+    const assigneeOf = (todoId: string) => assignees.data?.find((a) => a.todoId === todoId)?.name;
 
     async function add() {
       await createTodo({ title });
@@ -45,8 +48,8 @@ export default definePlugin(
             />
             <button onClick={() => emit.select({ todoId: todo.id })}>{todo.title}</button>
 
-            {/* Present only when the user holds people.read. */}
-            {todo.assignee && <span>{todo.assignee}</span>}
+            {/* Shown only to a user who can call listAssignees. */}
+            {assigneeOf(todo.id) && <span>{assigneeOf(todo.id)}</span>}
 
             {/* Grayed out for a user who can't delete (P5). */}
             <Button

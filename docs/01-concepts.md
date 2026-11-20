@@ -20,11 +20,10 @@ team, where the team members are the users and some of them become authors.
 | **App** | What the implementor builds: an API, a shell and a set of default plugins. |
 | **Endpoint** | One operation in the app's API. It carries its scopes. |
 | **Record** | A type of thing in the app, such as a todo, that the API names so plugin data can attach to it. |
-| **Scope** | A named permission, such as `todos.write`. Defined by the app's API, held by users, carried in tokens. |
-| **Field scope** | A scope on one field of a record. A caller without it gets the record with that field left out. |
+| **Scope** | A named permission to make certain API calls, such as `todos.write`. Defined by the app's API, held by users, carried in tokens. It says nothing about which data a call returns. |
 | **Shell** | The base React app. It provides the always-on functionality and defines the slots. |
 | **Slot** | A place in the shell where plugins render. It has a kind, which sets its size, and a contract. |
-| **Slot contract** | The context the shell passes to a plugin in a slot, and the events the plugin can send back. |
+| **Slot contract** | The context the shell passes to a plugin in a slot, the events the plugin can send back, and the values it can provide up. |
 | **Shell service** | Something only the shell can do for a plugin: navigate, open a modal, copy to the clipboard, download a file. |
 
 ## Plugins
@@ -62,7 +61,7 @@ team, where the team members are the users and some of them become authors.
 | --- | --- |
 | **Registry** | Stores plugin versions and their manifests, builds them, and answers searches. |
 | **Authoring agent** | The agent behind the chat interface. It writes plugins and can search the registry. |
-| **Narrowed token** | A token the API issues for one user and one plugin version. It is good only for the endpoints in that version's manifest, within the user's scopes. |
+| **Narrowed token** | A token the API issues for one user and one plugin version. It is good only for the endpoints in that version's manifest, within the scopes the user and the plugin's author both hold. |
 | **Broker** | The part of the shell that carries a plugin's SDK calls to the API. |
 | **Adapter** | The piece that connects Tailor to one provider's storage, database, build or model service. |
 

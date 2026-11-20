@@ -136,3 +136,38 @@ before code is accepted.
 
 - **Why:** it states the property directly, and "tailorable systems" is an older term for user-customisable
   software. It collides with an existing company. See [open questions](08-open-questions.md#name).
+
+## 2026-11-19: after the first review
+
+Settled by Matthew Whittemore after reading the first draft.
+
+### 18. Scopes are about API calls, not data
+
+A scope says which calls a caller can make. It does not say which data a caller sees. There are no field-level
+permissions.
+
+- **Why:** Tailor provides security by enforcing scopes. What an endpoint returns is the app author's to get right.
+- **Turned down:** a scope on a record field, with the framework leaving the field out for callers without it. Data
+  that needs another scope gets its own endpoint.
+- **Requirements:** A12.
+
+### 19. Using a plugin is the agreement
+
+The registry shows what a plugin uses, and a user choosing to use it is the agreement. Scopes are a fact read from
+the code, not something to negotiate.
+
+- **Requirements:** P15, G5. Consistent with decision 7.
+
+### 20. A plugin never runs with more than its author could do
+
+- **Why:** it stops a plugin written by someone with little access from acting with an admin's access when the
+  admin picks it up.
+- **Requirements:** P14.
+
+### 21. A field's type never changes
+
+A different type needs a new field with a new name.
+
+- **Why:** a version must never read a value in a shape it doesn't expect.
+- **Turned down:** treating the same name with a new type as a second field.
+- **Requirements:** D8.

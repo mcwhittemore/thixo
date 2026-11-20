@@ -9,24 +9,18 @@ Three questions came out of testing the first draft: a cold read of the docs, an
 
 ### 1. Who agrees to a plugin's scopes?
 
-P1 stops a plugin doing what it was not built to do. It does not stop a plugin doing what it openly was built to do
-in front of someone with more access than its author. The detail is in the
-[security model](04-security-model.md#what-p1-does-not-cover).
+Mostly decided on 2026-11-19. Using a plugin is the agreement, with the registry showing what it uses (P15), and a
+plugin never runs with more than its author could do (P14). What those two rules leave open:
 
-- An author can import any endpoint. A user is offered the plugin if they hold its scopes (G1) and is never asked
-  (P7). An admin who uses a colleague's plugin runs it with admin access.
-- A plugin can read with one user's access and write into a shared store or annotation its author can read.
-- If users follow the newest version, an author can add endpoints later and everyone picks them up.
-
-Options, none chosen:
-
-- **Cap at the author.** A plugin can never be used with more than its author's scopes.
-- **Review at share.** Someone approves a plugin, and each version that adds endpoints, before others can use it.
-- **Policy per scope.** The implementor marks some scopes as needing approval or as never available to plugins.
-- **Approval on change.** A user approves when a new version of a plugin they use asks for more.
-
-**Lean:** cap at the author plus policy per scope. Both need no prompt, so P7 holds. Neither closes the shared-data
-route by itself.
+- **Whose scopes, and when?** The author's scopes when the version was submitted, or now? What happens to a plugin
+  when its author loses a scope or leaves?
+- **Who is the author of a fork?** The person who forked it, presumably. Then a fork by an admin lifts the cap.
+- **Default plugins.** The implementor ships them. Is there a cap at all?
+- **Imports the author can't call.** Should the build reject them, since no one could ever use them?
+- **Newer versions.** If users follow the newest version of a plugin, its author can add endpoints later. Does a
+  user see the summary again? See [layout and versions](#layout-and-versions).
+- **Shared plugin data.** A plugin can read with one user's access and write into a shared store or annotation its
+  author can read. The author cap doesn't stop this.
 
 ### 2. How do two plugins share data?
 
@@ -50,8 +44,13 @@ Options, none chosen:
 - **Rows have slots.** A list plugin exposes a place in each row that other plugins fill. This conflicts with S9
   unless the row pieces are not frames.
 - **Fork and merge is the answer.** State it and make the agent good at merging forks.
+- **Plugins provide values up to their slots (S14).** The shell holds what a plugin provides and passes it into
+  other slots as context. A tags plugin provides the current filter and the list receives it. If the list's slot
+  accepts "badges by todo id", a due-dates plugin can decorate rows without the list being forked. The limit: a
+  plugin can only provide while it is loaded, so this needs a slot kind that loads with the page and draws nothing.
 
-**Lean:** published fields, plus batch reads of annotations. Row-level extension needs a design of its own.
+**Lean:** provided values for anything live, such as filters, selection and row decoration. Published fields and
+batch reads for stored data.
 
 ### 3. What does isolation really rest on?
 
@@ -70,7 +69,6 @@ P10, P11 and X8 depend on browser behaviour nobody has tested here. The list of 
 
 - Are scope names flat (`todos.write`) or do they nest, so that `todos` implies `todos.read`?
 - Should alternatives be allowed, where any one of several scopes is enough (A4)?
-- Can a plugin decline a field scope, so it never receives a field it has no use for (A12)?
 - **Lean:** flat names, no alternatives. A plugin's scopes then stay a plain set the registry can filter on.
 
 ### Required and optional in a plugin

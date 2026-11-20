@@ -4,11 +4,16 @@
 // brings whatever database they like. Only plugin data goes through Tailor's
 // data adapter. This stand-in keeps todos in memory.
 
-type Todo = { id: string; title: string; done: boolean; assignee?: string };
+type Todo = { id: string; title: string; done: boolean };
 
 const rows = new Map<string, Todo>();
 
+const assignees = new Map<string, string>();
+
 export const db = {
+  assignees: {
+    all: async () => [...assignees].map(([todoId, name]) => ({ todoId, name })),
+  },
   todos: {
     all: async () => [...rows.values()],
     get: async (id: string) => rows.get(id)!,

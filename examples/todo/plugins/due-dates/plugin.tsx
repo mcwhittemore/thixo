@@ -5,7 +5,6 @@
 //
 // Derived by the build (P13):
 //   required: todos.read    (getTodo, and annotating Todo)
-//   optional: people.read   (a field scope on the Todo it reads)
 //   data:     annotation on todo { dueOn: date }
 //             private store prefs { warnDaysBefore: number }
 
