@@ -4,13 +4,13 @@
 // through the same build as a plugin a user writes.
 //
 // Its scopes are not written anywhere. The build reads them from these
-// imports (P2):
-//   required: todos.read, todos.write   (from listTodos, createTodo, updateTodo)
-//   optional: todos.delete              (from deleteTodo)
-//   optional: people.read               (listTodos returns more with it)
+// imports (P2, P13):
+//   required: todos.read, todos.write   (listTodos, createTodo, updateTodo)
+//   optional: todos.delete              (deleteTodo, an optional endpoint)
+//   optional: people.read               (a field scope on the Todo it reads)
 
 import { useState } from "react";
-import { definePlugin, useQuery } from "tailor/plugin";
+import { definePlugin, useCan, useQuery } from "tailor/plugin";
 import { Button, Checkbox, Stack, TextInput } from "tailor/ui";
 import { main } from "@app/slots";
 import { listTodos, createTodo, updateTodo } from "@app/sdk";
@@ -25,6 +25,7 @@ export default definePlugin(
   function TodoList({ emit }) {
     const todos = useQuery(listTodos);
     const [title, setTitle] = useState("");
+    const canDelete = useCan(deleteTodo);
 
     async function add() {
       await createTodo({ title });
@@ -49,7 +50,7 @@ export default definePlugin(
 
             {/* Grayed out for a user who can't delete (P5). */}
             <Button
-              disabled={!deleteTodo.allowed}
+              disabled={!canDelete}
               onClick={() => deleteTodo({ id: todo.id }).then(todos.refresh)}
             >
               Delete

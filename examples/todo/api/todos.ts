@@ -3,54 +3,47 @@
 // The app's API. Each endpoint carries its scopes (A2). Tailor generates the
 // SDK that plugins import from this file, one function per endpoint (A10).
 
-import { endpoint, record, t } from "tailor/api";
+import { endpoint, record } from "tailor/api";
+import { t } from "tailor/schema";
 import { db } from "./db";
 
 // A record is a type of thing in the app that plugins can attach annotations
-// to. It names the scopes needed to read one, so the annotation endpoints
-// can check them.
+// to (A11). It names the scopes needed to read one.
 export const Todo = record("todo", {
   read: ["todos.read"],
   fields: {
     id: t.string(),
     title: t.string(),
     done: t.boolean(),
-    // Only present when the caller also holds people.read.
-    assignee: t.optional(t.string()),
+    // A field scope (A12). Tailor leaves this field out of every response to
+    // a caller without people.read. No handler below filters it by hand.
+    assignee: t.optional(t.string()).needs("people.read"),
   },
 });
 
 export const listTodos = endpoint({
   method: "GET",
   path: "/todos",
-  // Required: every caller needs these. Optional: holding them widens the
-  // response (A3).
-  scopes: { required: ["todos.read"], optional: ["people.read"] },
+  scopes: ["todos.read"],
   output: t.array(Todo),
-  handler: async ({ has }) => {
-    const todos = await db.todos.all();
-    if (has("people.read")) return todos;
-    return todos.map(({ assignee, ...rest }) => rest);
-  },
+  handler: async () => db.todos.all(),
 });
 
 export const getTodo = endpoint({
   method: "GET",
   path: "/todos/:id",
-  scopes: { required: ["todos.read"], optional: ["people.read"] },
+  scopes: ["todos.read"],
   input: t.object({ id: t.string() }),
   output: Todo,
-  handler: async ({ input, has }) => {
-    const { assignee, ...rest } = await db.todos.get(input.id);
-    return has("people.read") ? { ...rest, assignee } : rest;
-  },
+  handler: async ({ input }) => db.todos.get(input.id),
 });
 
 export const createTodo = endpoint({
   method: "POST",
   path: "/todos",
-  // An endpoint can need more than one scope.
-  scopes: { required: ["todos.read", "todos.write"] },
+  // An endpoint can need more than one scope. The caller must hold them all
+  // (A3).
+  scopes: ["todos.read", "todos.write"],
   input: t.object({ title: t.string() }),
   output: Todo,
   handler: async ({ input }) => db.todos.create(input),
@@ -59,7 +52,7 @@ export const createTodo = endpoint({
 export const updateTodo = endpoint({
   method: "PATCH",
   path: "/todos/:id",
-  scopes: { required: ["todos.read", "todos.write"] },
+  scopes: ["todos.read", "todos.write"],
   input: t.object({
     id: t.string(),
     title: t.optional(t.string()),
@@ -72,7 +65,7 @@ export const updateTodo = endpoint({
 export const deleteTodo = endpoint({
   method: "DELETE",
   path: "/todos/:id",
-  scopes: { required: ["todos.read", "todos.delete"] },
+  scopes: ["todos.read", "todos.delete"],
   input: t.object({ id: t.string() }),
   handler: async ({ input }) => db.todos.remove(input.id),
 });

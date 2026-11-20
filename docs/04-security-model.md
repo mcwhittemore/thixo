@@ -1,42 +1,63 @@
 # Security model
 
 How a plugin is contained. The requirement is P1: it must be impossible for a plugin to make a call outside its
-scopes. The rest of this document is the proposed way to meet it.
+scopes. The rest of this document is the proposed way to meet it, what it does not cover, and what has to be tested
+before it is accepted.
 
 ## What we are defending against
 
 A plugin is code written by an agent or by another person, running in front of a user who may hold more access than
 its author.
 
-| Threat | Example |
-| --- | --- |
-| Calling past its scopes | A plugin that uses only `todos.read` calls `payroll.write` with an admin's access. |
-| Stealing the session | A plugin reads the user's cookie or token and sends it somewhere. |
-| Leaking data | A plugin allowed to read todos sends them to an outside server. |
-| Reaching into the app | A plugin reads or changes the shell's page, or another plugin's. |
-| Destroying data | A plugin version wipes what another version wrote. See [plugin data](05-plugin-data.md). |
+| Threat | Example | Covered by |
+| --- | --- | --- |
+| Calling past its scopes | A plugin built with only `getTodo` calls a payroll endpoint with an admin's access. | This document |
+| Stealing the session | A plugin reads the user's cookie or token. | This document |
+| Leaking data to the outside | A plugin allowed to read todos sends them to an outside server. | This document, with gaps |
+| Reaching into the app | A plugin reads or changes the shell's page, or another plugin's. | This document, with gaps |
+| Destroying data | A plugin version wipes what another version wrote. | [Plugin data](05-plugin-data.md) |
+| Using scopes it honestly declared | A plugin that openly imports a payroll endpoint is shared, and an admin uses it. | **Not covered** |
+| Moving data between users | A plugin reads with one user's access and writes into a shared store its author can read. | **Not covered** |
+
+The last two rows are the most important open question in the project. See
+[what P1 does not cover](#what-p1-does-not-cover).
 
 The first target is colleagues in one company, where the likely cause is a mistake or an agent doing more than it
 was asked. The model is built for the stranger case anyway (W4), because retrofitting isolation is the hard
 direction.
 
-Users are not asked to approve scopes per plugin (P7). Containment has to work without them.
+## What is trusted
+
+P1 holds only if these hold. Everything else is treated as hostile.
+
+| Trusted | For what |
+| --- | --- |
+| The API | Verifying tokens and enforcing scopes. |
+| The registry's build | Deriving the manifest from the source it stores. |
+| The shell, including the broker | Knowing which frame a message came from, and never handing a plugin the user's session. |
+| The browser's sandbox | Keeping a plugin's frame apart from the shell's page. |
+
+Two consequences worth stating:
+
+- **The API can't see a plugin.** It sees what the shell tells it. A shell that lies about which plugin is calling
+  can do anything the user can. That is acceptable, because the shell already holds the user's session.
+- **The broker must tie each message to a frame.** It does this by giving each frame its own message channel. A
+  sandboxed frame has no usable origin to check.
 
 ## Three layers
-
-No single layer is enough. Each covers what the others can't.
 
 ### At build
 
 The registry builds every version from source and never accepts a prebuilt bundle (U4), so the checks run on exactly
 the code that ships.
 
-- **Import allowlist (U5):** a plugin may import the SDK, React, Tailor's components and its own files. Imports are
-  static in JavaScript, so this check is sound.
-- **Scope derivation (P2):** the endpoints imported are the plugin's scopes. This rests on the allowlist.
+- **Import allowlist (U5):** the list is in the requirement. Static imports can be read from the source with
+  certainty. Dynamic imports are rejected.
+- **Endpoint and scope derivation (P2, P13):** the endpoints imported are what the plugin may call.
 - **Globals check (U6):** any reference to a name outside an allowlist is flagged. This catches direct use of
   `fetch`, `RTCPeerConnection`, `location`, `eval` and the like.
-- **Schema extraction (D3):** the data fields and their hash come from the plugin's declared types.
+- **Schema extraction (D3):** the data fields and their hash come from the plugin's declarations, which are written
+  in a literal form so the build can read them without running the code (U11).
 
 Static analysis of JavaScript can't prove a plugin never reaches something, because code can build names at runtime.
 That is why this layer isn't trusted alone.
@@ -45,34 +66,68 @@ That is why this layer isn't trusted alone.
 
 - **Sandboxed frame (P10):** the plugin runs in a frame with scripts allowed and same-origin access not allowed. The
   browser gives it an origin of its own, so it can't read the shell's cookies, storage or page.
-- **No network (P11):** the plugin route sends a content security policy with everything denied by default. That
-  blocks `fetch`, WebSockets, beacons, and loading images, fonts or scripts from other hosts.
-- **No code from strings:** the policy leaves out `unsafe-eval`, so `eval` and the `Function` constructor fail. This
-  closes the main way around the globals check.
+- **No network (P11):** the plugin route sends a content security policy that denies by default. It then allows
+  only what a plugin needs to draw: inline styles, and images from data the plugin already holds. Images from the
+  app arrive through the broker.
+- **No code from strings:** the policy leaves out `unsafe-eval`, so `eval` and the `Function` constructor fail.
 - **Host document runs first:** Tailor owns the document inside the frame. Before the plugin loads, it removes
   constructors a plugin must not have, such as `RTCPeerConnection`.
 - **No child frames, workers or popups:** each would give the plugin a fresh copy of what the host document removed.
-- **Frames stay put:** the shell's own policy limits what its frames may load, so a plugin can't send data out by
-  navigating itself to another site.
+- **Frames stay put:** the shell's own policy limits what its frames may load.
+- **Shell services are narrow:** `navigate` goes to routes inside the app, never to an arbitrary address.
 
 ### At the API
 
 - **The plugin holds no token (P8).** The broker in the shell makes the call.
-- **Narrowed token (P9).** For each user and plugin version, the API issues a token limited to the scopes both have.
-  The API verifies it on every call. This is the layer that makes P1 true: whatever happens in the browser, the API
-  won't carry out a call the plugin's version wasn't built with.
+- **Narrowed token (P9).** The token names the user and the plugin version. The API accepts it only for endpoints in
+  that version's manifest, within the user's scopes.
+
+## What P1 does not cover
+
+P1 stops a plugin doing what it was not built to do. It does not stop a plugin doing what it openly was built to do,
+in front of someone with more access than its author.
+
+- **Declared scopes are not consented scopes.** An author can import any endpoint. A user is offered a plugin when
+  they hold its required scopes (G1), and is not asked to approve them (P7). Nothing stands between a shared plugin
+  and an admin's access.
+- **Shared plugin data is a way out.** A plugin can read with the current user's access and write what it read into
+  a shared store or annotation. Its author can read that. No network is needed, so the browser layer doesn't help.
+- **A later version can ask for more.** If users follow the newest version of a shared plugin, its author can add an
+  endpoint and every user picks it up.
+- **The authoring agent reads other people's plugins.** Text in a plugin's source or description could steer the
+  agent when it works for someone else.
+
+Ways to close this, none chosen: review when a plugin is shared, a rule that a plugin can never be used with more
+than its author's scopes, a policy per scope set by the implementor, or approval when a new version adds endpoints.
+See [open questions](08-open-questions.md#1-who-agrees-to-a-plugins-scopes).
+
+## The spike
+
+P10, P11 and X8 depend on browser behaviour this project has not tested. Before they are accepted, a small test page
+should answer each of these in current Chrome, Safari and Firefox.
+
+| Question | Why it matters |
+| --- | --- |
+| Can a sandboxed frame create a blank child frame and take features from it? | It would undo everything the host document removed. This is the likeliest hole. |
+| Can a frame navigate itself to an outside address? | Data could leave in the address. |
+| Does a sandboxed frame on the app's own domain share a process with the shell? | If so, a plugin stuck in a loop freezes the whole app, and timing attacks on the shell's memory are possible. |
+| Can WebRTC or DNS lookups still reach outside hosts? | Low-bandwidth leaks. |
+| Can the plugin's bundle load as a module in a frame with no origin? | If not, the bundle has to be inlined into the host document. |
+| Do inline styles and Tailor's components render under the policy? | "Render anything" (S3) depends on it. |
+
+If the answers are bad, the alternative is to serve plugins from a separate domain, which the browser isolates much
+more strongly. That conflicts with X8 as written. All three first targets can provide a second hostname, so X8 may
+be the requirement to give up.
 
 ## What the implementor has to provide
 
-The origin rules put requirements on the app, not only on Tailor.
-
 | Requirement | Why |
 | --- | --- |
-| Auth that can issue and verify narrowed tokens | A cookie-only session can't be limited per plugin. |
+| An identity function | Tailor asks it who the user is and which scopes they hold. Any session mechanism works, including a cookie. |
+| A signing key | Tailor signs narrowed tokens with it. |
 | Plugin code never served bare from the app's origin | Opened directly without the sandbox header, it would run with the app's full authority. All plugin code goes through Tailor's plugin route. |
 | A host that allows setting response headers | The isolation is delivered by headers. |
 | A content security policy that allows the plugin frames | The app must permit framing the plugin route, and only that. |
-| The user's token kept out of anything a plugin can read | The broker uses it. It never crosses the message channel. |
 
 ## What a plugin author has to live with
 
@@ -80,27 +135,14 @@ The origin rules put requirements on the app, not only on Tailor.
   SDK.
 - **No direct network.** Third-party data comes through an API endpoint with a scope (P12).
 - **No reach outside the frame.** Navigation, modals, clipboard and downloads are shell services (S8).
-
-## Known gaps
-
-These are not closed, and the docs should not claim they are.
-
-| Gap | Standing |
-| --- | --- |
-| A plugin leaks data through an endpoint it is allowed to call | Not a containment problem. It is a question of which scopes exist. |
-| WebRTC reaching outside hosts | Removed by the host document. The policy directive for it exists, but browser support is unchecked. |
-| DNS lookups leaking a few bytes | Historical. Low bandwidth. Unchecked in current browsers. |
-| A blank child frame restoring removed features | The policy should refuse it. Needs a test in each browser. |
-| A frame navigating itself away | The shell's policy should refuse it. Needs a test in each browser. |
-
-Every "needs a test" above becomes a test in the framework's suite before the first release.
+- **No third-party libraries,** at least to start (U5). No chart or date library unless Tailor ships one.
+- **No background work.** A plugin runs only while it is on screen.
 
 ## Options held in reserve
 
 - **Hardened JavaScript.** Locking down the built-in objects so code can touch only what it is handed. It is
   stricter than the globals check and can be awkward with React.
-- **A separate plugin domain.** Stronger than a sandboxed frame on one domain. Ruled out as a requirement by X8, and
-  possible as an option.
+- **A separate plugin domain.** See [the spike](#the-spike).
 
 ## Reading
 

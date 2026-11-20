@@ -67,7 +67,7 @@ An endpoint says what it needs:
 export const updateTodo = endpoint({
   method: "PATCH",
   path: "/todos/:id",
-  scopes: { required: ["todos.read", "todos.write"] },
+  scopes: ["todos.read", "todos.write"],
   // ...
 });
 ```
@@ -84,7 +84,7 @@ The shell says where plugins go:
 ```tsx
 <Shell>
   <Nav />
-  <Slot name="main" />
+  <Slot is={main} />
 </Shell>
 ```
 
@@ -98,7 +98,7 @@ written toward.
 - **The code is the source of truth.** A plugin's scopes come from the endpoints it imports, and its data schema from
   the types it declares. Nobody maintains a list by hand.
 - **Going past your scopes is impossible, not discouraged.** A plugin never holds the user's session. The API
-  enforces what each plugin version may call.
+  accepts from each plugin version only the calls it was built with.
 - **Data outlives code.** Plugin versions come and go. No version can destroy what another one wrote.
 - **No cloud lock-in.** Where code and data are stored, and where the server runs, are adapters. The first proof of
   concept targets Cloudflare. Vercel and AWS must work too.

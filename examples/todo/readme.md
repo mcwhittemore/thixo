@@ -27,13 +27,13 @@ tailor.config.ts   identity, adapters and the default layout
 
 | File | Shows | Requirements |
 | --- | --- | --- |
-| [api/todos.ts](api/todos.ts) | Endpoints with required and optional scopes. One endpoint needing two scopes. A response that widens with an optional scope. | A2, A3 |
-| [app/slots.ts](app/slots.ts) | Two slots with contracts: context in, events out. | S2, S5 |
+| [api/todos.ts](api/todos.ts) | Endpoints with their scopes. Endpoints needing two scopes. A record with a field scope. | A2, A3, A11, A12 |
+| [app/slots.ts](app/slots.ts) | Two slots with contracts: context in, events out. One holds a single plugin, one holds many. | S5, S11, S12 |
 | [app/shell.tsx](app/shell.tsx) | An ordinary React app. No frame or message code. | S1, S7 |
-| [plugins/todo-list/plugin.tsx](plugins/todo-list/plugin.tsx) | Scopes derived from imports. A required and an optional endpoint. A grayed-out action. | P2, P4, P5 |
-| [plugins/due-dates/data.ts](plugins/due-dates/data.ts) | An annotation and a private store, declared as types. | D1, D2, D3 |
+| [plugins/todo-list/plugin.tsx](plugins/todo-list/plugin.tsx) | Scopes derived from imports. Required and optional endpoints. A grayed-out action. | P2, P4, P5, P13 |
+| [plugins/due-dates/data.ts](plugins/due-dates/data.ts) | An annotation and a private store, declared as literals. | D1, D2, D3, U11 |
 | [plugins/due-dates/plugin.tsx](plugins/due-dates/plugin.tsx) | Reading and patching plugin data. | D6 |
-| [tailor.config.ts](tailor.config.ts) | The implementor's identity function. Adapters in one place. | A9, X6, S10 |
+| [tailor.config.ts](tailor.config.ts) | The implementor's identity function. Adapters in one place. | A9, X6, U10, S10 |
 
 ## What the build would derive
 
@@ -92,5 +92,21 @@ question.
 6. **One thing is still written by hand: the description.** Search needs words about what a plugin is for. The agent
    can write them, and the build can't derive them.
 7. **Scopes need words.** The plain summary shown at submission comes from a description on each scope.
-8. **Plugins need React helpers.** `useQuery` and `due.use` are assumed here. Which helpers Tailor ships, and how
-   they handle loading and errors, is not designed.
+8. **Plugins need React helpers.** `useQuery`, `useCan`, `useAnnotation` and `useStore` are assumed here. Which
+   helpers Tailor ships, and how they report loading and errors, is not designed.
+9. **Handlers shouldn't filter fields by hand.** An earlier draft had each handler strip `assignee` for callers
+   without `people.read`, and two of the five forgot. The scope now sits on the field and Tailor filters. (A12)
+
+## What a second test surfaced
+
+A separate attempt to write a third plugin from the docs alone: "put tags on todos, show them in the list, filter by
+tag". It could be written only as a fork of the whole todo list, and it exposed the limits below. They are now the
+[second question to answer first](../../docs/08-open-questions.md#2-how-do-two-plugins-share-data).
+
+1. **A tags editor in the panel and tags in the list can't be two plugins.** They could not share the `tags` field.
+2. **Adding anything to a row means forking the list.** The fork then stops getting the implementor's updates.
+3. **Annotations are read one record at a time.** Fifty todos means fifty calls.
+4. **Filtering happens in the frame.** The API knows nothing about annotations, so the plugin loads everything and
+   hides rows.
+5. **A fork is not expressed anywhere in the source.** Nor is switching a user's layout to the new fork.
+6. **A patch replaces a whole list.** Two people tagging the same todo can overwrite each other.

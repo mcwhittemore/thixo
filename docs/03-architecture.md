@@ -65,11 +65,25 @@ sequenceDiagram
   B-->>P: result
 ```
 
-Two checks happen, and only the second is trusted:
+Two checks happen:
 
 1. **The broker** refuses an endpoint that isn't in the version's manifest. This gives a fast, clear error.
-2. **The API** verifies the narrowed token. Its scopes are the user's scopes intersected with the scopes derived for
-   that plugin version (P9). Even a broken broker can't widen what a plugin does.
+2. **The API** verifies the narrowed token. The token names the user and the plugin version. The API accepts it only
+   for an endpoint in that version's manifest, and only within the user's scopes (P9).
+
+The second check catches a broker that forwards a call it should have refused. It does not protect against a shell
+that lies about which plugin is calling: the API can't see the plugin, only what the shell tells it. What the design
+trusts, and why, is in the [security model](04-security-model.md#what-is-trusted).
+
+### Where the narrowed token comes from
+
+1. The shell asks Tailor's API layer for a token for one plugin version, using the user's ordinary session.
+2. Tailor calls the implementor's identity function to learn who the user is and which scopes they hold (A9).
+3. Tailor signs a short-lived token naming the user and the version.
+4. The broker keeps it and attaches it to that plugin's calls. The plugin never sees it (P8).
+
+The manifest records endpoints, not scopes. Scopes are looked up from the endpoints when a token is checked, so a
+change to an endpoint's scopes takes effect without rebuilding any plugin.
 
 ## Loading a plugin
 
@@ -79,7 +93,8 @@ Two checks happen, and only the second is trusted:
    limit who can frame it.
 4. The host document runs first. It removes the browser features a plugin must not have, opens a message channel to
    the shell and loads the bundle.
-5. The shell sends the slot's context, the design tokens and the list of endpoints the current user can call.
+5. The shell sends the slot's context, the design tokens and which of the plugin's endpoints the current user can
+   call.
 6. The plugin renders. It reports its height back so the shell can size the frame.
 
 ## The SDK
@@ -88,7 +103,9 @@ The SDK a plugin imports is a thin stub. Each function sends a message to the br
 
 - **One function per endpoint,** generated from the API definition (A10).
 - **Two import paths.** `@app/sdk` for endpoints the plugin requires. `@app/sdk/optional` for endpoints it can work
-  without; each of those can be asked whether the current user may call it (P4, P5).
+  without (P4).
+- **A plugin can ask about any endpoint it imports:** whether the current user may call it (P5).
+- **Records come from the SDK too.** A plugin imports a record to annotate it, and gets its type.
 - **Fixed modules for plugin data and shell services,** which are the same in every app.
 
 The names `@app/sdk` and `tailor/...` are placeholders.
@@ -111,12 +128,15 @@ The scopes are written once, on the endpoint. Everything after that is derived (
 A slot has a kind and a contract.
 
 - **Kind:** page, panel or widget (S6). The kind sets how the frame is sized and where it can appear.
-- **Contract:** the context the shell passes in, such as which todo is selected.
+- **Contract:** the context the shell passes in, such as which todo is selected, and the events a plugin can send
+  back, such as "this todo was picked" (S11).
 
-A plugin targets a slot by name. The shell can offer more than one plugin for the same slot, and the user's layout
-picks among them.
+The app defines each slot once. The shell places it, and a plugin targets it, by importing that definition. A slot
+holds one plugin or any number (S12), and the user's layout says which.
 
 ## What is not designed yet
+
+- How two different plugins work over the same data. See [open questions](08-open-questions.md#2-how-do-two-plugins-share-data).
 
 - How the build runs on each provider. See [portability](06-portability.md#build).
 - What happens to existing plugins when the API changes. See [open questions](08-open-questions.md#api-changes).

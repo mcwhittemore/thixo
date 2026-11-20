@@ -7,6 +7,9 @@ New decisions go at the bottom. To reverse one, add a new entry that names the o
 
 ## 2026-11-19: founding discussion
 
+Every decision in this section was settled by Matthew Whittemore, the project's owner, in the discussion that
+started the project.
+
 ### 1. A framework, not an app
 
 Tailor is a framework in the vein of Next.js. Its user is a developer building a malleable product for other people.
@@ -27,8 +30,8 @@ permissions.
 
 ### 3. The API issues tokens and enforces scopes
 
-Plugins do not create tokens. The API creates them and decides what is allowed. Tokens are JWTs, so a plugin can
-learn what the user may do and gray out the rest.
+Plugins do not create tokens. The API creates them and decides what is allowed. Tokens are JWTs with scopes as
+claims. A plugin must be able to learn what the user may do, so it can gray out the rest.
 
 - **Why:** enforcement belongs in one place, and it has to be the server.
 - **Requirements:** A5, A6, P5, P6.
@@ -53,10 +56,10 @@ Which SDK calls a plugin can make defines its scopes. There is no list to mainta
 
 A plugin declaring one thing and doing another has to be impossible, not unlikely.
 
-- **Why:** a plugin runs in front of users with more access than its author. The first users are colleagues, but
-  the design must hold for a stranger.
+- **Why:** a plugin runs in front of users with more access than its author. The first users are colleagues in one
+  company, and the design must hold for a stranger.
 - **Turned down:** treating declared scopes as a usability hint with the user's full token behind them.
-- **Requirements:** P1, W4.
+- **Requirements:** P1, W3, W4.
 
 ### 7. Users don't grant scopes per plugin
 
@@ -102,12 +105,16 @@ Every version is kept, in object storage. A fork is a copy that remembers where 
 
 ### 13. Plugins move from personal to shared to default
 
+- **Why:** without a path between them, the plugins an implementor ships and the ones users write are separate
+  worlds, and a good personal plugin can never become common ground.
 - **Requirements:** G3.
 
 ### 14. Search is a capability the authoring agent can use
 
 The registry exposes search. The agent can call it as a tool.
 
+- **Why:** finding a colleague's plugin before building a new one is how the same tool stops being built three
+  times. As a capability, it leaves the flow to the implementor.
 - **Requirements:** U9, G1.
 
 ### 15. No cloud lock-in
@@ -115,6 +122,7 @@ The registry exposes search. The agent can call it as a tool.
 Storing and reading plugin code must be pluggable. The first proof of concept runs on Cloudflare. Vercel and AWS
 must be supported.
 
+- **Why:** an implementor choosing a framework should not also be choosing a cloud.
 - **Requirements:** X1, X2, X3, X4.
 
 ### 16. Requirements before code

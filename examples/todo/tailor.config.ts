@@ -2,6 +2,7 @@
 
 import { defineConfig } from "tailor";
 import { cloudflare } from "tailor-cloudflare";
+import { anthropic } from "tailor-anthropic";
 import { readSession } from "./api/session";
 
 export default defineConfig({
@@ -18,6 +19,9 @@ export default defineConfig({
     code: "PLUGINS", // an R2 bucket
     data: "DB", // a D1 database
   }),
+
+  // Which model runs the authoring agent (U10).
+  model: anthropic(),
 
   // Which default plugins fill which slots for a new user (S10).
   layout: {

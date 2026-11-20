@@ -1,9 +1,12 @@
 // Sketch. Nothing here runs yet. See ../../readme.md.
 //
 // The plugin's data (D1). The build reads the fields and types from this
-// file, hashes them and records the hash with the version (D3).
+// file, hashes them and records the hash with the version (D3). It is
+// written as plain literals so the build can read it without running it
+// (U11).
 
-import { annotate, store, t } from "tailor/data";
+import { annotate, store } from "tailor/data";
+import { t } from "tailor/schema";
 import { Todo } from "@app/sdk";
 
 // An annotation: a field this plugin attaches to the app's todos. The app's

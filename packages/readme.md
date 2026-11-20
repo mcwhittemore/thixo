@@ -9,6 +9,7 @@ There are no packages yet. This is the plan for what will live here once code is
 | `tailor-cloudflare` | Adapters for Cloudflare. The first to be built. |
 | `tailor-vercel` | Adapters for Vercel. |
 | `tailor-aws` | Adapters for AWS. |
+| `tailor-anthropic` | A model adapter. Others follow the same interface. |
 | `create-tailor-app` | Starts a new app from the todo example. |
 
 What the core exposes, as the todo example imports it:
@@ -16,9 +17,10 @@ What the core exposes, as the todo example imports it:
 | Import | For |
 | --- | --- |
 | `tailor` | `defineConfig` |
-| `tailor/api` | `endpoint`, `record`, `defineScopes`, `t` |
+| `tailor/api` | `endpoint`, `record`, `defineScopes` |
+| `tailor/schema` | `t`, the one way to describe a type, used by the API, slots and plugin data |
 | `tailor/shell` | `Shell`, `Slot`, `slot`, `AuthoringChat` |
-| `tailor/plugin` | `definePlugin`, React helpers |
+| `tailor/plugin` | `definePlugin` and the React helpers: `useQuery`, `useCan`, `useAnnotation`, `useStore` |
 | `tailor/data` | `store`, `annotate` |
 | `tailor/ui` | Default components and design tokens |
 
@@ -26,7 +28,7 @@ Generated for each app:
 
 | Import | From |
 | --- | --- |
-| `@app/sdk` | The endpoints in `api/` that a plugin requires |
+| `@app/sdk` | The endpoints in `api/` that a plugin requires, and the app's records |
 | `@app/sdk/optional` | The same endpoints, imported as optional |
 | `@app/slots` | The slots in `app/` |
 

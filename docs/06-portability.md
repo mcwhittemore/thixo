@@ -24,6 +24,8 @@ Those three points are decided. How to meet them is proposed below.
 
 Identity is not an adapter. It is a function the implementor writes (A9).
 
+The interfaces below show the intended size of each adapter. They are not complete.
+
 ### Code
 
 Versions are immutable (U2), so the interface is small:
@@ -52,6 +54,11 @@ interface DataAdapter {
 ```
 
 `patch` must be atomic on one record. That is what the [plugin data](05-plugin-data.md) rules rest on.
+
+Known to be missing: creating a record, clearing a field, writes that depend on the current value, paging and
+ordering, and what a filter can express. An open-ended filter is a full scan on a key-value database, so the filter
+has to be limited to what all three targets can index. Record size limits differ by database and matter because
+plugin data is never deleted.
 
 Registry search needs more than `query` if it is to rank results by meaning. Whether search is its own adapter is
 open.
@@ -82,6 +89,10 @@ interface ModelAdapter {
 The agent's tools (search the registry, read a plugin, write files, run the build) are Tailor's and are the same on
 every provider.
 
+An agent that takes several turns, calls tools and runs builds does not fit inside one short request. That is in
+tension with "each request stands alone" below. Where the loop runs, and how it keeps its place between requests, is
+open.
+
 ## What each target would use
 
 Candidates, not commitments. None of these has been tested.
@@ -95,8 +106,8 @@ Candidates, not commitments. None of these has been tested.
 
 ## What portability rules out
 
-- **A second domain for plugins (X8).** Not every host makes one easy, so isolation uses a sandboxed frame on the
-  app's own domain.
+- **A second domain for plugins (X8).** Isolation uses a sandboxed frame on the app's own domain, so an implementor
+  needs only one. This may not survive [the browser spike](04-security-model.md#the-spike).
 - **Provider features in the core.** Durable Objects, edge config, queues and the like stay out unless all three
   targets have an equivalent behind an adapter.
 - **Long-lived server processes.** The core assumes each request stands alone.
@@ -107,9 +118,11 @@ Candidates, not commitments. None of these has been tested.
 // tailor.config.ts
 import { defineConfig } from "tailor";
 import { cloudflare } from "tailor-cloudflare";
+import { anthropic } from "tailor-anthropic";
 
 export default defineConfig({
   adapters: cloudflare({ code: "PLUGINS", data: "DB" }),
+  model: anthropic(),
 });
 ```
 

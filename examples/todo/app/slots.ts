@@ -1,9 +1,11 @@
 // Sketch. Nothing here runs yet. See ../readme.md.
 //
-// Where plugins go (S1). A slot has a kind and a contract (S2): the context
-// the shell passes in, and the events a plugin can send back.
+// Where plugins go (S1). A slot has a kind, which sets its size, and a
+// contract (S11): the context the shell passes in, and the events a plugin
+// can send back.
 
-import { slot, t } from "tailor/shell";
+import { slot } from "tailor/shell";
+import { t } from "tailor/schema";
 
 // The main area of the app. One plugin fills it.
 export const main = slot.page({

@@ -3,12 +3,13 @@
 // The kind of plugin a user would ask the authoring chat for: "let me put a
 // due date on a todo". It fills the panel beside the selected todo.
 //
-// Derived by the build:
-//   required: todos.read   (from getTodo, and from annotating Todo)
+// Derived by the build (P13):
+//   required: todos.read    (getTodo, and annotating Todo)
+//   optional: people.read   (a field scope on the Todo it reads)
 //   data:     annotation on todo { dueOn: date }
 //             private store prefs { warnDaysBefore: number }
 
-import { definePlugin, useQuery } from "tailor/plugin";
+import { definePlugin, useAnnotation, useQuery, useStore } from "tailor/plugin";
 import { DateInput, NumberInput, Stack, Text } from "tailor/ui";
 import { todoDetail } from "@app/slots";
 import { getTodo } from "@app/sdk";
@@ -18,12 +19,12 @@ export default definePlugin(
   todoDetail,
   {
     name: "Due dates",
-    description: "Give a todo a due date and get a warning as it gets close.",
+    description: "Give a todo a due date and see a warning when it is close.",
   },
   function DueDate({ context }) {
     const todo = useQuery(getTodo, { id: context.todoId });
-    const [dates, patchDates] = due.use(context.todoId);
-    const [settings, patchSettings] = prefs.use();
+    const [dates, patchDates] = useAnnotation(due, context.todoId);
+    const [settings, patchSettings] = useStore(prefs);
 
     const warnDays = settings?.warnDaysBefore ?? 2;
     const close = dates?.dueOn && daysUntil(dates.dueOn) <= warnDays;
