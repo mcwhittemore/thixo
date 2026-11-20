@@ -214,3 +214,13 @@ expose a library to plugins. The implementor decides which libraries their app e
 - **Why:** Thixo is a framework. It creates the capability and does not make the call.
 - **What follows:** an exposed library is outside Thixo's language, so the implementor is trusting it.
 - **Not decided:** how a library is exposed, where it runs and what Thixo checks about it.
+
+### 26. A plugin can write raw elements
+
+Settled by Matthew Whittemore on 2026-11-20. A plugin can write raw HTML and SVG elements such as `<div>` and
+`<svg>`, not only components that Thixo or the implementor expose. This is P23.
+
+- **Why:** it keeps S3. The software is meant to be malleable, not limited to a set of components.
+- **Turned down:** exposed components only, which would have been a much smaller surface to secure.
+- **What follows:** Thixo has to check every element and attribute a plugin creates against a list.
+- **Not decided:** which elements and attributes are on the list, and who can extend it.

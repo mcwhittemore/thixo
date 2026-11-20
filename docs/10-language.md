@@ -1,8 +1,8 @@
 # The language
 
-A first sketch, to be argued with. Three things are decided: plugins are written in a language of Thixo's own that
-looks a lot like JavaScript, TypeScript and React (P20), a plugin can't import outside code (P21), and the
-implementor chooses which libraries are exposed (P22). Everything else on this page is a lean, not a decision.
+A first sketch, to be argued with. Four things are decided: plugins are written in a language of Thixo's own that
+looks a lot like JavaScript, TypeScript and React (P20), a plugin can't import outside code (P21), the implementor
+chooses which libraries are exposed (P22), and a plugin can write raw elements (P23). Everything else on this page is a lean, not a decision.
 
 What runs the language can't be chosen until the language is known. The last section says which choices here
 decide that.
@@ -63,7 +63,7 @@ function daysUntil(date: Date) {
 | Control | `if`, `for ... of`, `while`, `switch`, `return`, the `? :` operator, `&&`, `\|\|`, `??`, `?.`. `try` and `catch`. |
 | Text | Template strings. The usual string, number and list methods: `map`, `filter`, `reduce`, `find`, `sort`, `slice`, `split`, `join` and the like. |
 | Built-ins | `Math`, `Date`, `JSON`, `Map`, `Set`. Each is the language's own, with a fixed list of methods. |
-| JSX | Elements, fragments, props, children, event handlers. Hooks, which come from the SDK. |
+| JSX | Raw elements such as `<div>` and `<svg>` (P23), exposed components, fragments, props, children, event handlers. Hooks, which come from the SDK. |
 | Types | TypeScript's annotations: `type`, `interface`, unions, generics, optional fields. Checked at build. |
 
 ## What is out
@@ -106,8 +106,9 @@ These are the places where code that looks the same means something else. This i
   them in a plugin. The SDK's own types may need them.
 - **Styling.** Whether a plugin writes CSS, a `style` prop, class names from the implementor's design system or
   only Thixo's components. This is also a containment question, since CSS can load addresses and cover the app.
-- **Raw elements.** Whether a plugin can write `<div>` and `<svg>`, or only components that Thixo and the
-  implementor expose. The second is a much smaller surface. The first is closer to S3.
+- **Which raw elements and attributes.** A plugin can write raw elements (P23). Some can't be allowed whatever
+  runs the language: `<script>`, `<iframe>`, `<object>`, `<link>`, `<meta>`, `<base>`, and attributes that take
+  code or an outside address. The list, and who can extend it, is not written.
 - **How an exposed library looks from inside the language.** It is JavaScript, so its values have prototypes. The
   boundary has to turn what it returns into the language's own values, or wrap it.
 - **Errors for the agent.** What a build error says, so that the agent can fix its own code in one pass.
@@ -124,6 +125,10 @@ Three choices on this page decide between compiling to JavaScript and a WebAssem
 | Counted loops and calls | A counter compiled into every loop and function. A long call into a built-in, such as a sort or a pattern match, is not counted. | Free, and it covers built-ins too. |
 | Raw elements, or only exposed components | With exposed components only, the plugin never builds an element itself, and running in the page is much safer. | Makes little difference. |
 
-So the call depends mostly on two answers: how strict records have to be, and whether a plugin can write raw
-elements. If records are strict and elements are raw, the runtime is the safer choice. If plugins use only exposed
-components, compiling to JavaScript in the page is cheap and probably enough.
+Raw elements are decided (P23). So something of Thixo's has to stand between a plugin and every element it
+creates, checking the element and its attributes against a list, whichever way the language runs. That removes
+the cheapest version of compiling to JavaScript.
+
+What is left to decide the call is how strict records have to be. If they are strict, the WebAssembly runtime is
+the safer choice: it gives strict records and counting for free, and Thixo already has to check every element.
+The price is speed, which is the thing to test.
