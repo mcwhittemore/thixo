@@ -53,18 +53,37 @@ Shopify's remote-dom and Figma's plugin runtime work this way, so the pattern is
   its slot and filter what they can load.
 - **Thixo has to build and keep the bridge:** the allowlist, the event forwarding and the runtime.
 
-## Where the code runs
+## The language, and where it runs
 
-Open. Three options.
+Open. There are two questions, and they can be answered separately.
 
-| Option | How it contains the plugin | Concern |
+### What the agent writes
+
+| Option | For | Against |
 | --- | --- | --- |
-| A worker, with a policy and the unneeded globals removed | The browser | A worker on the app's domain can still reach `fetch` with the user's cookies and the app's stored data unless a policy stops it. Untested. This is the frame problem again in a smaller form. |
-| An interpreter inside a worker, such as QuickJS built to WebAssembly | Thixo's runtime. The plugin gets only what the runtime hands it. | Slower, and a larger download. Figma chose this. |
-| The main thread, with the build rejecting anything unsafe | The build | Checking JavaScript is not a boundary. Rules of this kind have a long record of being got round. Not an option on its own. |
+| Full TypeScript and JSX | The agent already writes it well. Types, editors and error messages exist. | The language can say anything, so all the containment has to come from where it runs. |
+| A subset of TypeScript, with Thixo's own compiler | Reads as TypeScript, so the agent still writes it well. The compiler accepts only what is on its list and rejects everything else, so the language can't name the page, the network or a global. | Subsets of JavaScript have been escaped before, through corners such as `constructor`. The compiler has to guard property access, not only syntax. |
+| A new language | Thixo decides everything it can say. Nothing to subset. | No model has seen it. The agent will write it worse, and Thixo has to build the type checker, the error messages and the debugging. |
 
-**Lean:** the interpreter. It is the only option where "Thixo controls the language" is literally true, and it does
-not rest on browser behaviour.
+### What runs it
+
+| Option | What contains the plugin | Concern |
+| --- | --- | --- |
+| A WebAssembly runtime that interprets the language, in a worker | The runtime. The plugin gets only what the runtime hands it. | Slower, a larger download, and every event crosses to a worker and back. |
+| Compile to JavaScript and run it in the page | The compiler. Its output is the only plugin code that ever runs: the store keeps the source, never JavaScript. | The compiler is the whole wall. One bug in it gives a plugin the page and the session. A stuck plugin needs a counter compiled into its loops, since nothing can stop it from outside. |
+| Compile to JavaScript and run it in a worker | The compiler, then the worker. | Events cross to a worker and back. What a worker can reach on the app's domain is untested. |
+| Full JavaScript in a worker or an interpreter, with no compiler of Thixo's | The browser, or the interpreter. | For a plain worker, this is the frame problem again in a smaller form. |
+
+Compiling to JavaScript and running in the page is worth a close look. The plugin would render real React elements
+directly, so events are immediate and there is no bridge to build. Elm contains its programs this way. It is also
+the option with only one wall.
+
+Checking ordinary JavaScript at build, with no compiler that owns the language, is not on the list. It rejects
+what it recognises, and that has a long record of being got round.
+
+**Lean:** a subset of TypeScript with Thixo's own compiler. Where it runs is for a spike to settle: start with
+compiled JavaScript in the page, with loop counters, and fall back to the WebAssembly runtime if the single wall
+is not enough.
 
 ## What it does to the requirements
 
@@ -85,7 +104,10 @@ Drafts, listed as Proposed in the [requirements](02-requirements.md):
 
 ## What has to be tested first
 
-- Can an interpreter in a worker run a React plugin fast enough to feel direct? Typing in an input is the test.
+- How well does the agent write the subset, against full TypeScript and against a new language?
+- Can the compiler's output be escaped? Give the job to an agent whose only task is to break out.
+- Do compiled loop counters stop a stuck plugin, and what do they cost?
+- If a runtime in a worker is used: is typing in an input fast enough to feel direct?
 - Can the shell stop a stuck plugin in Safari, Chrome and Firefox?
 - What does the runtime add to the download and to a slot's start time?
 - Can a plugin's CSS be scoped so that it can't touch or cover the app? Which properties have to be filtered?
