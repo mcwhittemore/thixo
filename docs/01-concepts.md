@@ -58,8 +58,7 @@ The vocabulary the other docs use. Each word has one meaning here.
 | --- | --- |
 | **Registry** | Stores plugin versions and their manifests, builds them, and answers searches. |
 | **Authoring agent** | The agent behind the chat interface. It writes plugins and can search the registry. |
-| **Narrowed token** | A token the API issues for one user and one plugin version. It is good only for the endpoints in that version's manifest, within the scopes the user and the plugin's author both hold. |
-| **Broker** | The part of the shell that carries a plugin's SDK calls to the API. |
+| **Broker** | The part of the shell that carries a plugin's SDK calls to the API. It refuses a call to any endpoint outside the version's manifest or past what the plugin's author can do, and sends the rest with the user's token. |
 | **Adapter** | The piece that connects Thixo to one provider's storage, database, build or model service. |
 
 ## Visibility

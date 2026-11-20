@@ -54,7 +54,7 @@ flowchart LR
     Data[Plugin data: store and annotations]
   end
   Plugin -- SDK calls over a message channel --> Shell
-  Shell -- narrowed token --> API
+  Shell -- user's token --> API
   API --> Data
   Shell -- load plugin version --> Registry
 ```
@@ -97,8 +97,8 @@ written toward.
   API, the data rules) and leaves the middle open.
 - **The code is the source of truth.** A plugin's scopes come from the endpoints it imports, and its data schema from
   the types it declares. Nobody maintains a list by hand.
-- **Going past your scopes is impossible, not discouraged.** A plugin never holds the user's session. The API
-  accepts from each plugin version only the calls it was built with.
+- **Going past your scopes is impossible, not discouraged.** A plugin never holds the user's session or token.
+  The shell forwards from each plugin version only the calls it was built with.
 - **Data outlives code.** Plugin versions come and go. No version can destroy what another one wrote.
 - **No cloud lock-in.** Where code and data are stored, and where the server runs, are adapters. The first proof of
   concept targets Cloudflare. Vercel and AWS must work too.

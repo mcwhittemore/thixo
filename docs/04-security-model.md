@@ -31,15 +31,16 @@ P1 holds only if these hold. Everything else is treated as hostile.
 
 | Trusted | For what |
 | --- | --- |
-| The API | Verifying tokens and enforcing scopes. |
+| The API | Verifying tokens and enforcing the user's scopes. |
 | The registry's build | Deriving the manifest from the source it stores. |
-| The shell, including the broker | Knowing which frame a message came from, and never handing a plugin the user's session. |
+| The shell, including the broker | Knowing which frame a message came from, holding each plugin to its manifest and its author's scopes, and never handing a plugin the user's session or token. |
 | The browser's sandbox | Keeping a plugin's frame apart from the shell's page. |
 
 Two consequences worth stating:
 
-- **The API can't see a plugin.** It sees what the shell tells it. A shell that lies about which plugin is calling
-  can do anything the user can. That is acceptable, because the shell already holds the user's session.
+- **The API can't see a plugin.** The broker is the only thing holding a plugin to its manifest. A shell that lies,
+  or a broker with a bug, can do anything the user can. That is acceptable, because the shell already holds the
+  user's session.
 - **The broker must tie each message to a frame.** It does this by giving each frame its own message channel. A
   sandboxed frame has no usable origin to check.
 
@@ -75,11 +76,12 @@ That is why this layer isn't trusted alone.
 - **Frames stay put:** the shell's own policy limits what its frames may load.
 - **Shell services are narrow:** `navigate` goes to routes inside the app, never to an arbitrary address.
 
-### At the API
+### In the broker and at the API
 
 - **The plugin holds no token (P8).** The broker in the shell makes the call.
-- **Narrowed token (P9).** The token names the user and the plugin version. The API accepts it only for endpoints in
-  that version's manifest, within the scopes the user and the plugin's author both hold (P14).
+- **The broker holds each plugin to its manifest (P9).** It forwards a call only for an endpoint in that version's
+  manifest whose scopes the plugin's author holds (P14).
+- **The API enforces the user's scopes (A5).** Every call carries the user's token.
 
 ## What P1 does not cover
 
@@ -124,7 +126,7 @@ be the requirement to give up.
 | Requirement | Why |
 | --- | --- |
 | An identity function | Thixo asks it who the user is and which scopes they hold. Any session mechanism works, including a cookie. |
-| A signing key | Thixo signs narrowed tokens with it. |
+| A signing key | Thixo signs the user's tokens with it. |
 | Plugin code never served bare from the app's origin | Opened directly without the sandbox header, it would run with the app's full authority. All plugin code goes through Thixo's plugin route. |
 | A host that allows setting response headers | The isolation is delivered by headers. |
 | A content security policy that allows the plugin frames | The app must permit framing the plugin route, and only that. |

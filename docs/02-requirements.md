@@ -27,7 +27,7 @@ MUST, SHOULD and MAY carry their usual meaning: required, expected unless there 
 | A2 | Each endpoint MUST carry its scopes. An endpoint can need more than one. | Decided |
 | A3 | A caller must hold every scope an endpoint carries. | Proposed |
 | A4 | An endpoint does not support alternative scopes, where any one of several is enough. | Proposed |
-| A5 | The API MUST issue the tokens and enforce the scopes. No other part of the system is trusted to. | Decided |
+| A5 | The API MUST issue the tokens and enforce the user's scopes. Which calls each plugin may make is enforced by the broker (P9). | Decided |
 | A6 | Tokens are JWTs, and a token's scopes are readable as claims. | Decided |
 | A7 | The API is a fixed writing surface. A plugin can't add or change endpoints. | Decided |
 | A8 | Versioning the API is outside the plugin space. | Decided |
@@ -70,7 +70,7 @@ MUST, SHOULD and MAY carry their usual meaning: required, expected unless there 
 | P6 | Plugins do not create tokens. | Decided |
 | P7 | Users are not asked to grant scopes per plugin. | Decided |
 | P8 | A plugin never holds a token. The shell's broker makes the API call on its behalf. | Proposed |
-| P9 | Each call carries a narrowed token that names the user and the plugin version. The API accepts it only for endpoints in that version's manifest, and only within the user's scopes and the author's (P14). | Proposed |
+| P9 | The broker forwards a plugin's call only for an endpoint in that version's manifest whose scopes the plugin's author holds (P14). The call carries the user's token, and the API checks the user's scopes. | Decided |
 | P10 | A plugin runs in a sandboxed frame with its own origin and no access to the user's session, cookies or the shell's page. | Proposed |
 | P11 | A plugin has no network access. The message channel to the shell is its only way out. | Proposed |
 | P12 | A plugin that needs third-party data gets it through an API endpoint with a scope. | Proposed |

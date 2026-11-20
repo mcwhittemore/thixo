@@ -87,7 +87,7 @@ change how it looks and lose nothing.
   would collide in a shared lineage. A field is identified by the plugin that introduced it, its name and its type.
   Fields from the parent are inherited and shared. Fields a fork adds are its own unless a later fork inherits them.
 - **Lineage access is a scope (D12).** A fork that reads and writes its parent's data says so through the SDK, like
-  every other permission. The registry can then show it, and the narrowed token can enforce it.
+  every other permission. The registry can then show it, and the broker can enforce it.
 
 ### What lineage doesn't solve
 

@@ -59,30 +59,34 @@ sequenceDiagram
   participant A as API
   P->>B: call updateTodo, over the message channel
   B->>B: is updateTodo in this version's manifest?
-  B->>A: request with the narrowed token for this user and version
-  A->>A: verify the token, check the endpoint's scopes
+  B->>B: can the plugin's author call updateTodo?
+  B->>A: request with the user's token
+  A->>A: verify the token, check the user holds the endpoint's scopes
   A-->>B: result
   B-->>P: result
 ```
 
 Two checks happen:
 
-1. **The broker** refuses an endpoint that isn't in the version's manifest. This gives a fast, clear error.
-2. **The API** verifies the narrowed token. The token names the user and the plugin version. The API accepts it only
-   for an endpoint in that version's manifest, and only within the user's scopes (P9).
+1. **The broker** refuses an endpoint that isn't in the version's manifest, or whose scopes the plugin's author
+   doesn't hold (P9, P14). This is where a plugin is held to what it was built with.
+2. **The API** verifies the user's token and checks that the user holds the endpoint's scopes (A5).
 
-The second check catches a broker that forwards a call it should have refused. It does not protect against a shell
-that lies about which plugin is calling: the API can't see the plugin, only what the shell tells it. What the design
-trusts, and why, is in the [security model](04-security-model.md#what-is-trusted).
+The API doesn't see which plugin is calling. A broker that forwards a call it should have refused gets anything the
+user can do. That is accepted, because the shell already holds the user's session. What the design trusts, and why,
+is in the [security model](04-security-model.md#what-is-trusted).
 
-### Where the narrowed token comes from
+### Where the token comes from
 
-1. The shell asks Thixo's API layer for a token for one plugin version, using the user's ordinary session.
+1. The shell asks Thixo's API layer for a token, using the user's ordinary session.
 2. Thixo calls the implementor's identity function to learn who the user is and which scopes they hold (A9).
-3. Thixo signs a short-lived token naming the user and the version.
-4. The broker keeps it and attaches it to that plugin's calls. The plugin never sees it (P8).
+3. Thixo signs a short-lived token naming the user.
+4. The broker keeps it and attaches it to every plugin's calls. No plugin sees it (P8).
 
-The manifest records endpoints, not scopes. Scopes are looked up from the endpoints when a token is checked, so a
+There is one token for the user, not one per plugin. When the shell loads a version, Thixo also tells the broker
+which of that version's endpoints the plugin's author can call, so the broker can apply the author cap.
+
+The manifest records endpoints, not scopes. Scopes are looked up from the endpoints when a call is checked, so a
 change to an endpoint's scopes takes effect without rebuilding any plugin.
 
 ## Loading a plugin
@@ -118,7 +122,7 @@ flowchart LR
   S --> I[Plugin imports it]
   I --> M[Build derives the manifest]
   M --> R[Registry filters search by the user's scopes]
-  M --> T[API issues the narrowed token]
+  M --> T[Broker forwards only the manifest's calls]
 ```
 
 The scopes are written once, on the endpoint. Everything after that is derived (P2).

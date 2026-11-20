@@ -183,3 +183,21 @@ potter's clay slip does. The API, slots and scopes hold firm while plugins flow.
   `tailor` command-line tool. Also clay, putty, Greenware, Clathem and Pliant.
 - **Not done:** nothing has been registered or claimed. The GitHub account name `thixo` is taken; `thixojs` and
   `thixodev` were free.
+
+## 2026-11-20: reviewing the concepts
+
+Settled by Matthew Whittemore while revising the concepts doc.
+
+### 23. The broker enforces what a plugin may call
+
+Every call carries the user's own token, not a token narrowed to one plugin. The broker holds each plugin to the
+endpoints in its version's manifest and to its author's scopes. The API checks the user's scopes.
+
+Changes part of decision 3: the server still issues tokens and enforces the user's scopes, but holding a plugin to
+its manifest moves to the broker. Decision 6 still holds: going past its scopes stays impossible for the plugin,
+because only the broker can reach the API.
+
+- **Why:** a token per plugin on the page is extra machinery for little gain. The shell is already trusted, so the
+  per-plugin token only caught a broker with a bug.
+- **Turned down:** a narrowed token per user and plugin version, checked by the API.
+- **Requirements:** A5, P9.

@@ -80,7 +80,9 @@ P4 proposes two import paths. The alternative raised was a registration file whe
 
 ### Tokens and identity
 
-- How long does a narrowed token live, and is it issued per call or per plugin load?
+- How long does the user's token live, and how does the broker renew it?
+- Plugin data endpoints need to know which plugin and lineage a call is for. With one token per user (decision 23),
+  the broker says so and the API takes its word. Is that enough?
 - What happens to a running plugin when the user's scopes change?
 - How do the shell's own calls, outside any plugin, authenticate?
 - A6 says tokens are JWTs so scopes are readable. Under P8 a plugin never holds a token and learns what is allowed
