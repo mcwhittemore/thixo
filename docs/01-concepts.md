@@ -20,18 +20,18 @@ The vocabulary the other docs use. Each word has one meaning here.
 | **Scope** | A named permission to make certain API calls, such as `todos.write`. Defined by the app's API, held by users, carried in tokens. It says nothing about which data a call returns. |
 | **Shell** | The base React app. It provides the always-on functionality and defines the slots. |
 | **Slot** | A place in the shell where plugins render. It has a kind, which sets its size, and a contract. |
-| **Slot contract** | The context the shell passes to a plugin in a slot, the events the plugin can send back, and the values it can provide up. |
+| **Slot contract** | The context the shell passes to a plugin in a slot, the events the plugin can send back, and the values the plugin can provide up. |
 | **Shell service** | Something only the shell can do for a plugin: navigate, open a modal, copy to the clipboard, download a file. |
 
 ## Plugins
 
 | Word | Meaning |
 | --- | --- |
-| **Plugin** | Code that fills a slot. It runs in a sandboxed frame and reaches the app only through the SDK. |
+| **Plugin** | Code that fills a slot. It runs in a sandboxed frame and reaches the app only through the plugin SDK. |
 | **Default plugin** | A plugin in the layout every user starts with. |
 | **Required endpoint** | An endpoint a plugin can't work without. A user who can't call it isn't offered the plugin. |
 | **Optional endpoint** | An endpoint a plugin can work without. It grays out what a user can't do. |
-| **SDK** | The module a plugin imports to call endpoints. Generated from the API, one function per endpoint. |
+| **Plugin SDK** | The module a plugin imports to talk with the app. It is generated from the API, with one function per endpoint. Each function sends the call to the shell's broker over the frame's message channel and waits for the reply. The plugin itself never reaches the network or holds a token. |
 | **Version** | An immutable snapshot of a plugin's source. Versions are distinct; there are no branches. |
 | **Fork** | A new plugin started from a version of another plugin. It remembers its parent. |
 | **Manifest** | The record the build derives for a version: endpoints used, scopes, data schema, shell services. Nobody writes it by hand. |
