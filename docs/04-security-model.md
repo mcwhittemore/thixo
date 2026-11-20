@@ -115,7 +115,7 @@ WebKit-only result needs a check in Safari before anything rests on it.
 | Can a sandboxed frame create a child frame and take features from it? | Yes, one way. A blank child frame gives nothing: reading from it throws. But a plugin can write its own script into a child frame's `srcdoc`. The child inherits the policy, so the script is allowed, and the host document never ran there. WebRTC is back, and data left over it in every browser. |
 | Can a frame navigate itself to an outside address? | Yes, unless the shell stops it. `location.href`, a clicked link and a `meta` refresh all reached an outside server. A `frame-src` in the shell's own policy, limited to the plugin route, blocked all three in every browser. Popups, forms and navigating the top page were already blocked by the sandbox. |
 | Does a sandboxed frame on the app's domain share a thread with the shell? | In Safari and Firefox, yes. See the freeze table below. |
-| Can WebRTC or other side channels reach outside hosts? | WebRTC can. The content policy does not cover it, and the `webrtc 'block'` directive changed nothing in any browser. Removing `RTCPeerConnection` in the host document stops it in the plugin's own frame. Three smaller leaks got through the policy: `<link rel=prerender>` in Chrome, a WebTransport packet in Firefox and `<link rel=preconnect>` in WebKit. `fetch`, `XMLHttpRequest`, WebSocket, images, media, fonts, stylesheets, workers and beacons were all blocked. |
+| Can WebRTC or other side channels reach outside hosts? | WebRTC can. The content policy does not cover it, and the `webrtc 'block'` directive changed nothing in any browser. Removing `RTCPeerConnection` in the host document stops it in the plugin's own frame. Two smaller leaks got through the policy. In Chrome 157, `<link rel=prerender>` sent a request whose address can carry data. In Playwright's WebKit, `<link rel=preconnect>` opened a connection with no request, which signals little more than "connected". `fetch`, `XMLHttpRequest`, WebSocket, WebTransport, images, media, fonts, stylesheets, workers and beacons were all blocked. |
 | Can the plugin's bundle load in a frame with no origin? | Yes. Inline scripts, modules and `<script src>` from the app all load. `'self'` matches nothing in WebKit, so the policy has to name the app's address. |
 | Do inline styles and React render under the policy? | Yes. React 19 runs without `unsafe-eval`. Inline styles, `<style>`, constructed stylesheets, data and blob images, SVG and canvas all render. Fonts need `font-src data:`. |
 | Can the frame reach the user's session? | Not from where it sits: cookies and storage throw. If it navigates itself to the app's own domain, the request carries cookies: only `SameSite=None` ones in Chrome and Firefox, but Lax, Strict and HttpOnly ones in WebKit. The shell's `frame-src` blocks that navigation. |
@@ -141,27 +141,29 @@ No frame arrangement keeps a stuck plugin from freezing the app in Safari. Thixo
 The spike changes four things in the design above.
 
 - **Hashes, not a nonce.** Plugin code can read a nonce off its own script tag, then load a script from anywhere.
-  This worked in all four browsers. A hash for the host document's script and a path for the plugin's bundle left
-  no nonce to read.
-- **Only the host document's script may run inline.** Allowing the plugin's script by hash lets the plugin replay
-  it into a child frame. With one hash, for the host document alone, the replay ran nothing useful and nothing
+  This worked in all four browsers. A hash leaves no nonce to read.
+- **The host document and the plugin load as one script, under one hash.** A child frame made with `srcdoc`
+  inherits the policy, so any script the policy allows on its own can be replayed there without the host document.
+  When the two are one inline script with one hash, a replay runs the host document's removals first, and nothing
   leaked. Trusted Types (`require-trusted-types-for 'script'`) also blocked the replay, in the browsers that have
-  it.
+  it. This means the plugin's bundle is inlined into the host document, not loaded from an address.
 - **The shell needs a policy too.** The implementor's pages have to send `frame-src` limited to the plugin route.
   Without it a plugin can navigate its frame away. Thixo has to set this, which is a new requirement on the shell.
-- **The host document has to remove more.** `RTCPeerConnection` and `WebTransport` at least, and it has to drop
-  `prerender` and `preconnect` links.
+- **`<link>` hints are not covered.** No policy directive stopped the `prerender` and `preconnect` leaks, and they
+  are markup, so there is no constructor for the host document to remove. The build can reject them in source. A
+  plugin that creates one at run time is not yet stopped.
 
 The policy the spike ended with, for the plugin route:
 
 ```
 sandbox allow-scripts; default-src 'none';
-script-src 'sha256-<host document script>' https://<app>/plugin/<plugin>/<version>/;
+script-src 'sha256-<host document and plugin, as one inline script>';
 style-src 'unsafe-inline'; img-src data: blob:; font-src data:;
 frame-src 'none'; child-src 'none'; worker-src 'none'; form-action 'none'; base-uri 'none'
 ```
 
-Still to check: a full React plugin under this exact policy, the three small leaks with the host document's
+Still to check: a full React plugin under this exact policy (the spike ran React from an address, and the replay
+test with a small script), whether a hash plus an address for the bundle can be replayed the same way, a way to stop the two `<link>` leaks at run time with the host document's
 removals in place, and the WebKit-only results in Safari.
 
 ### Other things it found
