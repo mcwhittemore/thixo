@@ -123,12 +123,19 @@ Three choices on this page decide between compiling to JavaScript and a WebAssem
 | --- | --- | --- |
 | Records with nothing behind them | Every field read by a computed name needs a guard in the compiled code, and every built-in method needs to be the language's own. This is the hard part, and where an escape would be found. | Free. The runtime's values are its own. |
 | Counted loops and calls | A counter compiled into every loop and function. A long call into a built-in, such as a sort or a pattern match, is not counted. | Free, and it covers built-ins too. |
-| Raw elements, or only exposed components | With exposed components only, the plugin never builds an element itself, and running in the page is much safer. | Makes little difference. |
+| Raw elements | Every element passes through one check against a list. The plugin never holds the element. | The same check, on the shell's side. |
 
-Raw elements are decided (P23). So something of Thixo's has to stand between a plugin and every element it
-creates, checking the element and its attributes against a list, whichever way the language runs. That removes
-the cheapest version of compiling to JavaScript.
+Raw elements are decided (P23), and they don't settle this. Writing `<div>` in the language produces a
+description of an element, which is data. What matters is what a plugin can do with an element:
 
-What is left to decide the call is how strict records have to be. If they are strict, the WebAssembly runtime is
-the safer choice: it gives strict records and counting for free, and Thixo already has to check every element.
-The price is speed, which is the thing to test.
+- **It never holds one.** There are no refs and no real event object, so a plugin has no handle on the page to
+  call methods on or walk outward from.
+- **Some elements and attributes do things by existing.** `<script>`, `<iframe>`, a `javascript:` address, raw
+  HTML as a string, a CSS `url()`. These are kept out by a list, checked where the description becomes an element.
+
+Both hold in compiled JavaScript as well as in a runtime. The check is one function that every element passes
+through, so compiling to JavaScript in the page is still on the table.
+
+What is left to decide the call is how strict records have to be, and how far counting has to reach. A
+WebAssembly runtime gives both for free and costs speed. Compiled JavaScript is fast, and has to earn both with
+guards and counters in its output.
