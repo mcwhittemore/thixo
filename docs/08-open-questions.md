@@ -54,14 +54,22 @@ batch reads for stored data.
 
 ### 3. What does isolation really rest on?
 
-P10, P11 and X8 depend on browser behaviour nobody has tested here. The list of tests is in the
-[security model](04-security-model.md#the-spike).
+The spike ran. Its answers are in the [security model](04-security-model.md#the-spike). Isolation holds, with a
+tighter policy than first written. Three things are left.
 
-- If a sandboxed frame can pull features from a blank child frame, removing them in the host document does not work.
-- If a sandboxed frame on the app's domain shares a process with the shell, one stuck plugin freezes the app.
-- If plugins must be served from a separate domain to be safe, X8 has to go.
+- **A stuck plugin freezes the app in Safari,** whichever domain the plugin is served from. In Firefox a second
+  domain avoids it. In Chrome the sandbox does. Plugins on one page freeze each other everywhere. Options: accept
+  it and have the build reject obvious endless loops, have the shell show which plugin last took the thread, or
+  wait for browsers to change. None of them stops it.
+- **Should P10, P11 and X8 be accepted now?** The spike supports all three, given the policy it ended with.
+- **The follow-up checks** listed in the security model have not been run.
 
-**Lean:** run the spike before accepting any of the three. Be ready to drop X8.
+- **Is a frame the right tool at all?** Thixo controls the language plugins are written in.
+  [The coding layer](09-coding-layer.md) proposes running plugin code outside the page and having the shell draw
+  for it. It removes most of what the spike found, and adds problems of its own.
+
+**Lean:** try the coding layer before accepting P10 and P11. Its tests are listed in that document. If it fails,
+accept P10 and X8, accept P11 with the policy named in it, and say plainly that a hung plugin can't be prevented.
 
 ## Scopes
 
@@ -199,7 +207,6 @@ The largest portability question. See [portability](06-portability.md#build).
 Decided: Thixo. See [decision 22](07-decisions.md#22-the-name-is-thixo). Still to do:
 
 - Claim the npm name and scope, a GitHub organisation and a domain. Nothing has been registered.
-- Rename this repository, which is still called `tailor`.
 
 ### License
 

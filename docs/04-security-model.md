@@ -105,21 +105,84 @@ See [open questions](08-open-questions.md#1-who-agrees-to-a-plugins-scopes).
 
 ## The spike
 
-P10, P11 and X8 depend on browser behaviour this project has not tested. Before they are accepted, a small test page
-should answer each of these in current Chrome, Safari and Firefox.
+P10, P11 and X8 depend on browser behaviour. A spike tested it on 2026-11-19 and 2026-11-20. The code and full
+results are in [`spikes/isolation`](../spikes/isolation/readme.md) on the `isolation-spike` branch.
 
-| Question | Why it matters |
+It ran in Playwright's Chromium 159, Firefox 159 and WebKit 27.2, and in the installed Chrome 157. The freeze test
+also ran in the installed Safari 17.6 and Firefox 95. Playwright's WebKit is not the Safari people use, so a
+WebKit-only result needs a check in Safari before anything rests on it.
+
+| Question | Answer |
 | --- | --- |
-| Can a sandboxed frame create a blank child frame and take features from it? | It would undo everything the host document removed. This is the likeliest hole. |
-| Can a frame navigate itself to an outside address? | Data could leave in the address. |
-| Does a sandboxed frame on the app's own domain share a process with the shell? | If so, a plugin stuck in a loop freezes the whole app, and timing attacks on the shell's memory are possible. |
-| Can WebRTC or DNS lookups still reach outside hosts? | Low-bandwidth leaks. |
-| Can the plugin's bundle load as a module in a frame with no origin? | If not, the bundle has to be inlined into the host document. |
-| Do inline styles and Thixo's components render under the policy? | "Render anything" (S3) depends on it. |
+| Can a sandboxed frame create a child frame and take features from it? | Yes, one way. A blank child frame gives nothing: reading from it throws. But a plugin can write its own script into a child frame's `srcdoc`. The child inherits the policy, so the script is allowed, and the host document never ran there. WebRTC is back, and data left over it in every browser. |
+| Can a frame navigate itself to an outside address? | Yes, unless the shell stops it. `location.href`, a clicked link and a `meta` refresh all reached an outside server. A `frame-src` in the shell's own policy, limited to the plugin route, blocked all three in every browser. Popups, forms and navigating the top page were already blocked by the sandbox. |
+| Does a sandboxed frame on the app's domain share a thread with the shell? | In Safari and Firefox, yes. See the freeze table below. |
+| Can WebRTC or other side channels reach outside hosts? | WebRTC can. The content policy does not cover it, and the `webrtc 'block'` directive changed nothing in any browser. Removing `RTCPeerConnection` in the host document stops it in the plugin's own frame. Two smaller leaks got through the policy. In Chrome 157, `<link rel=prerender>` sent a request whose address can carry data. In Playwright's WebKit, `<link rel=preconnect>` opened a connection with no request, which signals little more than "connected". `fetch`, `XMLHttpRequest`, WebSocket, WebTransport, images, media, fonts, stylesheets, workers and beacons were all blocked. |
+| Can the plugin's bundle load in a frame with no origin? | Yes. Inline scripts, modules and `<script src>` from the app all load. `'self'` matches nothing in WebKit, so the policy has to name the app's address. |
+| Do inline styles and React render under the policy? | Yes. React 19 runs without `unsafe-eval`. Inline styles, `<style>`, constructed stylesheets, data and blob images, SVG and canvas all render. Fonts need `font-src data:`. |
+| Can the frame reach the user's session? | Not from where it sits: cookies and storage throw. If it navigates itself to the app's own domain, the request carries cookies: only `SameSite=None` ones in Chrome and Firefox, but Lax, Strict and HttpOnly ones in WebKit. The shell's `frame-src` blocks that navigation. |
 
-If the answers are bad, the alternative is to serve plugins from a separate domain, which the browser isolates much
-more strongly. That conflicts with X8 as written. All three first targets can provide a second hostname, so X8 may
-be the requirement to give up.
+### What a stuck plugin does to the app
+
+Each cell is what happened to the shell while a plugin ran a three-second loop.
+
+| Plugin frame | Safari 17.6 | Chrome 157 | Firefox 95 |
+| --- | --- | --- | --- |
+| App's domain, sandboxed | Froze | Kept running | Froze |
+| Another site | Froze | Kept running | Kept running |
+
+- Safari froze in every arrangement. A second domain does not help there.
+- Two plugin frames freeze each other in every browser, Chrome included.
+- A sandboxed frame can't start a worker, so a plugin can't move its own work off the thread.
+- Firefox 95 is old. Playwright's Firefox 159 agreed with it, and kept running only with site isolation turned on.
+
+No frame arrangement keeps a stuck plugin from freezing the app in Safari. Thixo can't promise that today.
+
+### What the policy has to be
+
+The spike changes four things in the design above.
+
+- **Hashes, not a nonce.** Plugin code can read a nonce off its own script tag, then load a script from anywhere.
+  This worked in all four browsers. A hash leaves no nonce to read.
+- **The host document and the plugin load as one script, under one hash.** A child frame made with `srcdoc`
+  inherits the policy, so any script the policy allows on its own can be replayed there without the host document.
+  When the two are one inline script with one hash, a replay runs the host document's removals first, and nothing
+  leaked. Trusted Types (`require-trusted-types-for 'script'`) also blocked the replay, in the browsers that have
+  it. This means the plugin's bundle is inlined into the host document, not loaded from an address.
+- **The shell needs a policy too.** The implementor's pages have to send `frame-src` limited to the plugin route.
+  Without it a plugin can navigate its frame away. Thixo has to set this, which is a new requirement on the shell.
+- **`<link>` hints are not covered.** No policy directive stopped the `prerender` and `preconnect` leaks, and they
+  are markup, so there is no constructor for the host document to remove. The build can reject them in source. A
+  plugin that creates one at run time is not yet stopped.
+
+The policy the spike ended with, for the plugin route:
+
+```
+sandbox allow-scripts; default-src 'none';
+script-src 'sha256-<host document and plugin, as one inline script>';
+style-src 'unsafe-inline'; img-src data: blob:; font-src data:;
+frame-src 'none'; child-src 'none'; worker-src 'none'; form-action 'none'; base-uri 'none'
+```
+
+Still to check: a full React plugin under this exact policy (the spike ran React from an address, and the replay
+test with a small script), whether a hash plus an address for the bundle can be replayed the same way, a way to stop the two `<link>` leaks at run time with the host document's
+removals in place, and the WebKit-only results in Safari.
+
+### Other things it found
+
+- The shell tells frames apart by `event.source`. A sandboxed frame's origin is the string `"null"`.
+- A plugin can't draw outside its frame. Menus, dialogs and tooltips that overflow have to be drawn by the shell.
+- A frame costs about 35 to 75 ms to start. Twenty on one page took about 120 to 180 ms, against about 30 without
+  frames.
+
+### What this means for the requirements
+
+- **P10 holds.** The sandbox kept the plugin away from the session, the storage and the shell's page.
+- **P11 holds only with the policy above,** the shell's `frame-src` and the host document's removals. It was not
+  true of the design as first written.
+- **X8 can stay.** A second domain would not fix the freeze in Safari, and nothing else the spike found needs one.
+- **Freezing is open.** The requirements don't yet say what happens when a plugin hangs. See
+  [open questions](08-open-questions.md#3-what-does-isolation-really-rest-on).
 
 ## What the implementor has to provide
 

@@ -107,7 +107,8 @@ Candidates, not commitments. None of these has been tested.
 ## What portability rules out
 
 - **A second domain for plugins (X8).** Isolation uses a sandboxed frame on the app's own domain, so an implementor
-  needs only one. This may not survive [the browser spike](04-security-model.md#the-spike).
+  needs only one. [The browser spike](04-security-model.md#the-spike) found nothing a second domain would fix in
+  every browser.
 - **Provider features in the core.** Durable Objects, edge config, queues and the like stay out unless all three
   targets have an equivalent behind an adapter.
 - **Long-lived server processes.** The core assumes each request stands alone.

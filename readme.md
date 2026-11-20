@@ -115,6 +115,8 @@ written toward.
 | [Portability](docs/06-portability.md) | The adapters, and what each cloud has to provide |
 | [Decisions](docs/07-decisions.md) | What was decided, when and why |
 | [Open questions](docs/08-open-questions.md) | What is not decided |
+| [The coding layer](docs/09-coding-layer.md) | A proposal: contain plugins by controlling their language, not with a frame |
+| [The language](docs/10-language.md) | A first sketch of the language plugins are written in |
 
 ## Layout
 

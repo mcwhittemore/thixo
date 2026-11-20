@@ -1,0 +1,13 @@
+{
+  "name": "thixo-runtime-spike",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node run.mjs"
+  },
+  "dependencies": {
+    "esbuild": "^0.28.2",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  }
+}

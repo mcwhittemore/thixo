@@ -201,3 +201,79 @@ because only the broker can reach the API.
   per-plugin token only caught a broker with a bug.
 - **Turned down:** a narrowed token per user and plugin version, checked by the API.
 - **Requirements:** A5, P9.
+
+## 2026-11-20: the coding layer
+
+Settled while working through the isolation spike and the coding layer.
+
+### 24. Plugins are written in a language of Thixo's own
+
+Settled by Matthew Whittemore on 2026-11-20. The language is new, and it looks a lot like JavaScript, TypeScript
+and React. This is P20.
+
+- **Why:** only Thixo's agent writes plugins, so Thixo can control the language they are written in. A sandbox
+  solves a problem Thixo does not have to have. The [spike](04-security-model.md#the-spike) showed what the
+  sandboxed frame costs. Looking like TypeScript and React keeps the agent able to write it well.
+- **Turned down:** full TypeScript. Also a subset of TypeScript with Thixo's compiler, which was the lean before
+  this decision.
+- **Not decided:** what runs the language, and whether the sandboxed frame goes. P10, P11 and P16 to P19 are
+  still Proposed. See [the coding layer](09-coding-layer.md).
+
+### 25. A plugin can't import outside code
+
+Settled by Matthew Whittemore on 2026-11-20. A plugin can't install an npm package or import code from outside.
+Thixo can expose libraries for plugins to use, as it does with React. This is P21.
+
+- **Why:** outside packages are JavaScript, not Thixo's language, so importing one would bring in code the
+  language does not control.
+- **Not decided:** which libraries Thixo exposes, and whether an implementor can expose their own.
+
+### 26. The implementor decides which libraries plugins can use
+
+Settled by Matthew Whittemore on 2026-11-20. It answers what decision 25 left open. Thixo provides the way to
+expose a library to plugins. The implementor decides which libraries their app exposes. This is P22.
+
+- **Why:** Thixo is a framework. It creates the capability and does not make the call.
+- **What follows:** an exposed library is outside Thixo's language, so the implementor is trusting it.
+- **Not decided:** how a library is exposed, where it runs and what Thixo checks about it.
+
+### 27. A plugin can write raw elements
+
+Settled by Matthew Whittemore on 2026-11-20. A plugin can write raw HTML and SVG elements such as `<div>` and
+`<svg>`, not only components that Thixo or the implementor expose. This is P23.
+
+- **Why:** it keeps S3. The software is meant to be malleable, not limited to a set of components.
+- **Turned down:** exposed components only, which would have been a much smaller surface to secure.
+- **What follows:** Thixo has to check every element and attribute a plugin creates against a list.
+- **Not decided:** which elements and attributes are on the list, and who can extend it.
+
+### 28. A plugin can't create an element that brings in another source
+
+Settled by Matthew Whittemore on 2026-11-20. It limits decision 27. A plugin can't create every kind of element:
+no frames, no script tags, nothing that brings in other sources. This is P24.
+
+- **Why:** what matters is what a plugin can do with an element, not that it can describe one. An element that
+  loads outside code or content does something the language does not control.
+- **Not decided:** the full list, who can extend it, and whether an image, font or CSS `url()` from an outside
+  address counts. Read strictly, it does.
+
+### 29. Decision 28 is about runnable sources
+
+Settled by Matthew Whittemore on 2026-11-20. It corrects the wording of decision 28 and of P24. What a plugin
+can't create is an element that brings in another runnable source: code from elsewhere, or a frame that runs it.
+
+- **What follows:** an image, a font or a CSS `url()` from an outside address is not covered by P24, because it
+  runs nothing.
+- **Not decided:** whether those are allowed. They send a request whose address can carry data out, which is the
+  question P11 asks.
+
+### 30. A plugin can't build an address
+
+Settled by Matthew Whittemore on 2026-11-20. An address in a plugin is either written out in its source or
+handed to it from outside the plugin. A plugin can't build or change one. A field that holds an address is
+declared as one, and a plugin can only write an address to it, never a string. This is P25.
+
+- **Why:** an image, link, font or style address runs nothing, but the request it sends can carry data out. If a
+  plugin can't build an address, it can't put data in one, and no list of allowed hosts is needed.
+- **Not decided:** what to do about a plugin choosing between many fixed addresses, which leaks by the choice.
+  See [the language](10-language.md#choosing-between-fixed-addresses).
