@@ -71,6 +71,10 @@ Decided: a new language, which looks a lot like JavaScript, TypeScript and React
 - **Anything not in the language is an error.** The compiler works from a list of what is allowed, never from a
   list of what is banned.
 
+Also decided: a plugin can't import outside code (P21). It can't install an npm package. It imports the SDK and
+the libraries Thixo exposes to it, as Thixo does with React. A library that needs the page, such as a chart
+library, runs on Thixo's side and the plugin calls it.
+
 Turned down: full TypeScript, where the language can say anything and all the containment has to come from where
 it runs. Also a language that looks nothing like TypeScript, which the agent would write badly.
 
@@ -79,8 +83,8 @@ Still open about the language:
 - Its name and its file extension.
 - Where it differs from TypeScript, written down as a list the agent is given.
 - Whether it has TypeScript's types, a smaller set or its own.
-- Whether a plugin can import anything other than the SDK. Packages from npm are written in JavaScript, not in
-  this language.
+- Which libraries Thixo exposes first, and whether an implementor can expose one of their own to their app's
+  plugins.
 - How errors are reported to the agent so that it can fix its own code.
 - Who writes the type checker, the formatter and the editor support, and how much of TypeScript's tooling can be
   reused because the syntax is close.
@@ -117,6 +121,7 @@ Drafts, listed as Proposed in the [requirements](02-requirements.md):
 | --- | --- |
 | P16 | Plugins are written only by Thixo's authoring agent. Nobody uploads plugin code. |
 | P20 | Plugins are written in a language of Thixo's own, which looks a lot like JavaScript, TypeScript and React. Decided. |
+| P21 | A plugin can't import outside code or install packages. It imports the SDK and the libraries Thixo exposes. Decided. |
 | P17 | Plugin code runs outside the page, with no access to the page, the network or the user's session. The SDK is everything it can reach. |
 | P18 | A plugin draws by describing ordinary HTML elements and styles. The shell creates them in the app's page from an allowlist, and scopes the plugin's styles to its slot. |
 | P19 | The shell can stop a plugin that does not respond, without the app freezing. |
@@ -136,6 +141,5 @@ Drafts, listed as Proposed in the [requirements](02-requirements.md):
 ## What is still open
 
 - How a plugin measures layout, manages focus and draws on a canvas.
-- Which page-bound libraries Thixo offers from the shell.
 - Whether the sandboxed frame stays as a fallback for a plugin that needs the real page.
 - Whether P16 rules out a developer writing a default plugin by hand, and if so how default plugins get written.

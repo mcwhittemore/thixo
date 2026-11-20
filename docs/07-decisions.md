@@ -196,3 +196,12 @@ and React. This is P20.
   this decision.
 - **Not decided:** what runs the language, and whether the sandboxed frame goes. P10, P11 and P16 to P19 are
   still Proposed. See [the coding layer](09-coding-layer.md).
+
+### 24. A plugin can't import outside code
+
+Settled by Matthew Whittemore on 2026-11-20. A plugin can't install an npm package or import code from outside.
+Thixo can expose libraries for plugins to use, as it does with React. This is P21.
+
+- **Why:** outside packages are JavaScript, not Thixo's language, so importing one would bring in code the
+  language does not control.
+- **Not decided:** which libraries Thixo exposes, and whether an implementor can expose their own.

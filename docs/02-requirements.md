@@ -76,6 +76,7 @@ MUST, SHOULD and MAY carry their usual meaning: required, expected unless there 
 | P12 | A plugin that needs third-party data gets it through an API endpoint with a scope. | Proposed |
 | P16 | Plugins are written only by Thixo's authoring agent. Nobody uploads plugin code. | Proposed |
 | P20 | Plugins are written in a language of Thixo's own, which looks a lot like JavaScript, TypeScript and React. | Decided |
+| P21 | A plugin can't import outside code or install packages. It imports the SDK and the libraries Thixo exposes. | Decided |
 | P17 | Plugin code runs outside the page, with no access to the page, the network or the user's session. The SDK is everything it can reach. | Proposed |
 | P18 | A plugin draws by describing ordinary HTML elements and styles. The shell creates them in the app's page from an allowlist, and scopes the plugin's styles to its slot. | Proposed |
 | P19 | The shell can stop a plugin that does not respond, without the app freezing. | Proposed |
@@ -84,7 +85,7 @@ P10, P11 and X8 rest on browser behaviour. [The spike](04-security-model.md#the-
 stay, and P11 holds only with the policy the spike ended with. A stuck plugin can still freeze the app in Safari,
 and no requirement in that design covers it.
 
-P16 to P20 are [the coding layer](09-coding-layer.md). P20 is decided. The rest is a proposal that would replace
+P16 to P21 are [the coding layer](09-coding-layer.md). P20 and P21 are decided. The rest is a proposal that would replace
 P10 and P11, drop S9 and X8 and narrow S3. The two designs are alternatives: accept one set, not both.
 
 ## Authoring
