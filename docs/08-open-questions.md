@@ -64,8 +64,12 @@ tighter policy than first written. Three things are left.
 - **Should P10, P11 and X8 be accepted now?** The spike supports all three, given the policy it ended with.
 - **The follow-up checks** listed in the security model have not been run.
 
-**Lean:** accept P10 and X8. Accept P11 with the policy named in it. Add a requirement that says what Thixo does
-when a plugin hangs, and be honest that it can't prevent it.
+- **Is a frame the right tool at all?** Thixo controls the language plugins are written in.
+  [The coding layer](09-coding-layer.md) proposes running plugin code outside the page and having the shell draw
+  for it. It removes most of what the spike found, and adds problems of its own.
+
+**Lean:** try the coding layer before accepting P10 and P11. Its tests are listed in that document. If it fails,
+accept P10 and X8, accept P11 with the policy named in it, and say plainly that a hung plugin can't be prevented.
 
 ## Scopes
 
