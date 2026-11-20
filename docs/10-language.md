@@ -2,8 +2,8 @@
 
 A first sketch, to be argued with. Four things are decided: plugins are written in a language of Thixo's own that
 looks a lot like JavaScript, TypeScript and React (P20), a plugin can't import outside code (P21), the implementor
-chooses which libraries are exposed (P22), a plugin can write raw elements (P23), and it can't create an element
-that brings in another runnable source (P24). Everything else on this page is a lean, not a decision.
+chooses which libraries are exposed (P22), a plugin can write raw elements (P23), it can't create an element that
+brings in another runnable source (P24), and it can't build an address (P25). Everything else on this page is a lean, not a decision.
 
 What runs the language can't be chosen until the language is known. The last section says which choices here
 decide that.
@@ -98,7 +98,7 @@ These are the places where code that looks the same means something else. This i
 
 ## Addresses
 
-Proposed by Matthew on 2026-11-20, as P25. An image, a link, a font or a CSS `url()` runs nothing, but each sends
+Decided on 2026-11-20, as P25. An image, a link, a font or a CSS `url()` runs nothing, but each sends
 a request, and the address can carry data out. The rule: an address in a plugin is one of two things.
 
 - **Written out in the source.** `<img src="https://example.com/logo.png">`. It is fixed when the plugin is built,
@@ -115,14 +115,74 @@ What this buys:
   allowed.
 - The build can list every outside address a plugin names, and the registry can show them (P15).
 
-What it does not settle:
+**Writing an address back** is part of the rule. If a plugin could save a string to a record and read it back as
+an address, the rule would be empty. So a field that holds an address is declared as one, and a plugin can only
+write a `Url` to it, never a string. Where a user types an address in, the shell is what turns it into one.
 
-- **Writing an address back.** If a plugin could save a string to a record and read it back as an address, the
-  rule would be empty. So a field that holds an address has to be declared as one, and a plugin can only write a
-  `Url` to it, never a string. Where a user types an address in, the shell has to be what turns it into one.
-- **Choosing between fixed addresses.** A plugin with a hundred addresses in its source can pick one by what it
-  knows. That leaks a few bits per request. Probably acceptable, and the registry would show the hundred.
-- **Styles.** If a plugin writes CSS as text, a `url()` inside it has to be found and held to the same rule.
+### Choosing between fixed addresses
+
+Open. The rule stops a plugin putting data into an address. It does not stop a plugin choosing which address to
+load, and the choice is itself a message.
+
+Say a plugin has 256 image addresses written out in its source, all on a server its author runs:
+`.../0.png` to `.../255.png`. It reads one byte of something it can see, such as a character of a customer's
+name, and shows the image with that number. The author's server sees which image was asked for and now knows the
+byte. A row of images, or one image changed on a timer, sends the whole name.
+
+Every address is fixed and none was built, so P25 is kept and the data still leaves.
+
+Options:
+
+| Option | Effect |
+| --- | --- |
+| Copy at build. The build fetches every outside address a plugin names for an image, font or style, and stores the file with the plugin's version. At run time it loads from the app. | Nothing loads from outside, so there is no server to watch the choice. Fits versions being fixed (W3). An image that changes on the outside server stops changing. |
+| The implementor lists the outside hosts plugins may load from. None by default. | The leak is left open only to hosts the implementor chose. |
+| Show the addresses in the registry and accept it. | Relies on someone noticing 256 addresses on one host. |
+
+**Lean:** copy at build. A link the user clicks, `<a href>`, can't be copied and is left as it is: it leaks only
+which link the user chose to click, where they can see it.
+
+## Styles
+
+A first sketch. Nothing here is decided.
+
+CSS matters for containment in three ways: it can load an address, it can reach elements that are not the
+plugin's, and it can draw over the app.
+
+### What a plugin writes
+
+| Option | For | Against |
+| --- | --- | --- |
+| Style objects with states, compiled to classes: `css({ padding: 8, ":hover": { ... }, "@media (min-width: 600px)": { ... } })` | Typed, so every property and value is checked. No selectors, so a plugin can only style its own elements. Agents know the shape from CSS-in-JS. The build turns fixed styles into a stylesheet. | Not every CSS feature fits. Each one has to be added on purpose. |
+| A `style` prop only | The simplest thing. | No hover, focus, media queries or animation. Too weak alone. |
+| Class names from a set the implementor exposes, such as their design system or Tailwind | Agents write these very well. Plugins match the app. The implementor decides, as with libraries (P22). | Only as flexible as the set. |
+| CSS as text | Everything CSS can do. | Has to be parsed and filtered, selector by selector. The largest surface. |
+
+**Lean:** style objects are the language's own way. The `style` prop takes the same objects, for values worked
+out while running. Class names from the implementor are a library they can expose. No CSS as text.
+
+### The rules, whichever is chosen
+
+- **No selectors that reach out.** A style applies to the element it is given to, and to its states. A plugin
+  can't write `body`, `*`, `:root` or anything that matches by position in the page.
+- **An address in a style is a `Url`** (P25). No `@import`.
+- **The slot is a box.** The shell wraps each slot so that a plugin can't draw outside it: `position: fixed`,
+  a huge `z-index` and negative margins all stay inside. Without this a plugin could cover the app's own buttons
+  with look-alikes.
+- **Menus, dialogs and tooltips need to leave the box.** They come from the shell or from exposed components,
+  which draw them on the plugin's behalf.
+- **The app's design tokens are readable.** A plugin can use the implementor's colours and spacing by name (S4).
+  It can't redefine them outside its slot.
+- **Class names are generated.** Two plugins can't collide, and a plugin can't guess the app's class names to
+  restyle them.
+
+### Open
+
+- Which CSS features the style objects carry at first: animations, grid, container queries, pseudo-elements.
+- Whether "the slot is a box" is done with CSS containment or a shadow root, and what each does to fonts,
+  inherited colour and focus.
+- How a plugin's styles are delivered: one stylesheet per version, built ahead, or added as the plugin runs.
+- Whether an implementor can let a trusted plugin draw outside its slot.
 
 ## Still open
 
@@ -134,8 +194,7 @@ What it does not settle:
   counting can't interrupt. Options: leave them out, or ship an engine that can't blow up.
 - **How much of TypeScript's types.** Conditional and mapped types are hard to build and the agent rarely needs
   them in a plugin. The SDK's own types may need them.
-- **Styling.** Whether a plugin writes CSS, a `style` prop, class names from the implementor's design system or
-  only Thixo's components. This is also a containment question, since CSS can load addresses and cover the app.
+- **Styling.** See [Styles](#styles).
 - **The list of elements and attributes.** A plugin can't create anything that brings in another runnable source
   (P24): no `<script>`, `<iframe>`, `<object>` or `<embed>`, and no attribute that takes code. The full list is
   not written, and neither is who can extend it. `<link>`, `<meta>` and `<base>` don't run code themselves, but

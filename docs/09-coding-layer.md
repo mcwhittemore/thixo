@@ -131,7 +131,7 @@ Drafts, listed as Proposed in the [requirements](02-requirements.md):
 | P22 | The implementor decides which libraries are exposed to plugins. Thixo provides the way to expose one. Decided. |
 | P23 | A plugin can write raw HTML and SVG elements, not only exposed components. Decided. |
 | P24 | A plugin can't create an element or attribute that brings in another runnable source: no frames, no scripts, nothing that loads or runs code from elsewhere. Decided. |
-| P25 | An address in a plugin is either written out in its source or a value handed to it from outside the plugin. A plugin can't build or change one. |
+| P25 | An address in a plugin is either written out in its source or a value handed to it from outside the plugin. A plugin can't build or change one. A field that holds an address is declared as one, and a plugin can't write a string to it. Decided. |
 | P17 | Plugin code runs outside the page, with no access to the page, the network or the user's session. The SDK is everything it can reach. |
 | P18 | A plugin draws by describing ordinary HTML elements and styles. The shell creates them in the app's page from an allowlist, and scopes the plugin's styles to its slot. |
 | P19 | The shell can stop a plugin that does not respond, without the app freezing. |

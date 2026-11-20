@@ -244,3 +244,14 @@ can't create is an element that brings in another runnable source: code from els
   runs nothing.
 - **Not decided:** whether those are allowed. They send a request whose address can carry data out, which is the
   question P11 asks.
+
+### 29. A plugin can't build an address
+
+Settled by Matthew Whittemore on 2026-11-20. An address in a plugin is either written out in its source or
+handed to it from outside the plugin. A plugin can't build or change one. A field that holds an address is
+declared as one, and a plugin can only write an address to it, never a string. This is P25.
+
+- **Why:** an image, link, font or style address runs nothing, but the request it sends can carry data out. If a
+  plugin can't build an address, it can't put data in one, and no list of allowed hosts is needed.
+- **Not decided:** what to do about a plugin choosing between many fixed addresses, which leaks by the choice.
+  See [the language](10-language.md#choosing-between-fixed-addresses).
