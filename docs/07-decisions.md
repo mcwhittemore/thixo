@@ -224,3 +224,13 @@ Settled by Matthew Whittemore on 2026-11-20. A plugin can write raw HTML and SVG
 - **Turned down:** exposed components only, which would have been a much smaller surface to secure.
 - **What follows:** Thixo has to check every element and attribute a plugin creates against a list.
 - **Not decided:** which elements and attributes are on the list, and who can extend it.
+
+### 27. A plugin can't create an element that brings in another source
+
+Settled by Matthew Whittemore on 2026-11-20. It limits decision 26. A plugin can't create every kind of element:
+no frames, no script tags, nothing that brings in other sources. This is P24.
+
+- **Why:** what matters is what a plugin can do with an element, not that it can describe one. An element that
+  loads outside code or content does something the language does not control.
+- **Not decided:** the full list, who can extend it, and whether an image, font or CSS `url()` from an outside
+  address counts. Read strictly, it does.
