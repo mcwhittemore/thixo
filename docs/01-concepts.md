@@ -10,9 +10,6 @@ The vocabulary the other docs use. Each word has one meaning here.
 | **User** | A person using the implementor's product. |
 | **Author** | A user who writes a plugin by asking the authoring agent for it. |
 
-Everything is designed for a developer setting up an app for a team, where the team members are the users and some
-of them become authors.
-
 ## The app
 
 | Word | Meaning |
