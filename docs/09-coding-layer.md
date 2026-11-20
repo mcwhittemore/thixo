@@ -1,7 +1,8 @@
 # The coding layer
 
-A proposal, from a discussion on 2026-11-20. Nothing here is decided. It would replace the sandboxed frame (P10,
-P11) as the way a plugin is contained.
+A proposal, from a discussion on 2026-11-20. It would replace the sandboxed frame (P10, P11) as the way a plugin
+is contained. One part is decided: plugins are written in a language of Thixo's own
+([decision 23](07-decisions.md#23-plugins-are-written-in-a-language-of-thixos-own)). The rest is proposed.
 
 ## Where it comes from
 
@@ -15,7 +16,8 @@ problems have nowhere to happen. In his words, it should be "a coding layer, not
 
 ## The idea
 
-- **A plugin is code.** The agent writes TypeScript and JSX against the SDK, as `examples/todo` shows today.
+- **A plugin is code, in Thixo's own language.** It looks a lot like JavaScript, TypeScript and React, and the
+  agent writes it against the SDK. `examples/todo` shows roughly how it reads.
 - **It is not new markup.** A plugin uses ordinary HTML elements and CSS. There is no Thixo vocabulary of boxes and
   stacks to learn, and S3 and S4 stand.
 - **Thixo controls what the code can reach.** Plugin code runs where there is no page: no `document`, no
@@ -55,15 +57,33 @@ Shopify's remote-dom and Figma's plugin runtime work this way, so the pattern is
 
 ## The language, and where it runs
 
-Open. There are two questions, and they can be answered separately.
+There are two questions. The first is decided and the second is open.
 
 ### What the agent writes
 
-| Option | For | Against |
-| --- | --- | --- |
-| Full TypeScript and JSX | The agent already writes it well. Types, editors and error messages exist. | The language can say anything, so all the containment has to come from where it runs. |
-| A subset of TypeScript, with Thixo's own compiler | Reads as TypeScript, so the agent still writes it well. The compiler accepts only what is on its list and rejects everything else, so the language can't name the page, the network or a global. | Subsets of JavaScript have been escaped before, through corners such as `constructor`. The compiler has to guard property access, not only syntax. |
-| A new language | Thixo decides everything it can say. Nothing to subset. | No model has seen it. The agent will write it worse, and Thixo has to build the type checker, the error messages and the debugging. |
+Decided: a new language, which looks a lot like JavaScript, TypeScript and React.
+
+- **It is Thixo's language, not a subset of someone else's.** Thixo says what it means. Where JavaScript is
+  dangerous or odd, the language can differ: no globals, no prototypes, no `constructor`, no `eval`, no way to
+  reach a value the SDK did not hand over.
+- **It looks familiar on purpose.** The agent has read a great deal of TypeScript and React and none of this
+  language. The closer the two read, the better the agent writes it.
+- **Anything not in the language is an error.** The compiler works from a list of what is allowed, never from a
+  list of what is banned.
+
+Turned down: full TypeScript, where the language can say anything and all the containment has to come from where
+it runs. Also a language that looks nothing like TypeScript, which the agent would write badly.
+
+Still open about the language:
+
+- Its name and its file extension.
+- Where it differs from TypeScript, written down as a list the agent is given.
+- Whether it has TypeScript's types, a smaller set or its own.
+- Whether a plugin can import anything other than the SDK. Packages from npm are written in JavaScript, not in
+  this language.
+- How errors are reported to the agent so that it can fix its own code.
+- Who writes the type checker, the formatter and the editor support, and how much of TypeScript's tooling can be
+  reused because the syntax is close.
 
 ### What runs it
 
@@ -72,7 +92,6 @@ Open. There are two questions, and they can be answered separately.
 | A WebAssembly runtime that interprets the language, in a worker | The runtime. The plugin gets only what the runtime hands it. | Slower, a larger download, and every event crosses to a worker and back. |
 | Compile to JavaScript and run it in the page | The compiler. Its output is the only plugin code that ever runs: the store keeps the source, never JavaScript. | The compiler is the whole wall. One bug in it gives a plugin the page and the session. A stuck plugin needs a counter compiled into its loops, since nothing can stop it from outside. |
 | Compile to JavaScript and run it in a worker | The compiler, then the worker. | Events cross to a worker and back. What a worker can reach on the app's domain is untested. |
-| Full JavaScript in a worker or an interpreter, with no compiler of Thixo's | The browser, or the interpreter. | For a plain worker, this is the frame problem again in a smaller form. |
 
 Compiling to JavaScript and running in the page is worth a close look. The plugin would render real React elements
 directly, so events are immediate and there is no bridge to build. Elm contains its programs this way. It is also
@@ -81,9 +100,8 @@ the option with only one wall.
 Checking ordinary JavaScript at build, with no compiler that owns the language, is not on the list. It rejects
 what it recognises, and that has a long record of being got round.
 
-**Lean:** a subset of TypeScript with Thixo's own compiler. Where it runs is for a spike to settle: start with
-compiled JavaScript in the page, with loop counters, and fall back to the WebAssembly runtime if the single wall
-is not enough.
+**Lean:** let a spike settle it. Start with compiled JavaScript in the page, with loop counters, and fall back to
+the WebAssembly runtime if the single wall is not enough.
 
 ## What it does to the requirements
 
@@ -97,14 +115,15 @@ Drafts, listed as Proposed in the [requirements](02-requirements.md):
 
 | # | Requirement |
 | --- | --- |
-| P16 | Plugins are written only by Thixo's authoring agent, in the language Thixo defines. Nobody uploads plugin code. |
+| P16 | Plugins are written only by Thixo's authoring agent. Nobody uploads plugin code. |
+| P20 | Plugins are written in a language of Thixo's own, which looks a lot like JavaScript, TypeScript and React. Decided. |
 | P17 | Plugin code runs outside the page, with no access to the page, the network or the user's session. The SDK is everything it can reach. |
 | P18 | A plugin draws by describing ordinary HTML elements and styles. The shell creates them in the app's page from an allowlist, and scopes the plugin's styles to its slot. |
 | P19 | The shell can stop a plugin that does not respond, without the app freezing. |
 
 ## What has to be tested first
 
-- How well does the agent write the subset, against full TypeScript and against a new language?
+- How well does the agent write the language, measured against how well it writes TypeScript?
 - Can the compiler's output be escaped? Give the job to an agent whose only task is to break out.
 - Do compiled loop counters stop a stuck plugin, and what do they cost?
 - If a runtime in a worker is used: is typing in an input fast enough to feel direct?

@@ -183,3 +183,16 @@ potter's clay slip does. The API, slots and scopes hold firm while plugins flow.
   `tailor` command-line tool. Also clay, putty, Greenware, Clathem and Pliant.
 - **Not done:** nothing has been registered or claimed. The GitHub account name `thixo` is taken; `thixojs` and
   `thixodev` were free.
+
+### 23. Plugins are written in a language of Thixo's own
+
+Settled by Matthew Whittemore on 2026-11-20. The language is new, and it looks a lot like JavaScript, TypeScript
+and React. This is P20.
+
+- **Why:** only Thixo's agent writes plugins, so Thixo can control the language they are written in. A sandbox
+  solves a problem Thixo does not have to have. The [spike](04-security-model.md#the-spike) showed what the
+  sandboxed frame costs. Looking like TypeScript and React keeps the agent able to write it well.
+- **Turned down:** full TypeScript. Also a subset of TypeScript with Thixo's compiler, which was the lean before
+  this decision.
+- **Not decided:** what runs the language, and whether the sandboxed frame goes. P10, P11 and P16 to P19 are
+  still Proposed. See [the coding layer](09-coding-layer.md).
