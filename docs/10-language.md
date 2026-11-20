@@ -96,6 +96,34 @@ These are the places where code that looks the same means something else. This i
   plugin's own file is a build error.
 - **Anything not in the language is a build error.** There are no warnings.
 
+## Addresses
+
+Proposed by Matthew on 2026-11-20, as P25. An image, a link, a font or a CSS `url()` runs nothing, but each sends
+a request, and the address can carry data out. The rule: an address in a plugin is one of two things.
+
+- **Written out in the source.** `<img src="https://example.com/logo.png">`. It is fixed when the plugin is built,
+  so it can't carry anything the plugin learned while running.
+- **Handed to the plugin from outside it.** An avatar address that an endpoint returned, or a route from the
+  shell. The plugin passes it along and can't look inside it or change it.
+
+A plugin can't build an address, join one from parts or add to one. In the language this is a type of its own,
+`Url`, which is not a string. No string operation produces one.
+
+What this buys:
+
+- A plugin can't put data it holds into an address, which is the leak. It needs no rule about which hosts are
+  allowed.
+- The build can list every outside address a plugin names, and the registry can show them (P15).
+
+What it does not settle:
+
+- **Writing an address back.** If a plugin could save a string to a record and read it back as an address, the
+  rule would be empty. So a field that holds an address has to be declared as one, and a plugin can only write a
+  `Url` to it, never a string. Where a user types an address in, the shell has to be what turns it into one.
+- **Choosing between fixed addresses.** A plugin with a hundred addresses in its source can pick one by what it
+  knows. That leaks a few bits per request. Probably acceptable, and the registry would show the hundred.
+- **Styles.** If a plugin writes CSS as text, a `url()` inside it has to be found and held to the same rule.
+
 ## Still open
 
 - **The name and the file extension.** Keeping `.tsx` gets editor support for free and tells a reader a lie.
@@ -112,9 +140,7 @@ These are the places where code that looks the same means something else. This i
   (P24): no `<script>`, `<iframe>`, `<object>` or `<embed>`, and no attribute that takes code. The full list is
   not written, and neither is who can extend it. `<link>`, `<meta>` and `<base>` don't run code themselves, but
   each can load or redirect what the page does, so they probably belong on it.
-- **Outside addresses that don't run.** An `<img src>`, a CSS `url()` or a font from an outside address runs
-  nothing, so P24 does not cover it. It does send a request, and the address can carry data out. Whether that is
-  allowed is a separate question, and it is P11's.
+- **Addresses.** See the section below. The rule is proposed (P25), and three parts of it are open.
 - **Links.** Whether `<a href>` can point outside the app. It loads nothing into the plugin, but the address can
   carry data out when the user clicks.
 - **How an exposed library looks from inside the language.** It is JavaScript, so its values have prototypes. The
