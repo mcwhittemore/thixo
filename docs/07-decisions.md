@@ -205,3 +205,12 @@ Thixo can expose libraries for plugins to use, as it does with React. This is P2
 - **Why:** outside packages are JavaScript, not Thixo's language, so importing one would bring in code the
   language does not control.
 - **Not decided:** which libraries Thixo exposes, and whether an implementor can expose their own.
+
+### 25. The implementor decides which libraries plugins can use
+
+Settled by Matthew Whittemore on 2026-11-20. It answers what decision 24 left open. Thixo provides the way to
+expose a library to plugins. The implementor decides which libraries their app exposes. This is P22.
+
+- **Why:** Thixo is a framework. It creates the capability and does not make the call.
+- **What follows:** an exposed library is outside Thixo's language, so the implementor is trusting it.
+- **Not decided:** how a library is exposed, where it runs and what Thixo checks about it.
