@@ -3,7 +3,7 @@
 A first sketch, to be argued with. Four things are decided: plugins are written in a language of Thixo's own that
 looks a lot like JavaScript, TypeScript and React (P20), a plugin can't import outside code (P21), the implementor
 chooses which libraries are exposed (P22), a plugin can write raw elements (P23), and it can't create an element
-that brings in another source (P24). Everything else on this page is a lean, not a decision.
+that brings in another runnable source (P24). Everything else on this page is a lean, not a decision.
 
 What runs the language can't be chosen until the language is known. The last section says which choices here
 decide that.
@@ -76,7 +76,7 @@ function daysUntil(date: Date) {
 | Classes, `this`, `new` on anything but the built-ins, prototypes, `constructor`, `__proto__` | This is where JavaScript subsets have been escaped. React plugins are functions and don't need them. |
 | `Proxy`, `Reflect`, `Symbol`, getters and setters, `with`, `var`, `delete`, labels | Each lets code do something its text doesn't show. |
 | `any`, `as`, `// @ts-ignore`, non-null `!` | Each switches the type checker off. The types are part of the wall, so they can't be optional. |
-| Elements that bring in another source: `<script>`, `<iframe>`, `<object>`, `<embed>`, `<link>`, `<meta>`, `<base>` | Decided (P24). Each would run or load something the language does not control. |
+| Elements that bring in another runnable source: `<script>`, `<iframe>`, `<object>`, `<embed>`, and attributes that take code | Decided (P24). Each would run code the language does not control. |
 | Refs and the real event object | Both are handles on the page. A handler gets plain data: the value, the key, the position. |
 | `==` and `!=` | Only `===` and `!==`. One fewer way for the agent to be subtly wrong. |
 | Code at the top of a file, other than declarations | A file can then be read without being run (U11). |
@@ -108,12 +108,13 @@ These are the places where code that looks the same means something else. This i
   them in a plugin. The SDK's own types may need them.
 - **Styling.** Whether a plugin writes CSS, a `style` prop, class names from the implementor's design system or
   only Thixo's components. This is also a containment question, since CSS can load addresses and cover the app.
-- **The list of elements and attributes.** A plugin can't create anything that brings in another source (P24):
-  no `<script>`, `<iframe>`, `<object>`, `<embed>`, `<link>`, `<meta>` or `<base>`, and no attribute that takes
-  code. The full list is not written, and neither is who can extend it.
-- **Outside addresses in ordinary elements.** An `<img src>`, a CSS `url()` or a font from an outside address also
-  brings in another source, and sends a request that can carry data. Read strictly, P24 rules these out, and
-  images come from data the plugin holds or through the app. To be confirmed.
+- **The list of elements and attributes.** A plugin can't create anything that brings in another runnable source
+  (P24): no `<script>`, `<iframe>`, `<object>` or `<embed>`, and no attribute that takes code. The full list is
+  not written, and neither is who can extend it. `<link>`, `<meta>` and `<base>` don't run code themselves, but
+  each can load or redirect what the page does, so they probably belong on it.
+- **Outside addresses that don't run.** An `<img src>`, a CSS `url()` or a font from an outside address runs
+  nothing, so P24 does not cover it. It does send a request, and the address can carry data out. Whether that is
+  allowed is a separate question, and it is P11's.
 - **Links.** Whether `<a href>` can point outside the app. It loads nothing into the plugin, but the address can
   carry data out when the user clicks.
 - **How an exposed library looks from inside the language.** It is JavaScript, so its values have prototypes. The

@@ -234,3 +234,13 @@ no frames, no script tags, nothing that brings in other sources. This is P24.
   loads outside code or content does something the language does not control.
 - **Not decided:** the full list, who can extend it, and whether an image, font or CSS `url()` from an outside
   address counts. Read strictly, it does.
+
+### 28. Decision 27 is about runnable sources
+
+Settled by Matthew Whittemore on 2026-11-20. It corrects the wording of decision 27 and of P24. What a plugin
+can't create is an element that brings in another runnable source: code from elsewhere, or a frame that runs it.
+
+- **What follows:** an image, a font or a CSS `url()` from an outside address is not covered by P24, because it
+  runs nothing.
+- **Not decided:** whether those are allowed. They send a request whose address can carry data out, which is the
+  question P11 asks.
