@@ -28,12 +28,12 @@ thixo.config.ts   identity, adapters and the default layout
 | File | Shows | Requirements |
 | --- | --- | --- |
 | [api/todos.ts](api/todos.ts) | Endpoints with their scopes. Endpoints needing two scopes. A record. Data that needs another scope as its own endpoint. | A2, A3, A11, A12 |
-| [app/slots.ts](app/slots.ts) | Two slots with contracts: context in, events out. One holds a single plugin, one holds many. | S5, S11, S12 |
+| [app/slots.ts](app/slots.ts) | Two slots with contracts: context in, events out. One plugin fills each. | S5, S11, S12 |
 | [app/shell.tsx](app/shell.tsx) | An ordinary React app. No frame or message code. | S1, S7 |
 | [plugins/todo-list/plugin.tsx](plugins/todo-list/plugin.tsx) | Scopes derived from imports. Required and optional endpoints. A grayed-out action. | P2, P4, P5, P13 |
 | [plugins/due-dates/data.ts](plugins/due-dates/data.ts) | An annotation and a private store, declared as literals. | D1, D2, D3, U11 |
 | [plugins/due-dates/plugin.tsx](plugins/due-dates/plugin.tsx) | Reading and patching plugin data. | D6 |
-| [thixo.config.ts](thixo.config.ts) | The implementor's identity function. Adapters in one place. | A9, X6, U10, S10 |
+| [thixo.config.ts](thixo.config.ts) | The implementor's own identity adapter. Adapters in one place. | A9, X6, U10, S10 |
 
 ## What the build would derive
 

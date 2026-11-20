@@ -1,8 +1,8 @@
 // Sketch. Nothing here runs yet. See ../readme.md.
 //
-// Where plugins go (S1). A slot has a kind, which sets its size, and a
+// Where plugins go (S1). The app defines each slot (S5): its size, and its
 // contract (S11): the context the shell passes in, and the events a plugin
-// can send back.
+// can send back. Each slot is filled by one plugin (S12).
 
 import { slot } from "thixo/shell";
 import { t } from "thixo/schema";
@@ -16,9 +16,8 @@ export const main = slot.page({
   },
 });
 
-// Beside the selected todo. Any number of plugins can sit here.
+// Beside the selected todo. One plugin fills it.
 export const todoDetail = slot.panel({
   name: "todo-detail",
-  many: true,
   context: t.object({ todoId: t.string() }),
 });

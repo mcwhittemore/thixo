@@ -28,7 +28,7 @@ Data belongs to a lineage (D10), and a lineage follows forks. Two different plug
 
 - The todo list can never show the due date that due-dates writes. "Show the new field in the list" is the first
   thing a user will ask for.
-- A list is one plugin in one frame (S9), so adding anything to a row means forking the whole list. Two users who
+- A list is one plugin in one slot (S12), so adding anything to a row means forking the whole list. Two users who
   want tags and due dates in the list need a third fork that merges both, and none of the forks gets the
   implementor's later updates.
 - Two people who each fork the list to add tags get two separate `tags` fields holding different data.
@@ -41,16 +41,16 @@ Options, none chosen:
   derives like a scope.
 - **A plugin can fill more than one slot.** One tags plugin then owns both the editor in the panel and a piece of
   each row.
-- **Rows have slots.** A list plugin exposes a place in each row that other plugins fill. This conflicts with S9
-  unless the row pieces are not frames.
+- **Rows have slots.** A list plugin exposes a place in each row that other plugins fill. Under the sandboxed frame, each row
+  piece would be a frame, which costs too much.
 - **Fork and merge is the answer.** State it and make the agent good at merging forks.
-- **Plugins provide values up to their slots (S14).** The shell holds what a plugin provides and passes it into
-  other slots as context. A tags plugin provides the current filter and the list receives it. If the list's slot
-  accepts "badges by todo id", a due-dates plugin can decorate rows without the list being forked. The limit: a
-  plugin can only provide while it is loaded, so this needs a slot kind that loads with the page and draws nothing.
+- **Slot events (S13).** A plugin sends an event its slot defines, and the shell routes it into other slots as
+  context. A tags plugin sends the current filter and the list receives it. If the list's slot accepts "badges by
+  todo id", a due-dates plugin can decorate rows without the list being forked. The limit: a plugin can only send
+  while it is loaded, so this needs a slot that loads with the page and draws nothing.
 
-**Lean:** provided values for anything live, such as filters, selection and row decoration. Published fields and
-batch reads for stored data.
+**Lean:** slot events for anything live, such as filters, selection and row decoration. Published fields and batch
+reads for stored data.
 
 ### 3. What does isolation really rest on?
 
@@ -76,7 +76,6 @@ accept P10 and X8, accept P11 with the policy named in it, and say plainly that 
 ### Scope shape
 
 - Are scope names flat (`todos.write`) or do they nest, so that `todos` implies `todos.read`?
-- Should alternatives be allowed, where any one of several scopes is enough (A4)?
 - **Lean:** flat names, no alternatives. A plugin's scopes then stay a plain set the registry can filter on.
 
 ### Required and optional in a plugin
@@ -105,9 +104,9 @@ A user may be allowed to edit their own todos and not other people's. Scopes are
 
 ## Slots
 
-### Slot kinds
+### Slots
 
-- Is there an action kind: a button or menu item the shell draws, with plugin code behind it and no frame on screen?
+- Is there an action slot: a button or menu item the shell draws, with plugin code behind it and no frame on screen?
 - Can a plugin fill more than one slot? See question 2.
 - Can a fork target a different slot from its parent?
 
@@ -141,7 +140,7 @@ event and context in the shell, which only the implementor can write.
 - How do users move between versions that changed a field, so the same record doesn't show two truths?
 - Are there list or set fields with add and remove, or is it last write wins per field?
 - Is clearing a value a delete?
-- Who sees an annotation: everyone, or can it be private like a store (D2)?
+- How is the grouping that decides who sees an annotation (A13) defined? Does a store use the same groupings (D2)?
 - What is the boundary of a shared store: everyone in the app, a team, or the users of one plugin?
 - How does Thixo learn that a record was deleted, and what happens to its annotations?
 - How does Thixo check that a user may read one particular record before returning its annotations?

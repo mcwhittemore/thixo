@@ -14,13 +14,13 @@ The vocabulary the other docs use. Each word has one meaning here.
 
 | Word | Meaning |
 | --- | --- |
-| **App** | What the implementor builds: an API, a shell and a set of default plugins. |
+| **App** | What the implementor builds: their side of the API, a shell and a set of default plugins. Thixo adds its own side of the API. |
 | **Endpoint** | One operation in the app's API. It carries its scopes. |
 | **Record** | A type of thing in the app, such as a todo, that the API names so plugin data can attach to it. |
 | **Scope** | A named permission to make certain API calls, such as `todos.write`. Defined by the app's API, held by users, carried in tokens. It says nothing about which data a call returns. |
 | **Shell** | The base React app. It provides the always-on functionality and defines the slots. |
-| **Slot** | A place in the shell where plugins render. It has a kind, which sets its size, and a contract. |
-| **Slot contract** | The context the shell passes to a plugin in a slot, the events the plugin can send back, and the values the plugin can provide up. |
+| **Slot** | A place in the shell that one plugin fills. The implementor defines it, including its size and its contract. |
+| **Slot contract** | The context the shell passes to a plugin in a slot and the events the plugin can send back, which the shell routes. |
 | **Shell service** | Something only the shell can do for a plugin: navigate, open a modal, copy to the clipboard, download a file. |
 
 ## Plugins
@@ -31,6 +31,7 @@ The vocabulary the other docs use. Each word has one meaning here.
 | **Default plugin** | A plugin in the layout every user starts with. |
 | **Required endpoint** | An endpoint a plugin can't work without. A user who can't call it isn't offered the plugin. |
 | **Optional endpoint** | An endpoint a plugin can work without. It grays out what a user can't do. |
+| **API SDK** | The module the base app imports to call the API. Generated from the API, one function per endpoint, and served from a route in the deployment. |
 | **Plugin SDK** | The module a plugin imports to talk with the app. It is generated from the API, with one function per endpoint. Each function sends the call to the shell's broker over the frame's message channel and waits for the reply. The plugin itself never reaches the network or holds a token. |
 | **Version** | An immutable snapshot of a plugin's source. Versions are distinct; there are no branches. |
 | **Fork** | A new plugin started from a version of another plugin. It remembers its parent. |

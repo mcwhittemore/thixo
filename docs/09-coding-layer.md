@@ -39,7 +39,7 @@ Shopify's remote-dom and Figma's plugin runtime work this way, so the pattern is
 | A stuck plugin | Freezes the app in Safari. | Runs off the main thread, so the shell stays live and can stop it. Not yet tested. |
 | Cost per slot | 35 to 75 ms a frame. | No frame. The cost of the runtime is not yet measured. |
 | Menus, dialogs, tooltips | Clipped to the frame. The shell has to draw them. | Drawn in the page like any other element. |
-| One plugin per row of a list | Ruled out by frame cost (S9). | Possible. |
+| One plugin per row of a list | Ruled out by frame cost. | Possible. |
 | The plugin's styles | Can't touch the app. | Share the app's page. Has to be solved. See below. |
 
 ## What it costs
@@ -118,7 +118,7 @@ ends with the choices that decide this one.
 - **Stand as they are:** P1 to P9, P12 to P15, and all of the API and data requirements. The broker still makes
   every call (P8).
 - **Replaced:** P10 and P11, by P17 to P19 below.
-- **No longer needed:** S9, most of S8, and X8, since there is no frame and no second domain to argue about.
+- **No longer needed:** most of S8, and X8, since there is no frame and no second domain to argue about.
 - **Narrowed:** S3. A plugin can render any element and style on the allowlist. It can't run code in the page.
 
 Drafts, listed as Proposed in the [requirements](02-requirements.md):

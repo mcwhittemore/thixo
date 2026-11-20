@@ -28,7 +28,7 @@ plugins/    the default plugins, one folder each
 thixo.config.ts
 ```
 
-From `api/`, Thixo generates the SDK. From `app/`, it knows the slots. From `plugins/`, it builds the default
+From `api/`, Thixo generates the API SDK and the plugin SDK. From `app/`, it knows the slots. From `plugins/`, it builds the default
 plugins through the same pipeline a user's plugin goes through.
 
 ## From source to a running plugin
@@ -79,7 +79,7 @@ is in the [security model](04-security-model.md#what-is-trusted).
 ### Where the token comes from
 
 1. The shell asks Thixo's API layer for a token, using the user's ordinary session.
-2. Thixo calls the implementor's identity function to learn who the user is and which scopes they hold (A9).
+2. Thixo asks the identity adapter to learn who the user is and which scopes they hold (A9).
 3. Thixo signs a short-lived token naming the user.
 4. The broker keeps it and attaches it to every plugin's calls. No plugin sees it (P8).
 
@@ -129,14 +129,14 @@ The scopes are written once, on the endpoint. Everything after that is derived (
 
 ## Slots
 
-A slot has a kind and a contract.
+The implementor defines each slot (S5). Thixo ships page, panel and widget as defaults (S6).
 
-- **Kind:** page, panel or widget (S6). The kind sets how the frame is sized and where it can appear.
+- **Size:** the slot sets how the frame is sized and where it can appear.
 - **Contract:** the context the shell passes in, such as which todo is selected, and the events a plugin can send
   back, such as "this todo was picked" (S11).
 
 The app defines each slot once. The shell places it, and a plugin targets it, by importing that definition. A slot
-holds one plugin or any number (S12), and the user's layout says which.
+is filled by one plugin (S12), and the user's layout says which. The shell routes the events a plugin sends (S13).
 
 ## What is not designed yet
 
@@ -145,4 +145,4 @@ holds one plugin or any number (S12), and the user's layout says which.
 - How the build runs on each provider. See [portability](06-portability.md#build).
 - What happens to existing plugins when the API changes. See [open questions](08-open-questions.md#api-changes).
 - How a plugin acts without rendering, such as a button the shell draws. See
-  [open questions](08-open-questions.md#slot-kinds).
+  [open questions](08-open-questions.md#slots-1).

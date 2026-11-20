@@ -6,8 +6,9 @@ import { anthropic } from "thixo-anthropic";
 import { readSession } from "./api/session";
 
 export default defineConfig({
-  // Thixo does not own login (A9). The implementor says who is calling and
-  // which scopes they hold.
+  // Thixo does not own login (A9). An identity adapter says who is calling
+  // and which scopes they hold. This app writes its own; Thixo also ships
+  // adapters for services such as Clerk and Auth0.
   identity: async (request) => {
     const session = await readSession(request);
     return session && { id: session.userId, scopes: session.scopes };
@@ -26,6 +27,6 @@ export default defineConfig({
   // Which default plugins fill which slots for a new user (S10).
   layout: {
     main: "todo-list",
-    "todo-detail": ["due-dates"],
+    "todo-detail": "due-dates",
   },
 });

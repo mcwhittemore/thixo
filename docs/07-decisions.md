@@ -277,3 +277,74 @@ declared as one, and a plugin can only write an address to it, never a string. T
   plugin can't build an address, it can't put data in one, and no list of allowed hosts is needed.
 - **Not decided:** what to do about a plugin choosing between many fixed addresses, which leaks by the choice.
   See [the language](10-language.md#choosing-between-fixed-addresses).
+
+## 2026-11-20: reviewing the requirements
+
+Settled by Matthew Whittemore while revising the requirements doc.
+
+### 31. W3 is not a requirement
+
+The first target being a team in one company is context on how Thixo rolls out, not something the product must do.
+W3 is cut. W4 still makes the design hold for strangers.
+
+### 32. The API has two sides
+
+The implementor's endpoints are one side. Thixo's side, the same in every app, handles plugins and their versions,
+the registry, plugin data, authors and authoring, and it issues tokens and checks scopes for both sides.
+
+- **Requirements:** A1, A5.
+
+### 33. Only every-scope endpoints, for now
+
+A4 is cut. Any-one-of-several scopes is a fine idea that Thixo doesn't support today, so it is not a requirement
+that it never will. A3 says what is supported.
+
+### 34. Identity is an adapter
+
+Thixo does not own identity. An identity adapter says who the user is and which scopes they hold. Thixo ships
+adapters for services such as Clerk, WorkOS, Auth0 and Cognito, and an implementor can write their own.
+
+- **Turned down:** a plain identity function as the only way in.
+- **Requirements:** A9.
+
+### 35. Thixo serves an API SDK
+
+Thixo generates an API SDK for the base app, one function per endpoint, and serves it from a route in the
+deployment so it never has to be published elsewhere. It is not the plugin SDK.
+
+- **Requirements:** A10.
+
+### 36. The implementor declares annotatable records and who sees annotations
+
+The implementor says which records plugins can annotate, the scopes that read one, and who sees an annotation on
+it, as a grouping of users from one person to everyone. How a grouping is defined is open.
+
+- **Requirements:** A11, A13.
+
+### 37. The implementor defines the slots
+
+Changes part of decision 8, which backed a short, fixed set of slot kinds (S5). There is no layer of kinds: the
+implementor defines each slot, size included, and Thixo ships page, panel and widget as defaults. Each slot is
+filled by one plugin.
+
+- **Requirements:** S5, S6, S12.
+
+### 38. Slots carry events, and that is how plugins talk
+
+A slot defines the events a plugin filling it can send, and the shell routes them. Those events and writes to the
+API are the only ways plugins communicate.
+
+- **Turned down:** values a plugin provides up to the shell (S14), which overlapped with events.
+- **Requirements:** S13.
+
+### 39. Thixo doesn't say how an app lays out lists
+
+S9, one frame per list rather than per row, is cut. How an app shows lists is the implementor's to decide, not the
+framework's.
+
+### 40. The shell's other slot requirements
+
+The implementor never writes a frame, sandbox attribute or message handler (S7). A plugin reaches everything outside
+its frame through shell services (S8). Each user has a layout, with defaults set by the implementor (S10).
+
+- **Requirements:** S7, S8, S10.

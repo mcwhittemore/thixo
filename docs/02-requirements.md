@@ -15,25 +15,24 @@ MUST, SHOULD and MAY carry their usual meaning: required, expected unless there 
 | # | Requirement | Status |
 | --- | --- | --- |
 | W1 | Thixo is a framework, in the vein of Next.js. Its user is the implementor: a developer building a malleable product. | Decided |
-| W2 | Thixo provides capabilities. The product flows built on them belong to the implementor. | Decided |
-| W3 | The first target is a team inside one company, where users are colleagues. | Decided |
+| W2 | Thixo provides the pieces: the authoring chat, registry search, forking, sharing and promotion. When and how the product uses them is the implementor's call, such as whether the chat searches before it writes a plugin, or who can promote a plugin to default. | Decided |
 | W4 | Nothing in the design MAY rely on users trusting each other. The limits on a plugin hold for a stranger's plugin too. | Decided |
 
 ## The API
 
 | # | Requirement | Status |
 | --- | --- | --- |
-| A1 | The implementor defines the app's API as a set of endpoints. | Decided |
+| A1 | The app's API has two sides. The implementor defines their side as a set of endpoints. Thixo provides the other side, the same in every app: plugins and their versions, the registry, plugin data, authors and authoring. | Decided |
 | A2 | Each endpoint MUST carry its scopes. An endpoint can need more than one. | Decided |
 | A3 | A caller must hold every scope an endpoint carries. | Proposed |
-| A4 | An endpoint does not support alternative scopes, where any one of several is enough. | Proposed |
-| A5 | The API MUST issue the tokens and enforce the user's scopes. Which calls each plugin may make is enforced by the broker (P9). | Decided |
+| A5 | Thixo's side of the API MUST issue the tokens and enforce the user's scopes, on every endpoint of both sides. Which calls each plugin may make is enforced by the broker (P9). | Decided |
 | A6 | Tokens are JWTs, and a token's scopes are readable as claims. | Decided |
 | A7 | The API is a fixed writing surface. A plugin can't add or change endpoints. | Decided |
 | A8 | Versioning the API is outside the plugin space. | Decided |
-| A9 | Thixo does not own identity. The implementor tells Thixo who the user is and which scopes they hold. | Proposed |
-| A10 | Thixo MUST generate the SDK from the API definition, with one function per endpoint. | Proposed |
-| A11 | The API names its record types and the scopes needed to read each, so plugin data can attach to them. | Proposed |
+| A9 | Thixo does not own identity. An identity adapter tells Thixo who the user is and which scopes they hold. Thixo ships adapters for identity services such as Clerk, WorkOS, Auth0 and Cognito, and an implementor can write their own. | Decided |
+| A10 | Thixo MUST generate an API SDK from the API definition, with one function per endpoint, for the base app to call the API. Thixo serves it from a route in the deployment, so it never has to be published anywhere else. It is not the plugin SDK. | Decided |
+| A11 | The implementor declares which of the app's records plugins can annotate, such as a todo, and the scopes needed to read one. | Decided |
+| A13 | For each annotatable record, the implementor also says who sees an annotation on it, as a grouping of users: from one user, through a team, to everyone. | Decided |
 | A12 | Scopes say which API calls a caller can make. They do not say which data a caller can see. What an endpoint returns is the implementor's to get right. | Decided |
 
 ## The shell and slots
@@ -44,16 +43,14 @@ MUST, SHOULD and MAY carry their usual meaning: required, expected unless there 
 | S2 | The constraint on a plugin sits at the slot, not at the components. | Decided |
 | S3 | A plugin MAY render anything inside its slot. | Decided |
 | S4 | Thixo ships design tokens and primitive components as defaults. Using them is never required. | Decided |
-| S5 | Slots come in a short, fixed set of kinds. | Decided |
-| S6 | The kinds are page, panel and widget to start. | Proposed |
-| S7 | The implementor MUST NOT have to write a frame, a sandbox attribute or a message handler. They place a slot and Thixo does the rest. | Proposed |
-| S8 | A plugin reaches anything outside its frame through shell services in the SDK: navigation, modals, clipboard, downloads. | Proposed |
-| S9 | Every filled slot is one frame. A list of items is one plugin rendering the list, not one plugin per row. | Proposed |
-| S10 | Each user has a layout saying which plugin versions fill which slots. The implementor sets the defaults. | Proposed |
-| S11 | A slot's contract is the context the shell passes in and the events a plugin can send back. The slot's kind sets its size. | Proposed |
-| S13 | Plugins don't message each other. The shell passes information between them. | Proposed |
-| S14 | A slot's contract can also name values a plugin provides up to the shell. The shell holds them and passes them into other slots as context. | Proposed |
-| S12 | A slot holds either one plugin or any number, as its definition says. | Proposed |
+| S5 | The implementor defines each slot, including its size. There is no separate layer of slot kinds. | Decided |
+| S6 | Thixo ships a few basic slots as defaults, such as page, panel and widget. | Decided |
+| S7 | The implementor MUST NOT have to write a frame, a sandbox attribute or a message handler. They place a slot and Thixo does the rest. | Decided |
+| S8 | A plugin reaches everything outside its frame through shell services in the SDK: navigation, modals, clipboard, downloads. | Decided |
+| S10 | Each user has a layout saying which plugin versions fill which slots. The implementor sets the defaults. | Decided |
+| S11 | A slot's contract is the context the shell passes in and the events a plugin can send back. The slot also sets its size. | Proposed |
+| S13 | Plugins don't message each other. A slot defines the events a plugin filling it can send, and the shell routes each event to where it belongs. Those events and writes to the API are the only ways plugins communicate. | Decided |
+| S12 | Each slot is filled by one plugin. | Decided |
 
 ## Plugins and scopes
 
@@ -90,7 +87,7 @@ stay, and P11 holds only with the policy the spike ended with. A stuck plugin ca
 and no requirement in that design covers it.
 
 P16 to P25 are [the coding layer](09-coding-layer.md). P20 to P25 are decided. The rest is a proposal that would replace
-P10 and P11, drop S9 and X8 and narrow S3. The two designs are alternatives: accept one set, not both.
+P10 and P11, drop X8 and narrow S3. The two designs are alternatives: accept one set, not both.
 
 ## Authoring
 

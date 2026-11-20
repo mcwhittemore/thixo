@@ -135,7 +135,7 @@ Options:
 
 | Option | Effect |
 | --- | --- |
-| Copy at build. The build fetches every outside address a plugin names for an image, font or style, and stores the file with the plugin's version. At run time it loads from the app. | Nothing loads from outside, so there is no server to watch the choice. Fits versions being fixed (W3). An image that changes on the outside server stops changing. |
+| Copy at build. The build fetches every outside address a plugin names for an image, font or style, and stores the file with the plugin's version. At run time it loads from the app. | Nothing loads from outside, so there is no server to watch the choice. Fits versions being fixed (U2). An image that changes on the outside server stops changing. |
 | The implementor lists the outside hosts plugins may load from. None by default. | The leak is left open only to hosts the implementor chose. |
 | Show the addresses in the registry and accept it. | Relies on someone noticing 256 addresses on one host. |
 

@@ -22,7 +22,8 @@ Those three points are decided. How to meet them is proposed below.
 | **Build** | Turns stored source into a checked bundle and a manifest. | Bundling has limits that differ by runtime. |
 | **Model** | Runs the authoring agent's model calls. | The implementor chooses the model (U10). |
 
-Identity is not an adapter. It is a function the implementor writes (A9).
+Identity is an adapter too, but not a cloud one (A9). Thixo ships identity adapters for services such as Clerk, WorkOS,
+Auth0 and Cognito, and an implementor can write their own.
 
 The interfaces below show the intended size of each adapter. They are not complete.
 

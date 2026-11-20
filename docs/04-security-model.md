@@ -188,7 +188,7 @@ removals in place, and the WebKit-only results in Safari.
 
 | Requirement | Why |
 | --- | --- |
-| An identity function | Thixo asks it who the user is and which scopes they hold. Any session mechanism works, including a cookie. |
+| An identity adapter | Thixo asks it who the user is and which scopes they hold. Thixo ships adapters for common identity services, and a custom one can read any session, including a cookie. |
 | A signing key | Thixo signs the user's tokens with it. |
 | Plugin code never served bare from the app's origin | Opened directly without the sandbox header, it would run with the app's full authority. All plugin code goes through Thixo's plugin route. |
 | A host that allows setting response headers | The isolation is delivered by headers. |
