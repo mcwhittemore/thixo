@@ -8,10 +8,10 @@ The vocabulary the other docs use. Each word has one meaning here.
 | --- | --- |
 | **Implementor** | The developer who builds a product with Thixo. Thixo's direct user. |
 | **User** | A person using the implementor's product. |
-| **Author** | A user who writes a plugin, usually by asking the authoring agent for it. |
+| **Author** | A user who writes a plugin by asking the authoring agent for it. |
 
-The first implementor is the framework's own author. Everything is designed for a developer setting up an app for a
-team, where the team members are the users and some of them become authors.
+Everything is designed for a developer setting up an app for a team, where the team members are the users and some
+of them become authors.
 
 ## The app
 
