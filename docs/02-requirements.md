@@ -75,8 +75,9 @@ MUST, SHOULD and MAY carry their usual meaning: required, expected unless there 
 | P11 | A plugin has no network access. The message channel to the shell is its only way out. | Proposed |
 | P12 | A plugin that needs third-party data gets it through an API endpoint with a scope. | Proposed |
 
-P10, P11 and X8 rest on browser behaviour that has not been tested. They should not be accepted before the spike
-described in the [security model](04-security-model.md#the-spike).
+P10, P11 and X8 rest on browser behaviour. [The spike](04-security-model.md#the-spike) tested it: P10 held, X8 can
+stay, and P11 holds only with the policy the spike ended with. A stuck plugin can still freeze the app in Safari,
+and no requirement covers that yet.
 
 ## Authoring
 
