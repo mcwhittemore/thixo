@@ -133,8 +133,8 @@ event and context in the shell, which only the implementor can write.
 - Is clearing a value a delete?
 - Who sees an annotation: everyone, or can it be private like a store (D2)?
 - What is the boundary of a shared store: everyone in the app, a team, or the users of one plugin?
-- How does Tailor learn that a record was deleted, and what happens to its annotations?
-- How does Tailor check that a user may read one particular record before returning its annotations?
+- How does Thixo learn that a record was deleted, and what happens to its annotations?
+- How does Thixo check that a user may read one particular record before returning its annotations?
 - Who may delete a field's data from a lineage? How are export and erasure requests answered?
 - When a fork joins a lineage, can the parent's author refuse?
 - How does the source say whether a field is inherited or new, and how is a fork expressed at all?
@@ -176,7 +176,7 @@ The largest portability question. See [portability](06-portability.md#build).
   similar plugins?
 - How is the agent protected from instructions hidden in other people's plugins?
 - Can a person edit plugin source by hand, or only through the chat?
-- Which React helpers does Tailor ship for calls and plugin data, and how do they report loading and errors?
+- Which React helpers does Thixo ship for calls and plugin data, and how do they report loading and errors?
 
 ## Registry
 
@@ -194,11 +194,10 @@ The largest portability question. See [portability](06-portability.md#build).
 
 ### Name
 
-Tailor is a working title. Tailor Platform is an active company with a React framework for business apps, an SDK
-and a command-line tool called `tailor`. The bare npm name is taken.
+Decided: Thixo. See [decision 22](07-decisions.md#22-the-name-is-thixo). Still to do:
 
-- **Lean:** keep the working title while there is one user. Choose a name that doesn't collide before anything is
-  public.
+- Claim the npm name and scope, a GitHub organisation and a domain. Nothing has been registered.
+- Rename this repository, which is still called `tailor`.
 
 ### License
 
@@ -206,5 +205,5 @@ Not chosen. The repo is private until it is.
 
 ### Packages
 
-How the framework is split into packages, and what they are called, waits on the name. See
+How the framework is split into packages is not settled. See
 [the plan](../packages/readme.md).

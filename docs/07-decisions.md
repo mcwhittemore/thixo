@@ -12,11 +12,11 @@ started the project.
 
 ### 1. A framework, not an app
 
-Tailor is a framework in the vein of Next.js. Its user is a developer building a malleable product for other people.
+Thixo is a framework in the vein of Next.js. Its user is a developer building a malleable product for other people.
 
 - **Why:** the hard parts (containment, data that survives change, common ground) are the same for every such
   product.
-- **Turned down:** describing product flows, such as "the chat searches before it creates". Tailor exposes the
+- **Turned down:** describing product flows, such as "the chat searches before it creates". Thixo exposes the
   capability. The flow is the implementor's.
 - **Requirements:** W1, W2.
 
@@ -68,7 +68,7 @@ A plugin declaring one thing and doing another has to be impossible, not unlikel
 
 ### 8. The constraint is at the slot
 
-Tailor fixes what a plugin receives from its slot. It does not fix what the plugin renders. Design tokens and
+Thixo fixes what a plugin receives from its slot. It does not fix what the plugin renders. Design tokens and
 primitives ship as defaults.
 
 - **Why:** the software should be malleable, not constrained. A locked component library would undo the point.
@@ -146,7 +146,7 @@ Settled by Matthew Whittemore after reading the first draft.
 A scope says which calls a caller can make. It does not say which data a caller sees. There are no field-level
 permissions.
 
-- **Why:** Tailor provides security by enforcing scopes. What an endpoint returns is the app author's to get right.
+- **Why:** Thixo provides security by enforcing scopes. What an endpoint returns is the app author's to get right.
 - **Turned down:** a scope on a record field, with the framework leaving the field out for callers without it. Data
   that needs another scope gets its own endpoint.
 - **Requirements:** A12.
@@ -171,3 +171,15 @@ A different type needs a new field with a new name.
 - **Why:** a version must never read a value in a shape it doesn't expect.
 - **Turned down:** treating the same name with a new type as a second field.
 - **Requirements:** D8.
+
+### 22. The name is Thixo
+
+Replaces decision 17. From "thixotropic": a material that holds its shape at rest and flows when you work it, as
+potter's clay slip does. The API, slots and scopes hold firm while plugins flow.
+
+- **Why:** it states the property, and a check on 2026-11-19 found no software product, framework or company using
+  it. On npm, `thixo`, `thixojs`, `create-thixo` and the `@thixo` scope had nothing published.
+- **Turned down:** Tailor, which collides with Tailor Platform, an active React framework for business apps with a
+  `tailor` command-line tool. Also clay, putty, Greenware, Clathem and Pliant.
+- **Not done:** nothing has been registered or claimed. The GitHub account name `thixo` is taken; `thixojs` and
+  `thixodev` were free.

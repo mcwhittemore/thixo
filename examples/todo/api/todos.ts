@@ -1,10 +1,10 @@
 // Sketch. Nothing here runs yet. See ../readme.md.
 //
-// The app's API. Each endpoint carries its scopes (A2). Tailor generates the
+// The app's API. Each endpoint carries its scopes (A2). Thixo generates the
 // SDK that plugins import from this file, one function per endpoint (A10).
 
-import { endpoint, record } from "tailor/api";
-import { t } from "tailor/schema";
+import { endpoint, record } from "thixo/api";
+import { t } from "thixo/schema";
 import { db } from "./db";
 
 // A record is a type of thing in the app that plugins can attach annotations

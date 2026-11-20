@@ -1,28 +1,28 @@
 # Packages
 
-There are no packages yet. This is the plan for what will live here once code is accepted. Names wait on
-[the project name](../docs/08-open-questions.md#name).
+There are no packages yet. This is the plan for what will live here once code is accepted. The package names are not claimed yet. See
+[open questions](../docs/08-open-questions.md#name).
 
 | Package | What it owns |
 | --- | --- |
-| `tailor` | The core: the API layer, the shell and slots, the plugin SDK, the registry, the build checks and the plugin route. No provider code. |
-| `tailor-cloudflare` | Adapters for Cloudflare. The first to be built. |
-| `tailor-vercel` | Adapters for Vercel. |
-| `tailor-aws` | Adapters for AWS. |
-| `tailor-anthropic` | A model adapter. Others follow the same interface. |
-| `create-tailor-app` | Starts a new app from the todo example. |
+| `thixo` | The core: the API layer, the shell and slots, the plugin SDK, the registry, the build checks and the plugin route. No provider code. |
+| `thixo-cloudflare` | Adapters for Cloudflare. The first to be built. |
+| `thixo-vercel` | Adapters for Vercel. |
+| `thixo-aws` | Adapters for AWS. |
+| `thixo-anthropic` | A model adapter. Others follow the same interface. |
+| `create-thixo-app` | Starts a new app from the todo example. |
 
 What the core exposes, as the todo example imports it:
 
 | Import | For |
 | --- | --- |
-| `tailor` | `defineConfig` |
-| `tailor/api` | `endpoint`, `record`, `defineScopes` |
-| `tailor/schema` | `t`, the one way to describe a type, used by the API, slots and plugin data |
-| `tailor/shell` | `Shell`, `Slot`, `slot`, `AuthoringChat` |
-| `tailor/plugin` | `definePlugin` and the React helpers: `useQuery`, `useCan`, `useAnnotation`, `useStore` |
-| `tailor/data` | `store`, `annotate` |
-| `tailor/ui` | Default components and design tokens |
+| `thixo` | `defineConfig` |
+| `thixo/api` | `endpoint`, `record`, `defineScopes` |
+| `thixo/schema` | `t`, the one way to describe a type, used by the API, slots and plugin data |
+| `thixo/shell` | `Shell`, `Slot`, `slot`, `AuthoringChat` |
+| `thixo/plugin` | `definePlugin` and the React helpers: `useQuery`, `useCan`, `useAnnotation`, `useStore` |
+| `thixo/data` | `store`, `annotate` |
+| `thixo/ui` | Default components and design tokens |
 
 Generated for each app:
 

@@ -3,7 +3,7 @@
 // The app's scopes, each with the words the registry uses when it describes
 // a plugin to a person ("reads todos, deletes todos").
 
-import { defineScopes } from "tailor/api";
+import { defineScopes } from "thixo/api";
 
 export const scopes = defineScopes({
   "todos.read": "Read todos",

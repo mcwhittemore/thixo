@@ -1,6 +1,6 @@
 # Requirements
 
-What Tailor must do. This is the document to argue with.
+What Thixo must do. This is the document to argue with.
 
 Each requirement has a status:
 
@@ -14,8 +14,8 @@ MUST, SHOULD and MAY carry their usual meaning: required, expected unless there 
 
 | # | Requirement | Status |
 | --- | --- | --- |
-| W1 | Tailor is a framework, in the vein of Next.js. Its user is the implementor: a developer building a malleable product. | Decided |
-| W2 | Tailor provides capabilities. The product flows built on them belong to the implementor. | Decided |
+| W1 | Thixo is a framework, in the vein of Next.js. Its user is the implementor: a developer building a malleable product. | Decided |
+| W2 | Thixo provides capabilities. The product flows built on them belong to the implementor. | Decided |
 | W3 | The first target is a team inside one company, where users are colleagues. | Decided |
 | W4 | Nothing in the design MAY rely on users trusting each other. The limits on a plugin hold for a stranger's plugin too. | Decided |
 
@@ -31,8 +31,8 @@ MUST, SHOULD and MAY carry their usual meaning: required, expected unless there 
 | A6 | Tokens are JWTs, and a token's scopes are readable as claims. | Decided |
 | A7 | The API is a fixed writing surface. A plugin can't add or change endpoints. | Decided |
 | A8 | Versioning the API is outside the plugin space. | Decided |
-| A9 | Tailor does not own identity. The implementor tells Tailor who the user is and which scopes they hold. | Proposed |
-| A10 | Tailor MUST generate the SDK from the API definition, with one function per endpoint. | Proposed |
+| A9 | Thixo does not own identity. The implementor tells Thixo who the user is and which scopes they hold. | Proposed |
+| A10 | Thixo MUST generate the SDK from the API definition, with one function per endpoint. | Proposed |
 | A11 | The API names its record types and the scopes needed to read each, so plugin data can attach to them. | Proposed |
 | A12 | Scopes say which API calls a caller can make. They do not say which data a caller can see. What an endpoint returns is the implementor's to get right. | Decided |
 
@@ -43,10 +43,10 @@ MUST, SHOULD and MAY carry their usual meaning: required, expected unless there 
 | S1 | A base React app provides the always-on functionality, defines where plugins go and ships the default plugins. | Decided |
 | S2 | The constraint on a plugin sits at the slot, not at the components. | Decided |
 | S3 | A plugin MAY render anything inside its slot. | Decided |
-| S4 | Tailor ships design tokens and primitive components as defaults. Using them is never required. | Decided |
+| S4 | Thixo ships design tokens and primitive components as defaults. Using them is never required. | Decided |
 | S5 | Slots come in a short, fixed set of kinds. | Decided |
 | S6 | The kinds are page, panel and widget to start. | Proposed |
-| S7 | The implementor MUST NOT have to write a frame, a sandbox attribute or a message handler. They place a slot and Tailor does the rest. | Proposed |
+| S7 | The implementor MUST NOT have to write a frame, a sandbox attribute or a message handler. They place a slot and Thixo does the rest. | Proposed |
 | S8 | A plugin reaches anything outside its frame through shell services in the SDK: navigation, modals, clipboard, downloads. | Proposed |
 | S9 | Every filled slot is one frame. A list of items is one plugin rendering the list, not one plugin per row. | Proposed |
 | S10 | Each user has a layout saying which plugin versions fill which slots. The implementor sets the defaults. | Proposed |
@@ -82,11 +82,11 @@ described in the [security model](04-security-model.md#the-spike).
 
 | # | Requirement | Status |
 | --- | --- | --- |
-| U1 | Tailor provides a chat interface where a user describes a plugin and an agent writes it. | Decided |
+| U1 | Thixo provides a chat interface where a user describes a plugin and an agent writes it. | Decided |
 | U2 | Every version of a plugin is stored. Versions are distinct. There is no concept of branches. | Decided |
 | U3 | Plugin source lives in object storage, such as R2 or S3. | Decided |
 | U4 | The registry MUST build a plugin from its source. It never accepts a prebuilt bundle. | Proposed |
-| U5 | The build enforces an import allowlist: the SDK, the app's slot definitions, React, Tailor's own modules and the plugin's own files. Dynamic imports are rejected. | Proposed |
+| U5 | The build enforces an import allowlist: the SDK, the app's slot definitions, React, Thixo's own modules and the plugin's own files. Dynamic imports are rejected. | Proposed |
 | U6 | The build flags any use of a global outside an allowlist. | Proposed |
 | U7 | The build produces the manifest: endpoints used, scopes, data schema and its hash, shell services. | Proposed |
 | U8 | The authoring agent runs the same checks while it writes, so a failed build is feedback to the agent before a person sees it. | Proposed |
@@ -130,14 +130,14 @@ described in the [security model](04-security-model.md#the-spike).
 | X2 | Storing and reading plugin code MUST be pluggable. | Decided |
 | X3 | The first proof of concept runs on Cloudflare. | Decided |
 | X4 | Vercel and AWS MUST be supported. | Decided |
-| X5 | Tailor's server code is written against the web-standard `Request` and `Response`, so one core runs on every target. | Proposed |
+| X5 | Thixo's server code is written against the web-standard `Request` and `Response`, so one core runs on every target. | Proposed |
 | X6 | Provider-specific code lives only in adapters: code storage, data storage, build and model. | Proposed |
 | X7 | No feature MAY depend on something only one provider offers. | Proposed |
-| X8 | Tailor MUST work on a single domain. Isolation can't require the implementor to own a second one. | Proposed |
+| X8 | Thixo MUST work on a single domain. Isolation can't require the implementor to own a second one. | Proposed |
 
 ## Not requirements
 
-Things Tailor deliberately does not do:
+Things Thixo deliberately does not do:
 
 - **Own login.** The implementor brings identity (A9).
 - **Lock the design.** There is no required component library (S4).

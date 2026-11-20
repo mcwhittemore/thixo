@@ -1,12 +1,12 @@
 // Sketch. Nothing here runs yet. See ./readme.md.
 
-import { defineConfig } from "tailor";
-import { cloudflare } from "tailor-cloudflare";
-import { anthropic } from "tailor-anthropic";
+import { defineConfig } from "thixo";
+import { cloudflare } from "thixo-cloudflare";
+import { anthropic } from "thixo-anthropic";
 import { readSession } from "./api/session";
 
 export default defineConfig({
-  // Tailor does not own login (A9). The implementor says who is calling and
+  // Thixo does not own login (A9). The implementor says who is calling and
   // which scopes they hold.
   identity: async (request) => {
     const session = await readSession(request);

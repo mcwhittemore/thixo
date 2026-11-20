@@ -69,7 +69,7 @@ That is why this layer isn't trusted alone.
   only what a plugin needs to draw: inline styles, and images from data the plugin already holds. Images from the
   app arrive through the broker.
 - **No code from strings:** the policy leaves out `unsafe-eval`, so `eval` and the `Function` constructor fail.
-- **Host document runs first:** Tailor owns the document inside the frame. Before the plugin loads, it removes
+- **Host document runs first:** Thixo owns the document inside the frame. Before the plugin loads, it removes
   constructors a plugin must not have, such as `RTCPeerConnection`.
 - **No child frames, workers or popups:** each would give the plugin a fresh copy of what the host document removed.
 - **Frames stay put:** the shell's own policy limits what its frames may load.
@@ -113,7 +113,7 @@ should answer each of these in current Chrome, Safari and Firefox.
 | Does a sandboxed frame on the app's own domain share a process with the shell? | If so, a plugin stuck in a loop freezes the whole app, and timing attacks on the shell's memory are possible. |
 | Can WebRTC or DNS lookups still reach outside hosts? | Low-bandwidth leaks. |
 | Can the plugin's bundle load as a module in a frame with no origin? | If not, the bundle has to be inlined into the host document. |
-| Do inline styles and Tailor's components render under the policy? | "Render anything" (S3) depends on it. |
+| Do inline styles and Thixo's components render under the policy? | "Render anything" (S3) depends on it. |
 
 If the answers are bad, the alternative is to serve plugins from a separate domain, which the browser isolates much
 more strongly. That conflicts with X8 as written. All three first targets can provide a second hostname, so X8 may
@@ -123,9 +123,9 @@ be the requirement to give up.
 
 | Requirement | Why |
 | --- | --- |
-| An identity function | Tailor asks it who the user is and which scopes they hold. Any session mechanism works, including a cookie. |
-| A signing key | Tailor signs narrowed tokens with it. |
-| Plugin code never served bare from the app's origin | Opened directly without the sandbox header, it would run with the app's full authority. All plugin code goes through Tailor's plugin route. |
+| An identity function | Thixo asks it who the user is and which scopes they hold. Any session mechanism works, including a cookie. |
+| A signing key | Thixo signs narrowed tokens with it. |
+| Plugin code never served bare from the app's origin | Opened directly without the sandbox header, it would run with the app's full authority. All plugin code goes through Thixo's plugin route. |
 | A host that allows setting response headers | The isolation is delivered by headers. |
 | A content security policy that allows the plugin frames | The app must permit framing the plugin route, and only that. |
 
@@ -135,7 +135,7 @@ be the requirement to give up.
   SDK.
 - **No direct network.** Third-party data comes through an API endpoint with a scope (P12).
 - **No reach outside the frame.** Navigation, modals, clipboard and downloads are shell services (S8).
-- **No third-party libraries,** at least to start (U5). No chart or date library unless Tailor ships one.
+- **No third-party libraries,** at least to start (U5). No chart or date library unless Thixo ships one.
 - **No background work.** A plugin runs only while it is on screen.
 
 ## Options held in reserve

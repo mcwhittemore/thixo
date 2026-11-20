@@ -6,7 +6,7 @@ The vocabulary the other docs use. Each word has one meaning here.
 
 | Word | Meaning |
 | --- | --- |
-| **Implementor** | The developer who builds a product with Tailor. Tailor's direct user. |
+| **Implementor** | The developer who builds a product with Thixo. Thixo's direct user. |
 | **User** | A person using the implementor's product. |
 | **Author** | A user who writes a plugin, usually by asking the authoring agent for it. |
 
@@ -63,7 +63,7 @@ team, where the team members are the users and some of them become authors.
 | **Authoring agent** | The agent behind the chat interface. It writes plugins and can search the registry. |
 | **Narrowed token** | A token the API issues for one user and one plugin version. It is good only for the endpoints in that version's manifest, within the scopes the user and the plugin's author both hold. |
 | **Broker** | The part of the shell that carries a plugin's SDK calls to the API. |
-| **Adapter** | The piece that connects Tailor to one provider's storage, database, build or model service. |
+| **Adapter** | The piece that connects Thixo to one provider's storage, database, build or model service. |
 
 ## Visibility
 

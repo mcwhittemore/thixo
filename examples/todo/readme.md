@@ -1,8 +1,8 @@
 # Todo example
 
-A basic todo app written the way a Tailor app should read.
+A basic todo app written the way a Thixo app should read.
 
-> **This is a sketch. It does not run.** The `tailor` packages it imports don't exist. The example is here to test
+> **This is a sketch. It does not run.** The `thixo` packages it imports don't exist. The example is here to test
 > the [requirements](../../docs/02-requirements.md): if something is awkward to write here, the requirement behind it
 > is wrong. Every name in it is open to change.
 
@@ -20,7 +20,7 @@ app/
 plugins/
   todo-list/       a default plugin: the list itself
   due-dates/       a plugin of the kind a user would ask for
-tailor.config.ts   identity, adapters and the default layout
+thixo.config.ts   identity, adapters and the default layout
 ```
 
 ## What each file shows
@@ -33,7 +33,7 @@ tailor.config.ts   identity, adapters and the default layout
 | [plugins/todo-list/plugin.tsx](plugins/todo-list/plugin.tsx) | Scopes derived from imports. Required and optional endpoints. A grayed-out action. | P2, P4, P5, P13 |
 | [plugins/due-dates/data.ts](plugins/due-dates/data.ts) | An annotation and a private store, declared as literals. | D1, D2, D3, U11 |
 | [plugins/due-dates/plugin.tsx](plugins/due-dates/plugin.tsx) | Reading and patching plugin data. | D6 |
-| [tailor.config.ts](tailor.config.ts) | The implementor's identity function. Adapters in one place. | A9, X6, U10, S10 |
+| [thixo.config.ts](thixo.config.ts) | The implementor's identity function. Adapters in one place. | A9, X6, U10, S10 |
 
 ## What the build would derive
 
@@ -93,9 +93,9 @@ question.
    can write them, and the build can't derive them.
 7. **Scopes need words.** The plain summary shown at submission comes from a description on each scope.
 8. **Plugins need React helpers.** `useQuery`, `useCan`, `useAnnotation` and `useStore` are assumed here. Which
-   helpers Tailor ships, and how they report loading and errors, is not designed.
+   helpers Thixo ships, and how they report loading and errors, is not designed.
 9. **Scopes are about calls, not data.** An earlier draft had each handler strip `assignee` for callers without
-   `people.read`, and two of the five forgot. Field-level permission is not Tailor's job. Assignees are now their own
+   `people.read`, and two of the five forgot. Field-level permission is not Thixo's job. Assignees are now their own
    endpoint with their own scope. (A12)
 
 ## What a second test surfaced

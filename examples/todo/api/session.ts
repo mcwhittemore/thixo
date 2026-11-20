@@ -1,7 +1,7 @@
 // Sketch. Nothing here runs yet. See ../readme.md.
 //
 // The app's own login, standing in for whatever the implementor uses. It
-// answers one question for Tailor: who is calling, and which scopes do they
+// answers one question for Thixo: who is calling, and which scopes do they
 // hold?
 
 type Session = { userId: string; scopes: string[] };

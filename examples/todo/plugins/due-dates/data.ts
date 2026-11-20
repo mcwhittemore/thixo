@@ -5,8 +5,8 @@
 // written as plain literals so the build can read it without running it
 // (U11).
 
-import { annotate, store } from "tailor/data";
-import { t } from "tailor/schema";
+import { annotate, store } from "thixo/data";
+import { t } from "thixo/schema";
 import { Todo } from "@app/sdk";
 
 // An annotation: a field this plugin attaches to the app's todos. The app's

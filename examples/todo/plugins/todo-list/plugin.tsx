@@ -10,8 +10,8 @@
 //                                        optional endpoints)
 
 import { useState } from "react";
-import { definePlugin, useCan, useQuery } from "tailor/plugin";
-import { Button, Checkbox, Stack, TextInput } from "tailor/ui";
+import { definePlugin, useCan, useQuery } from "thixo/plugin";
+import { Button, Checkbox, Stack, TextInput } from "thixo/ui";
 import { main } from "@app/slots";
 import { listTodos, createTodo, updateTodo } from "@app/sdk";
 import { deleteTodo, listAssignees } from "@app/sdk/optional";

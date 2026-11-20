@@ -8,8 +8,8 @@
 //   data:     annotation on todo { dueOn: date }
 //             private store prefs { warnDaysBefore: number }
 
-import { definePlugin, useAnnotation, useQuery, useStore } from "tailor/plugin";
-import { DateInput, NumberInput, Stack, Text } from "tailor/ui";
+import { definePlugin, useAnnotation, useQuery, useStore } from "thixo/plugin";
+import { DateInput, NumberInput, Stack, Text } from "thixo/ui";
 import { todoDetail } from "@app/slots";
 import { getTodo } from "@app/sdk";
 import { due, prefs } from "./data";

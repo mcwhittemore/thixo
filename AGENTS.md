@@ -1,4 +1,4 @@
-# Tailor
+# Thixo
 
 A framework for building malleable SaaS products. See [readme.md](readme.md).
 

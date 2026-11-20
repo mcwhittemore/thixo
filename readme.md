@@ -1,16 +1,16 @@
-# Tailor
+# Thixo
 
-Tailor is a framework for building malleable SaaS products: apps whose own users can change them.
+Thixotropic: holds its shape at rest, flows when you work it.
 
-A developer uses Tailor the way they would use Next.js. They define an API and a base app. Tailor adds the part that
+Thixo is a framework for building malleable SaaS products: apps whose own users can change them.
+
+A developer uses Thixo the way they would use Next.js. They define an API and a base app. Thixo adds the part that
 is hard to build yourself: a safe way for the people using the app to write, share and run their own plugins inside
 it.
 
 > **Status: requirements.** There is no framework code yet. This repo holds the intent, the decisions made so far and
 > the questions still open, so they can be argued with before any code is accepted. Start with
 > [the requirements](docs/02-requirements.md).
-
-"Tailor" is a working title. See [open questions](docs/08-open-questions.md#name).
 
 ## Why
 
@@ -28,7 +28,7 @@ missing is a place to put that code:
 - **Data has to survive the changes.** A plugin that adds a field today and is forked tomorrow must not lose what
   people have already written.
 
-Tailor's position is that these are framework problems. A developer building a malleable product should get them
+Thixo's position is that these are framework problems. A developer building a malleable product should get them
 solved by default, and should not be able to get them wrong.
 
 ## The four parts
@@ -93,7 +93,7 @@ written toward.
 
 ## Principles
 
-- **Malleable, not constrained.** A plugin can render anything inside its slot. Tailor fixes the edges (the slot, the
+- **Malleable, not constrained.** A plugin can render anything inside its slot. Thixo fixes the edges (the slot, the
   API, the data rules) and leaves the middle open.
 - **The code is the source of truth.** A plugin's scopes come from the endpoints it imports, and its data schema from
   the types it declares. Nobody maintains a list by hand.
@@ -108,7 +108,7 @@ written toward.
 | Doc | What it answers |
 | --- | --- |
 | [Concepts](docs/01-concepts.md) | What the words mean |
-| [Requirements](docs/02-requirements.md) | What Tailor must do, and how settled each point is |
+| [Requirements](docs/02-requirements.md) | What Thixo must do, and how settled each point is |
 | [Architecture](docs/03-architecture.md) | How the parts fit and what happens on a call |
 | [Security model](docs/04-security-model.md) | How a plugin is contained, and the known gaps |
 | [Plugin data](docs/05-plugin-data.md) | Stores, annotations, schema hashes and forks |
@@ -120,6 +120,6 @@ written toward.
 
 ```
 docs/          the requirements and design, in reading order
-examples/      apps built with Tailor; today, one sketch
+examples/      apps built with Thixo; today, one sketch
 packages/      the framework's packages; today, a plan
 ```

@@ -7,7 +7,7 @@ Those three points are decided. How to meet them is proposed below.
 
 ## The approach
 
-1. **One core on web standards (X5).** Every server part of Tailor is a function from a `Request` to a `Response`.
+1. **One core on web standards (X5).** Every server part of Thixo is a function from a `Request` to a `Response`.
    Cloudflare Workers and Vercel Functions run that shape directly. AWS Lambda runs it behind a thin wrapper.
 2. **Adapters for everything provider-specific (X6).** The core never imports a provider's SDK.
 3. **The smallest interface that works on all three (X7).** If one provider can't support an adapter method, the
@@ -86,7 +86,7 @@ interface ModelAdapter {
 }
 ```
 
-The agent's tools (search the registry, read a plugin, write files, run the build) are Tailor's and are the same on
+The agent's tools (search the registry, read a plugin, write files, run the build) are Thixo's and are the same on
 every provider.
 
 An agent that takes several turns, calls tools and runs builds does not fit inside one short request. That is in
@@ -115,10 +115,10 @@ Candidates, not commitments. None of these has been tested.
 ## What an implementor sees
 
 ```ts
-// tailor.config.ts
-import { defineConfig } from "tailor";
-import { cloudflare } from "tailor-cloudflare";
-import { anthropic } from "tailor-anthropic";
+// thixo.config.ts
+import { defineConfig } from "thixo";
+import { cloudflare } from "thixo-cloudflare";
+import { anthropic } from "thixo-anthropic";
 
 export default defineConfig({
   adapters: cloudflare({ code: "PLUGINS", data: "DB" }),

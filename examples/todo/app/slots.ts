@@ -4,8 +4,8 @@
 // contract (S11): the context the shell passes in, and the events a plugin
 // can send back.
 
-import { slot } from "tailor/shell";
-import { t } from "tailor/schema";
+import { slot } from "thixo/shell";
+import { t } from "thixo/schema";
 
 // The main area of the app. One plugin fills it.
 export const main = slot.page({

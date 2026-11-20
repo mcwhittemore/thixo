@@ -15,20 +15,20 @@ one. Where a section depends on a requirement, it says which.
 | Shell | Browser | The base app. Places slots, loads plugins, runs the broker. |
 | Plugin | Browser, in a sandboxed frame | Renders into its slot. Calls the SDK. |
 
-Tailor owns all of these except the endpoint handlers and the shell's own content.
+Thixo owns all of these except the endpoint handlers and the shell's own content.
 
 ## What the implementor writes
 
-Following Next.js, Tailor reads an app from its folders:
+Following Next.js, Thixo reads an app from its folders:
 
 ```
 api/        endpoints, each with its scopes
 app/        the shell: the always-on app and its slots
 plugins/    the default plugins, one folder each
-tailor.config.ts
+thixo.config.ts
 ```
 
-From `api/`, Tailor generates the SDK. From `app/`, it knows the slots. From `plugins/`, it builds the default
+From `api/`, Thixo generates the SDK. From `app/`, it knows the slots. From `plugins/`, it builds the default
 plugins through the same pipeline a user's plugin goes through.
 
 ## From source to a running plugin
@@ -77,9 +77,9 @@ trusts, and why, is in the [security model](04-security-model.md#what-is-trusted
 
 ### Where the narrowed token comes from
 
-1. The shell asks Tailor's API layer for a token for one plugin version, using the user's ordinary session.
-2. Tailor calls the implementor's identity function to learn who the user is and which scopes they hold (A9).
-3. Tailor signs a short-lived token naming the user and the version.
+1. The shell asks Thixo's API layer for a token for one plugin version, using the user's ordinary session.
+2. Thixo calls the implementor's identity function to learn who the user is and which scopes they hold (A9).
+3. Thixo signs a short-lived token naming the user and the version.
 4. The broker keeps it and attaches it to that plugin's calls. The plugin never sees it (P8).
 
 The manifest records endpoints, not scopes. Scopes are looked up from the endpoints when a token is checked, so a
@@ -89,7 +89,7 @@ change to an endpoint's scopes takes effect without rebuilding any plugin.
 
 1. The shell reads the user's layout to see which version fills each slot (S10).
 2. For each filled slot, the shell renders a sandboxed frame pointed at the plugin route.
-3. The plugin route returns Tailor's host document and the built bundle, with headers that block network access and
+3. The plugin route returns Thixo's host document and the built bundle, with headers that block network access and
    limit who can frame it.
 4. The host document runs first. It removes the browser features a plugin must not have, opens a message channel to
    the shell and loads the bundle.
@@ -108,7 +108,7 @@ The SDK a plugin imports is a thin stub. Each function sends a message to the br
 - **Records come from the SDK too.** A plugin imports a record to annotate it, and gets its type.
 - **Fixed modules for plugin data and shell services,** which are the same in every app.
 
-The names `@app/sdk` and `tailor/...` are placeholders.
+The names `@app/sdk` and `thixo/...` are placeholders.
 
 ## Scopes, end to end
 

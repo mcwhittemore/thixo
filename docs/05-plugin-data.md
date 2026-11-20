@@ -7,7 +7,7 @@ The settled points are D1, D3, D4, D5 and D9. The rules that deliver them (D6 to
 
 ## Two fixed resources
 
-The API is a fixed writing surface (A7), so a plugin can't add a table or a column. Tailor adds two resources to
+The API is a fixed writing surface (A7), so a plugin can't add a table or a column. Thixo adds two resources to
 every app's API, the same everywhere:
 
 - **Store:** the plugin's own records. A store is private to one user or shared by everyone using the plugin (D2).
@@ -103,9 +103,9 @@ change how it looks and lose nothing.
 
 ## Records the app owns
 
-An annotation attaches to a record that lives in the implementor's own storage, which Tailor can't see. Tailor
+An annotation attaches to a record that lives in the implementor's own storage, which Thixo can't see. Thixo
 therefore can't tell whether a record exists, whether this user may read that particular one, or whether it has been
-deleted. The record definition (A11) will need to give Tailor a way to ask, and a signal when a record is removed.
+deleted. The record definition (A11) will need to give Thixo a way to ask, and a signal when a record is removed.
 This is open.
 
 ## Reading many records

@@ -1,6 +1,6 @@
 # Contributing
 
-Tailor is at the requirements stage. The work right now is on the documents, not on code.
+Thixo is at the requirements stage. The work right now is on the documents, not on code.
 
 ## How a change is made
 

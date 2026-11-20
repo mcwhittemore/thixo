@@ -5,7 +5,7 @@
 // message handler here; <Slot> does that (S7).
 
 import { useState } from "react";
-import { Shell, Slot, AuthoringChat } from "tailor/shell";
+import { Shell, Slot, AuthoringChat } from "thixo/shell";
 import { main, todoDetail } from "./slots";
 
 export default function App() {
