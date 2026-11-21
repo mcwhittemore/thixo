@@ -27,13 +27,13 @@ thixo.config.ts   identity, adapters and the default layout
 
 | File | Shows | Requirements |
 | --- | --- | --- |
-| [api/todos.ts](api/todos.ts) | Endpoints with their scopes. Endpoints needing two scopes. A record. Data that needs another scope as its own endpoint. | A2, A3, A11, A12 |
-| [app/slots.ts](app/slots.ts) | Two slots with contracts: context in, events out. One plugin fills each. | S5, S11, S12 |
-| [app/shell.tsx](app/shell.tsx) | An ordinary React app. No frame or message code. | S1, S7 |
-| [plugins/todo-list/plugin.tsx](plugins/todo-list/plugin.tsx) | Scopes derived from imports. Required and optional endpoints. A grayed-out action. | P2, P4, P5, P13 |
-| [plugins/due-dates/data.ts](plugins/due-dates/data.ts) | An annotation and a private store, declared as literals. | D1, D2, D3, U11 |
+| [api/todos.ts](api/todos.ts) | Endpoints with their scopes. Endpoints needing two scopes. A record. Data that needs another scope as its own endpoint. | A2, A3, A10, A12 |
+| [app/slots.ts](app/slots.ts) | Two slots with contracts: context in, events out. One plugin fills each. | S5, S10, S12 |
+| [app/shell.tsx](app/shell.tsx) | An ordinary React app. No code to wire up plugins. | S1, S7 |
+| [plugins/todo-list/plugin.tsx](plugins/todo-list/plugin.tsx) | Scopes derived from imports. Required and optional endpoints. A grayed-out action. | P2, P4 |
+| [plugins/due-dates/data.ts](plugins/due-dates/data.ts) | An annotation and a private store, declared as literals. | D1, D2, D3, U8 |
 | [plugins/due-dates/plugin.tsx](plugins/due-dates/plugin.tsx) | Reading and patching plugin data. | D6 |
-| [thixo.config.ts](thixo.config.ts) | The implementor's own identity adapter. Adapters in one place. | A9, X6, U10, S10 |
+| [thixo.config.ts](thixo.config.ts) | The implementor's own identity adapter. Adapters in one place. | A8, X4, U7, S9 |
 
 ## What the build would derive
 
@@ -70,25 +70,24 @@ What should happen when a user changes someone else's plugin. No code for this e
 2. The agent searches the registry, finds due-dates and forks its current version.
 3. It adds `remindAt` to the annotation in `data.ts` and a field to the panel.
 4. The build passes. The registry reports: one field added, nothing hidden. Scopes unchanged.
-5. Ana's fork joins the lineage of Ben's plugin. Every due date already set is there.
+5. Ana's fork reads through to the data of Ben's plugin. Every due date already set is there.
 6. Ben, still on his own version, never sees `remindAt` and can't overwrite it.
 7. Ana shares her fork. Ben can switch to it and lose nothing.
 
 ## What writing this surfaced
 
-Things the example needed that the requirements had not said. Each is now a proposed requirement or an open
+Things the example needed that the requirements had not said. Each is now a requirement or an open
 question.
 
 1. **Slots need events out.** The list has to tell the shell which todo was picked so the panel can open. A slot's
-   contract is context in and events out, and the shell passes information between plugins. (S11)
+   contract is context in and events out, and the shell passes information between plugins. (S10)
 2. **The API has to name its records.** An annotation attaches to "a todo", so the app must say what a todo is and
-   which scopes read one. (A11, D13)
+   which scopes read one. (A10, D12)
 3. **Data declarations carry scopes too.** Annotating a todo requires being able to read todos, so the build derives
    scopes from `data.ts` as well as from endpoint imports.
 4. **Plugins import the slot definitions.** A plugin gets its typed context from `@app/slots`, so that module is
-   generated and allowed like the SDK. (U5)
-5. **A slot holds one plugin or many.** The main area has one. The detail panel has any number, each in its own
-   frame.
+   generated and allowed like the SDK. (U4)
+5. **A slot holds one plugin.** The main area has one, and so does the detail panel. (S12)
 6. **One thing is still written by hand: the description.** Search needs words about what a plugin is for. The agent
    can write them, and the build can't derive them.
 7. **Scopes need words.** The plain summary shown at submission comes from a description on each scope.
@@ -107,7 +106,7 @@ tag". It could be written only as a fork of the whole todo list, and it exposed 
 1. **A tags editor in the panel and tags in the list can't be two plugins.** They could not share the `tags` field.
 2. **Adding anything to a row means forking the list.** The fork then stops getting the implementor's updates.
 3. **Annotations are read one record at a time.** Fifty todos means fifty calls.
-4. **Filtering happens in the frame.** The API knows nothing about annotations, so the plugin loads everything and
+4. **Filtering happens in the plugin.** The API knows nothing about annotations, so the plugin loads everything and
    hides rows.
 5. **A fork is not expressed anywhere in the source.** Nor is switching a user's layout to the new fork.
 6. **A patch replaces a whole list.** Two people tagging the same todo can overwrite each other.

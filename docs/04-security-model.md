@@ -1,29 +1,29 @@
 # Security model
 
-How a plugin is contained. The requirement is P1: it must be impossible for a plugin to make a call outside its
-scopes. The rest of this document is the proposed way to meet it, what it does not cover, and what has to be tested
-before it is accepted.
+How a plugin is contained. The requirement is P1: it MUST be impossible for a plugin to make a call outside its
+scopes. A plugin's code runs in the app's page, compiled from the plugin language (P7), so what contains it is the
+language and the broker, not a sandbox. This document says how that works, what it does not cover, and what has to
+be tested.
 
 ## What we are defending against
 
-A plugin is code written by an agent or by another person, running in front of a user who may hold more access than
-its author.
+A plugin is code written by an agent for one person and shared with others, running in front of a user who may hold
+more access than its author.
 
 | Threat | Example | Covered by |
 | --- | --- | --- |
 | Calling past its scopes | A plugin built with only `getTodo` calls a payroll endpoint with an admin's access. | This document |
 | Stealing the session | A plugin reads the user's cookie or token. | This document |
-| Leaking data to the outside | A plugin allowed to read todos sends them to an outside server. | This document, with gaps |
+| Leaking data to the outside | A plugin allowed to read todos sends them to an outside server. | This document |
 | Reaching into the app | A plugin reads or changes the shell's page, or another plugin's. | This document, with gaps |
 | Destroying data | A plugin version wipes what another version wrote. | [Plugin data](05-plugin-data.md) |
-| Using an admin's access | A plugin that openly imports a payroll endpoint is shared by someone who can't run payroll, and an admin uses it. | The author cap (P14) |
-| Moving data between users | A plugin reads with one user's access and writes into a shared store its author can read. | **Not covered** |
+| Using an admin's access | A plugin that openly imports a payroll endpoint is shared by someone who can't run payroll, and an admin uses it. | The author cap (P3) |
+| Moving data between users | A plugin reads with one user's access and writes it into an annotation other users can see. | **Not covered** |
+| Hanging the app | A plugin, or a library it was given, loops forever. | **Not covered** |
 
-The last row is not solved. See [what P1 does not cover](#what-p1-does-not-cover).
+The last two rows are not solved. See [what P1 does not cover](#what-p1-does-not-cover).
 
-The first target is colleagues in one company, where the likely cause is a mistake or an agent doing more than it
-was asked. The model is built for the stranger case anyway (W4), because retrofitting isolation is the hard
-direction.
+The model is built for strangers' plugins (W3), because retrofitting containment is the hard direction.
 
 ## What is trusted
 
@@ -32,80 +32,79 @@ P1 holds only if these hold. Everything else is treated as hostile.
 | Trusted | For what |
 | --- | --- |
 | The API | Verifying tokens and enforcing the user's scopes. |
-| The registry's build | Deriving the manifest from the source it stores. |
-| The shell, including the broker | Knowing which frame a message came from, holding each plugin to its manifest and its author's scopes, and never handing a plugin the user's session or token. |
-| The browser's sandbox | Keeping a plugin's frame apart from the shell's page. |
+| The compiler | Turning the language into JavaScript that reaches only what the language allows. Its output is the only plugin code that runs. |
+| The shell, including the broker | Holding each plugin to its manifest and its author's scopes, and never handing a plugin the user's session or token. |
+| Libraries the implementor exposes | They are ordinary JavaScript, outside the language, trusted the way the app's own code is (L3). |
 
 Two consequences worth stating:
 
 - **The API can't see a plugin.** The broker is the only thing holding a plugin to its manifest. A shell that lies,
   or a broker with a bug, can do anything the user can. That is acceptable, because the shell already holds the
   user's session.
-- **The broker must tie each message to a frame.** It does this by giving each frame its own message channel. A
-  sandboxed frame has no usable origin to check.
+- **The compiler is the whole wall.** There is no sandbox behind it. One bug in what it lets through gives a plugin
+  the page and the session, so it is tested by an agent whose only job is to break out.
 
 ## Three layers
 
 ### At build
 
-The registry builds every version from source and never accepts a prebuilt bundle (U4), so the checks run on exactly
-the code that ships.
+The registry compiles every version from its source, so the checks run on exactly the code that ships.
 
-- **Import allowlist (U5):** the list is in the requirement. Static imports can be read from the source with
-  certainty. Dynamic imports are rejected.
-- **Endpoint and scope derivation (P2, P13):** the endpoints imported are what the plugin may call.
-- **Globals check (U6):** any reference to a name outside an allowlist is flagged. This catches direct use of
-  `fetch`, `RTCPeerConnection`, `location`, `eval` and the like.
+- **Only the language (L1):** anything that isn't in the language is an error. The compiler works from what is
+  allowed, never from a list of what is banned.
+- **Imports (L2, L3, U4):** the SDK, the slot definitions and the libraries the implementor exposes. Dynamic imports
+  are rejected.
+- **Endpoint and scope derivation (P2):** the endpoints imported are what the plugin may call.
+- **The manifest (L8):** endpoints, scopes, data schema and shell services, derived, never written by hand.
 - **Schema extraction (D3):** the data fields and their hash come from the plugin's declarations, which are written
-  in a literal form so the build can read them without running the code (U11).
+  in a literal form so the build can read them without running the code (U8).
 
-Static analysis of JavaScript can't prove a plugin never reaches something, because code can build names at runtime.
-That is why this layer isn't trusted alone.
+### In the page
 
-### In the browser
-
-- **Sandboxed frame (P10):** the plugin runs in a frame with scripts allowed and same-origin access not allowed. The
-  browser gives it an origin of its own, so it can't read the shell's cookies, storage or page.
-- **No network (P11):** the plugin route sends a content security policy that denies by default. It then allows
-  only what a plugin needs to draw: inline styles, and images from data the plugin already holds. Images from the
-  app arrive through the broker.
-- **No code from strings:** the policy leaves out `unsafe-eval`, so `eval` and the `Function` constructor fail.
-- **Host document runs first:** Thixo owns the document inside the frame. Before the plugin loads, it removes
-  constructors a plugin must not have, such as `RTCPeerConnection`.
-- **No child frames, workers or popups:** each would give the plugin a fresh copy of what the host document removed.
-- **Frames stay put:** the shell's own policy limits what its frames may load.
-- **Shell services are narrow:** `navigate` goes to routes inside the app, never to an arbitrary address.
+- **No network (L4):** the language has no fetch, sockets or anything like them.
+- **No runnable sources (L6):** no frames, scripts, event-handler attributes or `javascript:` addresses. A plugin
+  handles events only through the language.
+- **Fixed addresses (L7):** an address is written out in the source or handed in. A plugin can't build one, so it
+  can't put data in one.
+- **Its own slot (P8):** a plugin's styles are scoped to its slot. It reaches anything outside the slot through
+  shell services (S8), and `navigate` goes only to routes inside the app.
+- **Only while on screen (P7):** there is no background work.
 
 ### In the broker and at the API
 
-- **The plugin holds no token (P8).** The broker in the shell makes the call.
-- **The broker holds each plugin to its manifest (P9).** It forwards a call only for an endpoint in that version's
-  manifest whose scopes the plugin's author holds (P14).
-- **The API enforces the user's scopes (A5).** Every call carries the user's token.
+- **The plugin reaches only the SDK (P5).** It holds no token. The broker in the shell makes the call.
+- **The broker holds each plugin to its manifest (P1).** It forwards a call only for an endpoint in that version's
+  manifest whose scopes the plugin's author holds (P3).
+- **The API enforces the user's scopes (A4).** Every call carries the user's token.
 
 ## What P1 does not cover
 
 P1 stops a plugin doing what it was not built to do. Two more rules cover a plugin doing what it openly was built to
 do:
 
-- **The author cap (P14).** A plugin never runs with more than its author could do. A plugin written by someone who
+- **The author cap (P3).** A plugin never runs with more than its author could do. A plugin written by someone who
   can't run payroll can't run payroll for an admin either.
-- **Using it is agreeing to it (P15).** The registry shows what a plugin uses. There is no prompt (P7).
+- **Using it is agreeing to it (P2).** The registry shows what a plugin uses. There is no prompt.
 
 What is still open:
 
-- **Shared plugin data is a way out.** A plugin can read with the current user's access and write what it read into
-  a shared store or annotation. Its author can read that. No network is needed, so the browser layer doesn't help.
+- **Annotations other users see are a way out.** A plugin can read with the current user's access and write what it
+  read into an annotation its author can see (A11). No network is needed. Stores are private to each user (D2), so
+  they are not a way out today.
 - **A later version can ask for more.** If users follow the newest version of a shared plugin, its author can add an
   endpoint and every user picks it up.
 - **The authoring agent reads other people's plugins.** Text in a plugin's source or description could steer the
   agent when it works for someone else.
+- **A plugin can hang the page.** Code on the page's main thread can't be stopped from outside, so not hanging the
+  app is a goal for the language, not a promise
+  ([decision 44](07-decisions.md#44-a-plugin-that-hangs-is-a-goal-not-a-requirement)).
 
 See [open questions](08-open-questions.md#1-who-agrees-to-a-plugins-scopes).
 
 ## The spike
 
-P10, P11 and X8 depend on browser behaviour. A spike tested it on 2026-11-19 and 2026-11-20. The code and full
+Before [decision 42](07-decisions.md#42-plugin-code-runs-in-the-page-compiled-from-the-language), a plugin was to
+run in a sandboxed frame. A spike tested that on 2026-11-19 and 2026-11-20. The code and full
 results are in [`spikes/isolation`](../spikes/isolation/readme.md) on the `isolation-spike` branch.
 
 It ran in Playwright's Chromium 159, Firefox 159 and WebKit 27.2, and in the installed Chrome 157. The freeze test
@@ -140,7 +139,7 @@ No frame arrangement keeps a stuck plugin from freezing the app in Safari. Thixo
 
 ### What the policy has to be
 
-The spike changes four things in the design above.
+The frame design needed four changes to hold.
 
 - **Hashes, not a nonce.** Plugin code can read a nonce off its own script tag, then load a script from anywhere.
   This worked in all four browsers. A hash leaves no nonce to read.
@@ -175,14 +174,12 @@ removals in place, and the WebKit-only results in Safari.
 - A frame costs about 35 to 75 ms to start. Twenty on one page took about 120 to 180 ms, against about 30 without
   frames.
 
-### What this means for the requirements
+### Why it was dropped
 
-- **P10 holds.** The sandbox kept the plugin away from the session, the storage and the shell's page.
-- **P11 holds only with the policy above,** the shell's `frame-src` and the host document's removals. It was not
-  true of the design as first written.
-- **X8 can stay.** A second domain would not fix the freeze in Safari, and nothing else the spike found needs one.
-- **Freezing is open.** The requirements don't yet say what happens when a plugin hangs. See
-  [open questions](08-open-questions.md#3-what-does-isolation-really-rest-on).
+The frame could be made to hold, but only with a narrow policy that is easy to get wrong, a leak in Chrome with no
+fix, a stuck plugin that freezes the app in Safari whatever the domain, and 35 to 75 ms for every slot. Thixo
+controls the language plugins are written in, so it contains them there instead. See
+[the coding layer](09-coding-layer.md).
 
 ## What the implementor has to provide
 
@@ -190,31 +187,26 @@ removals in place, and the WebKit-only results in Safari.
 | --- | --- |
 | An identity adapter | Thixo asks it who the user is and which scopes they hold. Thixo ships adapters for common identity services, and a custom one can read any session, including a cookie. |
 | A signing key | Thixo signs the user's tokens with it. |
-| Plugin code never served bare from the app's origin | Opened directly without the sandbox header, it would run with the app's full authority. All plugin code goes through Thixo's plugin route. |
-| A host that allows setting response headers | The isolation is delivered by headers. |
-| A content security policy that allows the plugin frames | The app must permit framing the plugin route, and only that. |
+| Plugin code only from the compiler | Code that skipped the compiler runs with the app's full authority. All plugin code goes through Thixo's build and its plugin route. |
+| Care with exposed libraries | A library that hands a plugin the network or the page undoes the containment for that app. |
 
 ## What a plugin author has to live with
 
-- **No browser storage.** A sandboxed frame has no cookies, `localStorage` or IndexedDB. Plugin data goes through the
-  SDK.
-- **No direct network.** Third-party data comes through an API endpoint with a scope (P12).
-- **No reach outside the frame.** Navigation, modals, clipboard and downloads are shell services (S8).
-- **No third-party libraries,** at least to start (U5). No chart or date library unless Thixo ships one.
-- **No background work.** A plugin runs only while it is on screen.
+- **No browser storage.** The language can't reach cookies, `localStorage` or IndexedDB. Plugin data goes through
+  the SDK.
+- **No direct network.** Data from outside comes through ways the implementor provides (L4).
+- **No reach outside the slot.** Navigation, modals, clipboard and downloads are shell services (S8).
+- **Only the libraries the implementor exposes** (L2, L3).
+- **No background work.** A plugin runs only while it is on screen (P7).
 
 ## Options held in reserve
 
-- **Hardened JavaScript.** Locking down the built-in objects so code can touch only what it is handed. It is
-  stricter than the globals check and can be awkward with React.
-- **A separate plugin domain.** See [the spike](#the-spike).
+- **A worker or a WebAssembly runtime.** If the compiler can't be made to hold, either one puts a second wall behind
+  it, at a cost in speed. Both were turned down in decision 42.
 
 ## Reading
 
 - [The `sandbox` attribute on `<iframe>`](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/iframe#sandbox)
 - [Same-origin policy](https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Same-origin_policy)
-- [The CSP `sandbox` directive](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/sandbox)
-- [`window.postMessage`](https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage)
-- [Channel Messaging API](https://developer.mozilla.org/en-US/docs/Web/API/Channel_Messaging_API)
 - [Play safely in sandboxed IFrames](https://web.dev/articles/sandboxed-iframes)
 - [How Figma built its plugin system](https://www.figma.com/blog/how-we-built-the-figma-plugin-system/)

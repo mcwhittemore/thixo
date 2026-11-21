@@ -1,14 +1,14 @@
 // Sketch. Nothing here runs yet. See ../readme.md.
 //
 // The app's API. Each endpoint carries its scopes (A2). Thixo generates the
-// SDK that plugins import from this file, one function per endpoint (A10).
+// SDK that plugins import from this file, one function per endpoint (A9).
 
 import { endpoint, record } from "thixo/api";
 import { t } from "thixo/schema";
 import { db } from "./db";
 
 // A record is a type of thing in the app that plugins can attach annotations
-// to (A11). It names the scopes needed to read one.
+// to (A10). It names the scopes needed to read one.
 export const Todo = record("todo", {
   read: ["todos.read"],
   fields: {

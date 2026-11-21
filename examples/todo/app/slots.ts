@@ -1,7 +1,7 @@
 // Sketch. Nothing here runs yet. See ../readme.md.
 //
 // Where plugins go (S1). The app defines each slot (S5): its size, and its
-// contract (S11): the context the shell passes in, and the events a plugin
+// contract (S10): the context the shell passes in, and the events a plugin
 // can send back. Each slot is filled by one plugin (S12).
 
 import { slot } from "thixo/shell";

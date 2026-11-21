@@ -1,7 +1,7 @@
 # Decisions
 
-What has been decided, with the reason and what was turned down. A decision here backs each requirement marked
-Decided in [the requirements](02-requirements.md).
+What has been decided, with the reason and what was turned down. A decision here backs each requirement in
+[the requirements](02-requirements.md).
 
 New decisions go at the bottom. To reverse one, add a new entry that names the one it replaces. Don't edit history.
 
@@ -348,3 +348,103 @@ The implementor never writes a frame, sandbox attribute or message handler (S7).
 its frame through shell services (S8). Each user has a layout, with defaults set by the implementor (S10).
 
 - **Requirements:** S7, S8, S10.
+
+### 41. The plugins and scopes rules, folded
+
+Several requirements said the same thing in parts. They are now fewer and say it once:
+
+- How a plugin gets its scopes (P2, P3, P4, P13 and P15) is one requirement: they come from what it imports, the
+  import path says which are required, using a plugin is agreeing to them, and nobody grants scopes per plugin
+  (which was P7).
+- That a plugin creates no tokens (P6) and holds none (P8) is part of "a plugin can reach nothing but the plugin
+  SDK".
+- What the broker checks (P9) is part of P1 and the author cap (P14).
+- P12, third-party data only through an API endpoint, is cut. It was too tight: an implementor can give plugins
+  other ways to move data, and it follows from the language having no network anyway.
+
+### 42. Plugin code runs in the page, compiled from the language
+
+Settles what runs the language ([the coding layer](09-coding-layer.md#what-runs-it)). Thixo compiles a plugin to
+JavaScript that runs in the app's page, only while the plugin is on screen. The language decides what that code can
+reach, not a sandbox.
+
+- **Turned down:** the sandboxed frame (P10), a worker, and a WebAssembly runtime. With the frame goes the need for
+  a second domain (X8).
+- **Requirements:** P7, P8.
+
+### 43. The implementor can write plugins too
+
+Plugins are written by Thixo's authoring agent or by the implementor. No author uploads plugin code. This is how
+default plugins get written.
+
+- **Requirements:** P6.
+
+### 44. A plugin that hangs is a goal, not a requirement
+
+P19 said the shell can stop a plugin that doesn't respond. Code on the page's main thread can't be interrupted from
+outside, so a library the implementor exposes could still loop forever. Not hanging the app is a goal for the
+language, not a promise.
+
+### 45. The plugin language has its own requirements
+
+The rules about the language moved to their own section with their own ids. The rule against runnable sources also
+covers event-handler attributes such as `onclick` and `javascript:` addresses: a plugin handles events only through
+the language. Compiling a plugin produces its manifest.
+
+- **Requirements:** L1 to L8.
+
+### 46. Default plugins live in the implementor's project
+
+A default plugin is kept in the implementor's project, not only in the registry. Promoting a plugin to default
+opens a change there through the code storage adapter, and a change there publishes a new version to the registry.
+
+- **Turned down:** default as a flag in the registry alone, which leaves two copies to disagree.
+- **Requirements:** G3, S1.
+
+### 47. Implementors change adapters, users change plugins
+
+When something is the implementor's to change, it is an adapter. When it is a user's, it is a plugin. So Thixo
+ships the authoring chat's flow and the promotion flow, and an implementor replaces them with adapters. Who can
+promote is the implementor's call. The authoring agent's model is an adapter too.
+
+- **Requirements:** W2, U7.
+
+### 48. Plugin data, settled for now
+
+- A plugin's store is private to each user. Sharing a store across users is left for later (D2).
+- Every field is optional, so versions in use at the same time share records and a version can stop using a field
+  without breaking an older one (D5).
+- Deleting a field's data is its own act, separate from publishing a version (D7).
+- A fork is a layer over its parent's data, like a JavaScript prototype chain: reads step up to the parent, writes
+  stay in the fork (D9, D10). The old D9, that a compatible fork can read its parent's data, follows from this.
+- Reading and writing plugin data are two scopes. A plugin reaches only its own lineage's data, which the broker
+  enforces. A lineage is not a scope (D11).
+
+### 49. Build details are not requirements
+
+Cut, because each is how the first version gets built rather than what Thixo must do: the registry builds from
+source (U4), the globals check (U6, which the language makes moot), the first proof of concept on Cloudflare
+(X3), and support for Vercel and AWS (X4). Decision 15 still records the providers. No feature depending on one
+provider (X7) is now a guiding principle in [portability](06-portability.md).
+
+### 50. Every requirement is decided, and renumbered
+
+Each requirement is now decided or cut, so the status column and the "Not requirements" list are gone. Six of the
+list's eight items restated a requirement. The other two moved into P7 and decision 44.
+
+The ids were renumbered so each section counts from 1. The plugin language got its own letter, L. Entries above
+this one use the old ids.
+
+| Old | New |
+| --- | --- |
+| W4 | W3 |
+| A5 to A11 | A4 to A10 |
+| A13 | A11 |
+| S10, S11, S13 | S9, S10, S11 |
+| P14, P5, P8 | P3, P4, P5 |
+| P16, P17, P18 | P6, P7, P8 |
+| P20, P21, P22, P11, P23, P24, P25 | L1 to L7 |
+| U7 | L8 |
+| U5, U8, U9, U10, U11 | U4 to U8 |
+| D10, D11, D12, D13 | D9 to D12 |
+| X5, X6 | X3, X4 |

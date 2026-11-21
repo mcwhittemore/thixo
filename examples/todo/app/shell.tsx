@@ -1,8 +1,8 @@
 // Sketch. Nothing here runs yet. See ../readme.md.
 //
 // The base app: the always-on functionality and the slots (S1). The
-// implementor writes ordinary React. There is no frame, sandbox attribute or
-// message handler here; <Slot> does that (S7).
+// implementor writes ordinary React. There is no code here to load or wire
+// up a plugin; <Slot> does that (S7).
 
 import { useState } from "react";
 import { Shell, Slot, AuthoringChat } from "thixo/shell";

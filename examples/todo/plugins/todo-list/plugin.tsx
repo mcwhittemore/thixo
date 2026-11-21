@@ -4,7 +4,7 @@
 // through the same build as a plugin a user writes.
 //
 // Its scopes are not written anywhere. The build reads them from these
-// imports (P2, P13):
+// imports (P2):
 //   required: todos.read, todos.write   (listTodos, createTodo, updateTodo)
 //   optional: todos.delete, people.read (deleteTodo and listAssignees, both
 //                                        optional endpoints)
@@ -51,7 +51,7 @@ export default definePlugin(
             {/* Shown only to a user who can call listAssignees. */}
             {assigneeOf(todo.id) && <span>{assigneeOf(todo.id)}</span>}
 
-            {/* Grayed out for a user who can't delete (P5). */}
+            {/* Grayed out for a user who can't delete (P4). */}
             <Button
               disabled={!canDelete}
               onClick={() => deleteTodo({ id: todo.id }).then(todos.refresh)}

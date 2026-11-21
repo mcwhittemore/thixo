@@ -1,28 +1,27 @@
 # Portability
 
-An implementor must not be locked into a cloud provider (X1). The first proof of concept runs on Cloudflare (X3).
-Vercel and AWS must be supported (X4).
-
-Those three points are decided. How to meet them is proposed below.
+An implementor MUST NOT be locked into a cloud provider (X1). The first proof of concept runs on Cloudflare, with
+Vercel and AWS to follow ([decision 15](07-decisions.md#15-no-cloud-lock-in)). How to meet that is below.
 
 ## The approach
 
-1. **One core on web standards (X5).** Every server part of Thixo is a function from a `Request` to a `Response`.
+1. **One core on web standards (X3).** Every server part of Thixo is a function from a `Request` to a `Response`.
    Cloudflare Workers and Vercel Functions run that shape directly. AWS Lambda runs it behind a thin wrapper.
-2. **Adapters for everything provider-specific (X6).** The core never imports a provider's SDK.
-3. **The smallest interface that works on all three (X7).** If one provider can't support an adapter method, the
-   method doesn't exist.
+2. **Adapters for everything provider-specific (X4).** The core never imports a provider's SDK.
+3. **The smallest interface that works on all three.** A guiding principle, not a requirement: no feature should
+   depend on something only one provider offers. If one provider can't support an adapter method, the method
+   doesn't exist.
 
 ## The adapters
 
 | Adapter | What it does | Why it is pluggable |
 | --- | --- | --- |
-| **Code** | Stores and reads plugin source and built bundles. | Required by X2. Each provider has its own object storage. |
+| **Code** | Stores and reads plugin source and compiled code, and opens changes in the implementor's project when a plugin is promoted to default (G3). | Required by X2. Each provider has its own object storage. |
 | **Data** | Holds registry records, layouts, stores and annotations. | Each provider has a different database. |
-| **Build** | Turns stored source into a checked bundle and a manifest. | Bundling has limits that differ by runtime. |
-| **Model** | Runs the authoring agent's model calls. | The implementor chooses the model (U10). |
+| **Build** | Compiles stored source and derives the manifest. | Build limits differ by runtime. |
+| **Model** | Runs the authoring agent's model calls. | The implementor chooses the model (U7). |
 
-Identity is an adapter too, but not a cloud one (A9). Thixo ships identity adapters for services such as Clerk, WorkOS,
+Identity is an adapter too, but not a cloud one (A8). Thixo ships identity adapters for services such as Clerk, WorkOS,
 Auth0 and Cognito, and an implementor can write their own.
 
 The interfaces below show the intended size of each adapter. They are not complete.
@@ -66,13 +65,13 @@ open.
 
 ### Build
 
-The build parses source, runs the checks in the [security model](04-security-model.md#at-build), bundles, and
-derives the manifest. Parsing and checking are plain JavaScript and run anywhere. Bundling is the part with limits:
+The build parses source, runs the checks in the [security model](04-security-model.md#at-build), compiles, and
+derives the manifest. Parsing and checking are plain JavaScript and run anywhere. Compiling is the part with limits:
 a serverless function has little CPU time and no child processes.
 
 ```ts
 interface BuildAdapter {
-  build(source: SourceFiles): Promise<{ bundle: Uint8Array; manifest: Manifest } | BuildErrors>;
+  build(source: SourceFiles): Promise<{ code: Uint8Array; manifest: Manifest } | BuildErrors>;
 }
 ```
 
@@ -107,9 +106,6 @@ Candidates, not commitments. None of these has been tested.
 
 ## What portability rules out
 
-- **A second domain for plugins (X8).** Isolation uses a sandboxed frame on the app's own domain, so an implementor
-  needs only one. [The browser spike](04-security-model.md#the-spike) found nothing a second domain would fix in
-  every browser.
 - **Provider features in the core.** Durable Objects, edge config, queues and the like stay out unless all three
   targets have an equivalent behind an adapter.
 - **Long-lived server processes.** The core assumes each request stands alone.

@@ -6,7 +6,7 @@ import { anthropic } from "thixo-anthropic";
 import { readSession } from "./api/session";
 
 export default defineConfig({
-  // Thixo does not own login (A9). An identity adapter says who is calling
+  // Thixo does not own login (A8). An identity adapter says who is calling
   // and which scopes they hold. This app writes its own; Thixo also ships
   // adapters for services such as Clerk and Auth0.
   identity: async (request) => {
@@ -14,17 +14,17 @@ export default defineConfig({
     return session && { id: session.userId, scopes: session.scopes };
   },
 
-  // Everything provider-specific is here (X6). Moving to Vercel or AWS
+  // Everything provider-specific is here (X4). Moving to Vercel or AWS
   // changes these lines and nothing else.
   adapters: cloudflare({
     code: "PLUGINS", // an R2 bucket
     data: "DB", // a D1 database
   }),
 
-  // Which model runs the authoring agent (U10).
+  // Which model runs the authoring agent (U7).
   model: anthropic(),
 
-  // Which default plugins fill which slots for a new user (S10).
+  // Which default plugins fill which slots for a new user (S9).
   layout: {
     main: "todo-list",
     "todo-detail": "due-dates",

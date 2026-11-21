@@ -1,7 +1,7 @@
 # Architecture
 
-How the parts fit. Most of this follows from requirements marked Proposed, so it is a design to test, not a settled
-one. Where a section depends on a requirement, it says which.
+How the parts fit. Where a section depends on a requirement, it says which. Where it goes past the requirements, it
+is a design to test.
 
 ## The parts
 
@@ -10,10 +10,10 @@ one. Where a section depends on a requirement, it says which.
 | API | Server | The implementor's endpoints. Issues tokens and enforces scopes. |
 | Plugin data | Server | The store and annotations, as fixed endpoints in the API. |
 | Registry | Server | Stores versions, builds them, derives manifests, answers searches. |
-| Plugin route | Server | Serves a built plugin with the headers that isolate it. |
+| Plugin route | Server | Serves a plugin version's compiled JavaScript. |
 | Authoring agent | Server | Writes plugins from a chat. Uses the registry's build and search. |
 | Shell | Browser | The base app. Places slots, loads plugins, runs the broker. |
-| Plugin | Browser, in a sandboxed frame | Renders into its slot. Calls the SDK. |
+| Plugin | Browser, in the app's page | Renders into its slot while it is on screen. Calls the SDK. |
 
 Thixo owns all of these except the endpoint handlers and the shell's own content.
 
@@ -24,12 +24,13 @@ Following Next.js, Thixo reads an app from its folders:
 ```
 api/        endpoints, each with its scopes
 app/        the shell: the always-on app and its slots
-plugins/    the default plugins, one folder each
+plugins/    the default plugins, one folder each (G3)
 thixo.config.ts
 ```
 
 From `api/`, Thixo generates the API SDK and the plugin SDK. From `app/`, it knows the slots. From `plugins/`, it builds the default
-plugins through the same pipeline a user's plugin goes through.
+plugins through the same pipeline a user's plugin goes through. Promoting a plugin to default opens a change in
+`plugins/` through the code storage adapter, and a change there publishes a new version to the registry (G3).
 
 ## From source to a running plugin
 
@@ -39,25 +40,25 @@ flowchart TD
   B --> C{Build checks}
   C -- fail --> B
   C -- pass --> D[Registry stores source as a new version]
-  D --> E[Registry builds the bundle and derives the manifest]
+  D --> E[Registry compiles it and derives the manifest]
   E --> F[Version is personal: only the author has it]
   F --> G[Author shares it: the registry lists it]
   G --> H[Another user finds it, uses it or forks it]
 ```
 
 The build checks and what the manifest holds are in the [security model](04-security-model.md#at-build). The checks
-are the same whether the source came from the agent, a person or the implementor's `plugins/` folder (U4, U8).
+are the same whether the source came from the agent or the implementor's `plugins/` folder (P6, U5).
 
 ## What happens on a call
 
-A plugin calls `updateTodo(...)`. The plugin holds no token and can't reach the network (P8, P11).
+A plugin calls `updateTodo(...)`. The plugin holds no token and can't reach the network (P5, L4).
 
 ```mermaid
 sequenceDiagram
-  participant P as Plugin (sandboxed frame)
+  participant P as Plugin (in the page)
   participant B as Broker (shell)
   participant A as API
-  P->>B: call updateTodo, over the message channel
+  P->>B: call updateTodo, through the plugin SDK
   B->>B: is updateTodo in this version's manifest?
   B->>B: can the plugin's author call updateTodo?
   B->>A: request with the user's token
@@ -69,8 +70,8 @@ sequenceDiagram
 Two checks happen:
 
 1. **The broker** refuses an endpoint that isn't in the version's manifest, or whose scopes the plugin's author
-   doesn't hold (P9, P14). This is where a plugin is held to what it was built with.
-2. **The API** verifies the user's token and checks that the user holds the endpoint's scopes (A5).
+   doesn't hold (P1, P3). This is where a plugin is held to what it was built with.
+2. **The API** verifies the user's token and checks that the user holds the endpoint's scopes (A4).
 
 The API doesn't see which plugin is calling. A broker that forwards a call it should have refused gets anything the
 user can do. That is accepted, because the shell already holds the user's session. What the design trusts, and why,
@@ -79,9 +80,9 @@ is in the [security model](04-security-model.md#what-is-trusted).
 ### Where the token comes from
 
 1. The shell asks Thixo's API layer for a token, using the user's ordinary session.
-2. Thixo asks the identity adapter to learn who the user is and which scopes they hold (A9).
+2. Thixo asks the identity adapter to learn who the user is and which scopes they hold (A8).
 3. Thixo signs a short-lived token naming the user.
-4. The broker keeps it and attaches it to every plugin's calls. No plugin sees it (P8).
+4. The broker keeps it and attaches it to every plugin's calls. No plugin sees it (P5).
 
 There is one token for the user, not one per plugin. When the shell loads a version, Thixo also tells the broker
 which of that version's endpoints the plugin's author can call, so the broker can apply the author cap.
@@ -91,24 +92,21 @@ change to an endpoint's scopes takes effect without rebuilding any plugin.
 
 ## Loading a plugin
 
-1. The shell reads the user's layout to see which version fills each slot (S10).
-2. For each filled slot, the shell renders a sandboxed frame pointed at the plugin route.
-3. The plugin route returns Thixo's host document and the built bundle, with headers that block network access and
-   limit who can frame it.
-4. The host document runs first. It removes the browser features a plugin must not have, opens a message channel to
-   the shell and loads the bundle.
-5. The shell sends the slot's context, the design tokens and which of the plugin's endpoints the current user can
-   call.
-6. The plugin renders. It reports its height back so the shell can size the frame.
+1. The shell reads the user's layout to see which version fills each slot (S9).
+2. For each filled slot, the shell loads that version's compiled JavaScript from the plugin route.
+3. The shell hands the plugin its SDK, the slot's context, the design tokens and which of the plugin's endpoints
+   the current user can call. The compiled code can reach nothing else (P5, P7).
+4. The plugin renders into its slot, with its styles scoped to the slot (P8).
+5. When the slot leaves the screen, the plugin stops. Nothing of it runs in the background (P7).
 
 ## The SDK
 
-The SDK a plugin imports is a thin stub. Each function sends a message to the broker and waits for the reply.
+The SDK a plugin imports is a thin layer. Each function hands the call to the broker and waits for the reply.
 
-- **One function per endpoint,** generated from the API definition (A10).
+- **One function per endpoint,** generated from the API definition (A9).
 - **Two import paths.** `@app/sdk` for endpoints the plugin requires. `@app/sdk/optional` for endpoints it can work
-  without (P4).
-- **A plugin can ask about any endpoint it imports:** whether the current user may call it (P5).
+  without (P2).
+- **A plugin can ask about any endpoint it imports:** whether the current user may call it (P4).
 - **Records come from the SDK too.** A plugin imports a record to annotate it, and gets its type.
 - **Fixed modules for plugin data and shell services,** which are the same in every app.
 
@@ -131,12 +129,12 @@ The scopes are written once, on the endpoint. Everything after that is derived (
 
 The implementor defines each slot (S5). Thixo ships page, panel and widget as defaults (S6).
 
-- **Size:** the slot sets how the frame is sized and where it can appear.
+- **Size:** the slot sets how big the plugin's space is and where it can appear.
 - **Contract:** the context the shell passes in, such as which todo is selected, and the events a plugin can send
-  back, such as "this todo was picked" (S11).
+  back, such as "this todo was picked" (S10).
 
 The app defines each slot once. The shell places it, and a plugin targets it, by importing that definition. A slot
-is filled by one plugin (S12), and the user's layout says which. The shell routes the events a plugin sends (S13).
+is filled by one plugin (S12), and the user's layout says which. The shell routes the events a plugin sends (S11).
 
 ## What is not designed yet
 

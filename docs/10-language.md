@@ -1,21 +1,23 @@
 # The language
 
-A first sketch, to be argued with. Four things are decided: plugins are written in a language of Thixo's own that
-looks a lot like JavaScript, TypeScript and React (P20), a plugin can't import outside code (P21), the implementor
-chooses which libraries are exposed (P22), a plugin can write raw elements (P23), it can't create an element that
-brings in another runnable source (P24), and it can't build an address (P25). Everything else on this page is a lean, not a decision.
+A first sketch, to be argued with. Decided: plugins are written in a language of Thixo's own that looks a lot like
+JavaScript, TypeScript and React (L1), a plugin can't import outside code (L2), the implementor chooses which
+libraries are exposed (L3), a plugin can write raw elements (L5), it can't create an element or attribute that runs
+code or brings in another runnable source (L6), and it can't build an address (L7). Plugin code compiles to
+JavaScript that runs in the app's page (P7). Everything else on this page is a lean, not a decision.
 
-What runs the language can't be chosen until the language is known. The last section says which choices here
-decide that.
+The last section says what the compiled code has to get right.
 
 ## What the language is for
 
 1. **The agent writes it well.** It should read as TypeScript and React to a model that has seen plenty of both.
 2. **A plugin can only reach what it was handed.** There is no way to name the page, the network, a global or
    anything behind a value.
-3. **A plugin can always be stopped.** No program in the language can hang the app.
+3. **A plugin can always be stopped,** as far as the language can make it true. This is a goal, not a requirement:
+   a long call into a built-in or an exposed library can't be interrupted
+   ([decision 44](07-decisions.md#44-a-plugin-that-hangs-is-a-goal-not-a-requirement)).
 4. **The build can read a plugin without running it.** Its scopes, its data and its slot come from its source
-   (P2, U11).
+   (P2, U8).
 
 Where 1 pulls against 2 to 4, the others win, and the difference from TypeScript goes on a short list the agent
 is given.
@@ -64,7 +66,7 @@ function daysUntil(date: Date) {
 | Control | `if`, `for ... of`, `while`, `switch`, `return`, the `? :` operator, `&&`, `\|\|`, `??`, `?.`. `try` and `catch`. |
 | Text | Template strings. The usual string, number and list methods: `map`, `filter`, `reduce`, `find`, `sort`, `slice`, `split`, `join` and the like. |
 | Built-ins | `Math`, `Date`, `JSON`, `Map`, `Set`. Each is the language's own, with a fixed list of methods. |
-| JSX | Raw elements such as `<div>` and `<svg>` (P23), exposed components, fragments, props, children, event handlers. Hooks, which come from the SDK. |
+| JSX | Raw elements such as `<div>` and `<svg>` (L5), exposed components, fragments, props, children, event handlers. Hooks, which come from the SDK. |
 | Types | TypeScript's annotations: `type`, `interface`, unions, generics, optional fields. Checked at build. |
 
 ## What is out
@@ -76,10 +78,10 @@ function daysUntil(date: Date) {
 | Classes, `this`, `new` on anything but the built-ins, prototypes, `constructor`, `__proto__` | This is where JavaScript subsets have been escaped. React plugins are functions and don't need them. |
 | `Proxy`, `Reflect`, `Symbol`, getters and setters, `with`, `var`, `delete`, labels | Each lets code do something its text doesn't show. |
 | `any`, `as`, `// @ts-ignore`, non-null `!` | Each switches the type checker off. The types are part of the wall, so they can't be optional. |
-| Elements that bring in another runnable source: `<script>`, `<iframe>`, `<object>`, `<embed>`, and attributes that take code | Decided (P24). Each would run code the language does not control. |
+| Elements that bring in another runnable source: `<script>`, `<iframe>`, `<object>`, `<embed>`, and attributes that take code | Decided (L6). Each would run code the language does not control. |
 | Refs and the real event object | Both are handles on the page. A handler gets plain data: the value, the key, the position. |
 | `==` and `!=` | Only `===` and `!==`. One fewer way for the agent to be subtly wrong. |
-| Code at the top of a file, other than declarations | A file can then be read without being run (U11). |
+| Code at the top of a file, other than declarations | A file can then be read without being run (U8). |
 
 ## Where it differs from TypeScript
 
@@ -98,7 +100,7 @@ These are the places where code that looks the same means something else. This i
 
 ## Addresses
 
-Decided on 2026-11-20, as P25. An image, a link, a font or a CSS `url()` runs nothing, but each sends
+Decided on 2026-11-20, as L7. An image, a link, a font or a CSS `url()` runs nothing, but each sends
 a request, and the address can carry data out. The rule: an address in a plugin is one of two things.
 
 - **Written out in the source.** `<img src="https://example.com/logo.png">`. It is fixed when the plugin is built,
@@ -113,7 +115,7 @@ What this buys:
 
 - A plugin can't put data it holds into an address, which is the leak. It needs no rule about which hosts are
   allowed.
-- The build can list every outside address a plugin names, and the registry can show them (P15).
+- The build can list every outside address a plugin names, and the registry can show them (P2).
 
 **Writing an address back** is part of the rule. If a plugin could save a string to a record and read it back as
 an address, the rule would be empty. So a field that holds an address is declared as one, and a plugin can only
@@ -129,7 +131,7 @@ Say a plugin has 256 image addresses written out in its source, all on a server 
 name, and shows the image with that number. The author's server sees which image was asked for and now knows the
 byte. A row of images, or one image changed on a timer, sends the whole name.
 
-Every address is fixed and none was built, so P25 is kept and the data still leaves.
+Every address is fixed and none was built, so L7 is kept and the data still leaves.
 
 Options:
 
@@ -155,7 +157,7 @@ plugin's, and it can draw over the app.
 | --- | --- | --- |
 | Style objects with states, compiled to classes: `css({ padding: 8, ":hover": { ... }, "@media (min-width: 600px)": { ... } })` | Typed, so every property and value is checked. No selectors, so a plugin can only style its own elements. Agents know the shape from CSS-in-JS. The build turns fixed styles into a stylesheet. | Not every CSS feature fits. Each one has to be added on purpose. |
 | A `style` prop only | The simplest thing. | No hover, focus, media queries or animation. Too weak alone. |
-| Class names from a set the implementor exposes, such as their design system or Tailwind | Agents write these very well. Plugins match the app. The implementor decides, as with libraries (P22). | Only as flexible as the set. |
+| Class names from a set the implementor exposes, such as their design system or Tailwind | Agents write these very well. Plugins match the app. The implementor decides, as with libraries (L3). | Only as flexible as the set. |
 | CSS as text | Everything CSS can do. | Has to be parsed and filtered, selector by selector. The largest surface. |
 
 **Lean:** style objects are the language's own way. The `style` prop takes the same objects, for values worked
@@ -165,7 +167,7 @@ out while running. Class names from the implementor are a library they can expos
 
 - **No selectors that reach out.** A style applies to the element it is given to, and to its states. A plugin
   can't write `body`, `*`, `:root` or anything that matches by position in the page.
-- **An address in a style is a `Url`** (P25). No `@import`.
+- **An address in a style is a `Url`** (L7). No `@import`.
 - **The slot is a box.** The shell wraps each slot so that a plugin can't draw outside it: `position: fixed`,
   a huge `z-index` and negative margins all stay inside. Without this a plugin could cover the app's own buttons
   with look-alikes.
@@ -196,21 +198,23 @@ out while running. Class names from the implementor are a library they can expos
   them in a plugin. The SDK's own types may need them.
 - **Styling.** See [Styles](#styles).
 - **The list of elements and attributes.** A plugin can't create anything that brings in another runnable source
-  (P24): no `<script>`, `<iframe>`, `<object>` or `<embed>`, and no attribute that takes code. The full list is
+  (L6): no `<script>`, `<iframe>`, `<object>` or `<embed>`, and no attribute that takes code. The full list is
   not written, and neither is who can extend it. `<link>`, `<meta>` and `<base>` don't run code themselves, but
   each can load or redirect what the page does, so they probably belong on it.
-- **Addresses.** See the section below. The rule is proposed (P25), and three parts of it are open.
+- **Addresses.** See the section below. The rule is decided (L7), and three parts of it are open.
 - **Links.** Whether `<a href>` can point outside the app. It loads nothing into the plugin, but the address can
   carry data out when the user clicks.
 - **How an exposed library looks from inside the language.** It is JavaScript, so its values have prototypes. The
   boundary has to turn what it returns into the language's own values, or wrap it.
 - **Errors for the agent.** What a build error says, so that the agent can fix its own code in one pass.
 - **Tooling.** Whether the type checker is TypeScript's own, run after Thixo's parser has rejected what is out.
-- **Default plugins.** Whether a developer writes them in the same language by hand (P16).
+- **Default plugins.** The implementor writes them in the same language (P6). Whether they get any tooling the
+  agent doesn't is open.
 
 ## What this tells us about what runs it
 
-Three choices on this page decide between compiling to JavaScript and a WebAssembly runtime.
+Plugin code compiles to JavaScript and runs in the page (P7). A WebAssembly runtime was the other option. Three
+choices on this page say what the compiled code has to do that a runtime would have done for free.
 
 | If the language has | Compiling to JavaScript | A WebAssembly runtime |
 | --- | --- | --- |
@@ -218,7 +222,7 @@ Three choices on this page decide between compiling to JavaScript and a WebAssem
 | Counted loops and calls | A counter compiled into every loop and function. A long call into a built-in, such as a sort or a pattern match, is not counted. | Free, and it covers built-ins too. |
 | Raw elements | Every element passes through one check against a list. The plugin never holds the element. | The same check, on the shell's side. |
 
-Raw elements are decided (P23), and they don't settle this. Writing `<div>` in the language produces a
+Raw elements are decided (L5). Writing `<div>` in the language produces a
 description of an element, which is data. What matters is what a plugin can do with an element:
 
 - **It never holds one.** There are no refs and no real event object, so a plugin has no handle on the page to
@@ -226,9 +230,8 @@ description of an element, which is data. What matters is what a plugin can do w
 - **Some elements and attributes do things by existing.** `<script>`, `<iframe>`, a `javascript:` address, raw
   HTML as a string, a CSS `url()`. These are kept out by a list, checked where the description becomes an element.
 
-Both hold in compiled JavaScript as well as in a runtime. The check is one function that every element passes
-through, so compiling to JavaScript in the page is still on the table.
+Both hold in compiled JavaScript. The check is one function that every element passes through.
 
-What is left to decide the call is how strict records have to be, and how far counting has to reach. A
-WebAssembly runtime gives both for free and costs speed. Compiled JavaScript is fast, and has to earn both with
-guards and counters in its output.
+What the compiled code still has to earn is how strict records are and how far counting reaches. A runtime would
+have given both for free at a cost in speed. Compiled JavaScript is fast, and earns both with guards and counters
+in its output.

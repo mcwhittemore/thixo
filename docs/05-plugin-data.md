@@ -3,15 +3,15 @@
 How plugins keep their own data without changing the app's API or schema, and how that data survives new versions
 and forks.
 
-The settled points are D1, D3, D4, D5 and D9. The rules that deliver them (D6 to D8, D10 to D12) are proposed.
+The requirements are D1 to D12.
 
 ## Two fixed resources
 
-The API is a fixed writing surface (A7), so a plugin can't add a table or a column. Thixo adds two resources to
+The API is a fixed writing surface (A6), so a plugin can't add a table or a column. Thixo adds two resources to
 every app's API, the same everywhere:
 
-- **Store:** the plugin's own records. A store is private to one user or shared by everyone using the plugin (D2).
-  Example: a user's saved filters.
+- **Store:** the plugin's own records. A store is private to each user (D2). Sharing a store across users is left
+  for later. Example: a user's saved filters.
 - **Annotations:** fields a plugin attaches to one of the app's records. Example: a due date on a todo. Most "I need
   a new field" requests are this.
 
@@ -29,16 +29,16 @@ On submission the registry:
 3. Stores the schema beside the hash. The hash says that something changed. The schemas say what.
 4. Compares the schema with the previous version's and reports the difference (D4).
 
-## Three rules that keep data safe
+## Four rules that keep data safe
 
-The goal is D5: old and new versions run against the same data, because different users will be on different
-versions at the same time. The proposal is to make the storage layer unable to lose data, so no plugin can get it
-wrong.
+Versions of one plugin in use at the same time share the same records (D5), because different users will be on
+different versions at once. The rules make the storage layer unable to lose data, so no plugin can get it wrong.
 
 | Rule | What it prevents |
 | --- | --- |
 | **Writes are patches (D6).** A version can only write the fields it declares. | An older version wiping fields a newer one added. |
-| **Versions can't delete (D7).** Dropping a field from the schema hides it from that version. The data stays. | A new version destroying what an old one still uses. |
+| **Every field is optional (D5).** Each version works when a field is missing. | A version that stopped using a field breaking an older one that still reads it. |
+| **Deleting is its own act (D7).** A version that stops declaring a field stops seeing it. The data stays until someone deletes it on purpose. | A new version destroying what an old one still uses. |
 | **A field's type never changes (D8).** A different type needs a new field with a new name. | A version reading a value in a shape it doesn't expect. |
 
 With these rules every change is additive. That changes what D4 means. No version can lose data, so the submission
@@ -51,7 +51,7 @@ Version 1 of a due-dates plugin annotates todos with `dueOn`, a string.
 | Change in version 2 | What the registry reports | What happens to data |
 | --- | --- | --- |
 | Adds `remindAt`, a date | One field added | Nothing. Version 1 never sees `remindAt` and can't overwrite it. |
-| Removes `dueOn` | One field no longer shown | `dueOn` values stay. Users on version 1 still read and write them. |
+| Removes `dueOn` | One field no longer shown | `dueOn` values stay. Users on version 1 still read and write them, and treat it as missing on todos version 2 created. |
 | Declares `dueOn` as a date | Rejected | Nothing. The type of `dueOn` can't change. |
 | Adds `dueDate`, a date, and keeps `dueOn` | One field added | Version 2 reads both and can copy old values across. |
 
@@ -69,25 +69,18 @@ These are in [open questions](08-open-questions.md#plugin-data).
 
 ## Forks and lineage
 
-A fork whose schema is compatible with its parent's must be able to read the parent's data (D9). Under the three
-rules, every fork is compatible, because nothing a fork does can break the parent's fields.
+Plugin data belongs to a lineage: a plugin and the forks that descend from it. Each fork is a layer over its
+parent's data, like a JavaScript prototype chain (D10):
 
-So the proposal is to attach data to a lineage, not to one plugin (D10):
+- **Reads step up.** Reading a field looks in the fork's layer first, then its parent's, and so on up the line.
+- **Writes stay in the fork.** A fork's writes land in its own layer. The parent never sees them.
+- **Two forks can use the same name.** Each fork's `priority` is its own field, so they don't collide.
 
-- A new plugin starts a lineage.
-- A fork joins its parent's lineage by default. It sees the parent's data from its first run.
-- A fork can opt to start a new lineage with no data.
+A fork reads through to its parent's data by default, and can start empty instead (D9). Someone can fork a
+colleague's plugin to change how it looks and lose nothing.
 
-Several people's variants of one tool then work over the same records. Someone can fork a colleague's plugin to
-change how it looks and lose nothing.
-
-### Two details this needs
-
-- **Who introduced a field (D11).** If two forks each add a field called `priority` with different meanings, they
-  would collide in a shared lineage. A field is identified by the plugin that introduced it, its name and its type.
-  Fields from the parent are inherited and shared. Fields a fork adds are its own unless a later fork inherits them.
-- **Lineage access is a scope (D12).** A fork that reads and writes its parent's data says so through the SDK, like
-  every other permission. The registry can then show it, and the broker can enforce it.
+Reading and writing plugin data are two scopes, held like any other. Within them, a plugin reaches only its own
+lineage's data. The broker enforces that from the plugin's manifest, so a lineage is not a scope (D11).
 
 ### What lineage doesn't solve
 
@@ -95,17 +88,14 @@ change how it looks and lose nothing.
   it can never show a due date. This is the first thing a user will ask for, and it is the second of the
   [questions to answer first](08-open-questions.md#2-how-do-two-plugins-share-data).
 - **Fields flow down only.** A parent can't pick up a field its fork added without becoming a fork of that fork.
-- **The source doesn't say whose a field is.** A declaration reads the same whether the field is inherited or new.
-  How the registry decides, and what happens when a parent and a fork each add the same name after forking, is
-  undefined.
-- **"Lineage scope" is not a scope as the concepts define one.** It isn't defined by the app's API and no user holds
-  it. D12 needs its own name and its own enforcement.
+- **A fork's edit shadows its parent's value.** A user who moves from the parent to a fork brings their data. What
+  they then write stays in the fork, so if they go back, those edits aren't there.
 
 ## Records the app owns
 
 An annotation attaches to a record that lives in the implementor's own storage, which Thixo can't see. Thixo
 therefore can't tell whether a record exists, whether this user may read that particular one, or whether it has been
-deleted. The record definition (A11) will need to give Thixo a way to ask, and a signal when a record is removed.
+deleted. The record definition (A10) will need to give Thixo a way to ask, and a signal when a record is removed.
 This is open.
 
 ## Reading many records
@@ -119,7 +109,8 @@ designed.
 Deletion exists and is never a side effect of a new version.
 
 - A user can delete their own private store data.
-- Removing a field's data from a lineage is an explicit act by someone with the right to do it.
+- Removing a field's data from a lineage is an explicit act, separate from publishing a version (D7), by someone
+  with the right to do it.
 
 Who that is, and how data is exported or erased on request, is open. See
 [open questions](08-open-questions.md#plugin-data).

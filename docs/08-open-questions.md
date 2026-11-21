@@ -9,18 +9,19 @@ Three questions came out of testing the first draft: a cold read of the docs, an
 
 ### 1. Who agrees to a plugin's scopes?
 
-Mostly decided on 2026-11-19. Using a plugin is the agreement, with the registry showing what it uses (P15), and a
-plugin never runs with more than its author could do (P14). What those two rules leave open:
+Mostly decided on 2026-11-19. Using a plugin is the agreement, with the registry showing what it uses (P2), and a
+plugin never runs with more than its author could do (P3). What those two rules leave open:
 
 - **Whose scopes, and when?** The author's scopes when the version was submitted, or now? What happens to a plugin
   when its author loses a scope or leaves?
 - **Who is the author of a fork?** The person who forked it, presumably. Then a fork by an admin lifts the cap.
-- **Default plugins.** The implementor ships them. Is there a cap at all?
+- **Default plugins.** The implementor writes them (P6). Is there a cap at all?
 - **Imports the author can't call.** Should the build reject them, since no one could ever use them?
 - **Newer versions.** If users follow the newest version of a plugin, its author can add endpoints later. Does a
   user see the summary again? See [layout and versions](#layout-and-versions).
-- **Shared plugin data.** A plugin can read with one user's access and write into a shared store or annotation its
-  author can read. The author cap doesn't stop this.
+- **Annotations other users see.** A plugin can read with one user's access and write into an annotation its author
+  can read. The author cap doesn't stop this. Stores are private to each user for now (D2), so they aren't a way out
+  yet.
 
 ### 2. How do two plugins share data?
 
@@ -33,7 +34,7 @@ Data belongs to a lineage (D10), and a lineage follows forks. Two different plug
   implementor's later updates.
 - Two people who each fork the list to add tags get two separate `tags` fields holding different data.
 - There is no way to read annotations for many records at once, or to find records by an annotation's value. A
-  filter has to load everything into the frame, which breaks once the list is paged.
+  filter has to load everything into the plugin, which breaks once the list is paged.
 
 Options, none chosen:
 
@@ -41,10 +42,10 @@ Options, none chosen:
   derives like a scope.
 - **A plugin can fill more than one slot.** One tags plugin then owns both the editor in the panel and a piece of
   each row.
-- **Rows have slots.** A list plugin exposes a place in each row that other plugins fill. Under the sandboxed frame, each row
-  piece would be a frame, which costs too much.
+- **Rows have slots.** A list plugin exposes a place in each row that other plugins fill. With plugin code in the
+  page there is no frame per row, so this is affordable.
 - **Fork and merge is the answer.** State it and make the agent good at merging forks.
-- **Slot events (S13).** A plugin sends an event its slot defines, and the shell routes it into other slots as
+- **Slot events (S11).** A plugin sends an event its slot defines, and the shell routes it into other slots as
   context. A tags plugin sends the current filter and the list receives it. If the list's slot accepts "badges by
   todo id", a due-dates plugin can decorate rows without the list being forked. The limit: a plugin can only send
   while it is loaded, so this needs a slot that loads with the page and draws nothing.
@@ -52,24 +53,21 @@ Options, none chosen:
 **Lean:** slot events for anything live, such as filters, selection and row decoration. Published fields and batch
 reads for stored data.
 
-### 3. What does isolation really rest on?
+### 3. What does containment rest on?
 
-The spike ran. Its answers are in the [security model](04-security-model.md#the-spike). Isolation holds, with a
-tighter policy than first written. Three things are left.
+Plugin code is compiled from the language and runs in the app's page (P7), so the compiler is the whole wall. The
+sandboxed frame was dropped ([decision 42](07-decisions.md#42-plugin-code-runs-in-the-page-compiled-from-the-language)).
+What that leaves:
 
-- **A stuck plugin freezes the app in Safari,** whichever domain the plugin is served from. In Firefox a second
-  domain avoids it. In Chrome the sandbox does. Plugins on one page freeze each other everywhere. Options: accept
-  it and have the build reject obvious endless loops, have the shell show which plugin last took the thread, or
-  wait for browsers to change. None of them stops it.
-- **Should P10, P11 and X8 be accepted now?** The spike supports all three, given the policy it ended with.
-- **The follow-up checks** listed in the security model have not been run.
-
-- **Is a frame the right tool at all?** Thixo controls the language plugins are written in.
-  [The coding layer](09-coding-layer.md) proposes running plugin code outside the page and having the shell draw
-  for it. It removes most of what the spike found, and adds problems of its own.
-
-**Lean:** try the coding layer before accepting P10 and P11. Its tests are listed in that document. If it fails,
-accept P10 and X8, accept P11 with the policy named in it, and say plainly that a hung plugin can't be prevented.
+- **Can the compiler's output be escaped?** Give the job to an agent whose only task is to break out. Records with
+  nothing behind them and computed field names are where an escape would be found. See
+  [the language](10-language.md#what-this-tells-us-about-what-runs-it).
+- **A plugin can hang the page.** Code on the main thread can't be stopped from outside. Counting loops and calls in
+  compiled code covers the language, but not a long call into a built-in or a library the implementor exposes. Not
+  hanging the app is a goal, not a requirement.
+- **Styles.** A plugin's styles share the app's page. Can they be scoped so that they can't touch or cover the app,
+  and which properties have to be filtered?
+- **The rest of the coding layer's tests** are listed in [that document](09-coding-layer.md#what-has-to-be-tested-first).
 
 ## Scopes
 
@@ -80,10 +78,8 @@ accept P10 and X8, accept P11 with the policy named in it, and say plainly that 
 
 ### Required and optional in a plugin
 
-P4 proposes two import paths. The alternative raised was a registration file where a plugin asks for its SDK.
-
-- **Lean:** import paths. They can be read from the source with no judgment, and they can't disagree with the code.
-- **To settle:** should the build reject an optional endpoint called without first checking it is allowed?
+The import path says which (P2). Still to settle: should the build reject an optional endpoint called without first
+checking it is allowed?
 
 ### Tokens and identity
 
@@ -92,8 +88,8 @@ P4 proposes two import paths. The alternative raised was a registration file whe
   the broker says so and the API takes its word. Is that enough?
 - What happens to a running plugin when the user's scopes change?
 - How do the shell's own calls, outside any plugin, authenticate?
-- A6 says tokens are JWTs so scopes are readable. Under P8 a plugin never holds a token and learns what is allowed
-  from the shell. Is A6 still needed as a requirement, or is it now an implementation detail?
+- A5 says tokens are JWTs so scopes are readable. Under P5 a plugin never holds a token and learns what is allowed
+  from the shell. Is A5 still needed as a requirement, or is it now an implementation detail?
 
 ### Scopes that depend on the record
 
@@ -106,32 +102,30 @@ A user may be allowed to edit their own todos and not other people's. Scopes are
 
 ### Slots
 
-- Is there an action slot: a button or menu item the shell draws, with plugin code behind it and no frame on screen?
+- Is there an action slot: a button or menu item the shell draws, with plugin code behind it and nothing of its own on screen?
 - Can a plugin fill more than one slot? See question 2.
 - Can a fork target a different slot from its parent?
 
 ### State between slots
 
-A plugin's state lives in its frame or in a private store. A filter in one slot that affects another needs a new
+A plugin's state lives in the plugin or in its private store. A filter in one slot that affects another needs a new
 event and context in the shell, which only the implementor can write.
 
 - Does the shell offer a general way to share state between slots?
 - When one plugin writes, how do others showing the same data find out?
 
-### Frames and the feel of the app
+### The feel of the app
 
-- How do focus, keyboard navigation and screen readers behave across frames?
-- How fast does a page with several plugin frames load? Does each frame carry its own copy of React?
+- How do focus, keyboard navigation and screen readers move between plugins and the app?
+- How fast does a page with several plugins load, and what does the compiled code add to a slot's start time?
 - How do modals and menus that overlap the page work through shell services (S8)?
-- How does a plugin style its own markup, and how do design tokens reach it?
+- How does a plugin measure layout, manage focus and draw on a canvas?
 
 ### Layout and versions
 
 - Who can change which plugin fills a slot: each user, an admin, or both? Can the authoring agent?
 - Does a layout pin a version or follow the newest? Pinning means nobody gets fixes. Following means silent change.
 - How is a bad version pulled back? Versions are never deleted, and there is no revoke or audit log.
-- A default plugin can come from the app's `plugins/` folder or be promoted from the registry (G3). Which wins, and
-  how does a promotion reach the deployed app?
 - When the implementor updates a default plugin, what happens to users who forked it?
 - How does an author try a plugin before it replaces what they use?
 
@@ -140,13 +134,14 @@ event and context in the shell, which only the implementor can write.
 - How do users move between versions that changed a field, so the same record doesn't show two truths?
 - Are there list or set fields with add and remove, or is it last write wins per field?
 - Is clearing a value a delete?
-- How is the grouping that decides who sees an annotation (A13) defined? Does a store use the same groupings (D2)?
-- What is the boundary of a shared store: everyone in the app, a team, or the users of one plugin?
+- How is the grouping that decides who sees an annotation (A11) defined?
+- When stores can be shared across users (D2), who picks the grouping, and can a new version or a fork widen it?
+  Widening it silently would show private records to others.
 - How does Thixo learn that a record was deleted, and what happens to its annotations?
 - How does Thixo check that a user may read one particular record before returning its annotations?
-- Who may delete a field's data from a lineage? How are export and erasure requests answered?
+- Who may delete a field's data from a lineage (D7)? How are export and erasure requests answered?
 - When a fork joins a lineage, can the parent's author refuse?
-- How does the source say whether a field is inherited or new, and how is a fork expressed at all?
+- How is a fork expressed in source?
 - What are the quotas?
 
 ## Tenancy
@@ -159,7 +154,7 @@ shared stores and lineages all need a boundary.
 
 ## API changes
 
-The API's versioning is outside the plugin space (A8). Plugins still break when an endpoint they import changes.
+The API's versioning is outside the plugin space (A7). Plugins still break when an endpoint they import changes.
 
 - Does a version record the API version it was built against?
 - Does the registry rebuild every plugin when the API changes, and what does a user see when theirs fails?
@@ -172,10 +167,10 @@ The API's versioning is outside the plugin space (A8). Plugins still break when 
 The largest portability question. See [portability](06-portability.md#build).
 
 - Can the default build run inside a serverless function on all three targets, within their CPU and size limits?
-- If not, what does each target use, and does that break X7?
-- Are plugins written in TypeScript, and where does type checking run?
-- How strict is the literal form for data declarations (U11)?
-- **Lean:** try bundling inside the function first, since plugins are small and have few imports. Measure before
+- If not, what does each target use, and does that break the principle that no feature depends on one provider?
+- Where does type checking run?
+- How strict is the literal form for data declarations (U8)?
+- **Lean:** try compiling inside the function first, since plugins are small and have few imports. Measure before
   deciding.
 
 ## Authoring
@@ -184,20 +179,16 @@ The largest portability question. See [portability](06-portability.md#build).
 - What does the agent get as context: the API definition, the slot contracts, the design tokens, the source of
   similar plugins?
 - How is the agent protected from instructions hidden in other people's plugins?
-- Can a person edit plugin source by hand, or only through the chat?
 - Which React helpers does Thixo ship for calls and plugin data, and how do they report loading and errors?
 
 ## Registry
 
 - Is search by keyword, by meaning, or both? Is it a fifth adapter?
-- Who can promote a plugin to shared, and who to default?
 
 ## Security
 
-- Is the globals check worth having once the host document removes the dangerous features, or is it noise for
-  authors?
-- Should Hardened JavaScript be the default instead of an option?
-- Should plugins be allowed vetted third-party libraries?
+- What does Thixo check about a library the implementor exposes, if anything?
+- Is U4's import allowlist still needed, now that the language decides what a plugin can import (L2, L3)?
 
 ## Project
 

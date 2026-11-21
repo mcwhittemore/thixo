@@ -3,7 +3,7 @@
 // The kind of plugin a user would ask the authoring chat for: "let me put a
 // due date on a todo". It fills the panel beside the selected todo.
 //
-// Derived by the build (P13):
+// Derived by the build (P2):
 //   required: todos.read    (getTodo, and annotating Todo)
 //   data:     annotation on todo { dueOn: date }
 //             private store prefs { warnDaysBefore: number }
