@@ -19,7 +19,7 @@ Vercel and AWS to follow ([decision 15](07-decisions.md#15-no-cloud-lock-in)). H
 | **Code** | Stores and reads plugin source and compiled code, and opens changes in the implementor's project when a plugin is promoted to default (G3). | Required by X2. Each provider has its own object storage. |
 | **Data** | Holds registry records, layouts, stores and annotations. | Each provider has a different database. |
 | **Build** | Compiles stored source and derives the manifest. | Build limits differ by runtime. |
-| **Model** | Runs the authoring agent's model calls. | The implementor chooses the model (U7). |
+| **Model** | Runs the authoring agent's model calls. | The implementor chooses the model (U6). |
 
 Identity is an adapter too, but not a cloud one (A8). Thixo ships identity adapters for services such as Clerk, WorkOS,
 Auth0 and Cognito, and an implementor can write their own.

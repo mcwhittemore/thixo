@@ -448,3 +448,9 @@ this one use the old ids.
 | U5, U8, U9, U10, U11 | U4 to U8 |
 | D10, D11, D12, D13 | D9 to D12 |
 | X5, X6 | X3, X4 |
+
+### 51. The import allowlist is part of the language
+
+U4, the build's import allowlist, is cut. L2 and L3 already say what a plugin can import. The two things only U4
+said move into L2: a plugin can import the app's slot definitions, and there are no dynamic imports. The authoring
+ids after it move up by one: U5 to U8 are now U4 to U7.

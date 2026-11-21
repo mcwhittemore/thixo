@@ -67,7 +67,7 @@ What the language plugins are written in can and can't do. The design is in [the
 | # | Requirement |
 | --- | --- |
 | L1 | Plugins are written in a language of Thixo's own, which looks a lot like JavaScript, TypeScript and React. |
-| L2 | A plugin can't import outside code or install packages. It imports the SDK and the libraries exposed to it. |
+| L2 | A plugin can't import outside code or install packages. It imports the SDK, the app's slot definitions and the libraries exposed to it. There are no dynamic imports. |
 | L3 | The implementor decides which libraries are exposed to plugins. Thixo provides the way to expose one. |
 | L4 | The plugin language has no way to reach the network: no fetch, sockets or anything like them. A plugin's only way out is the plugin SDK (P5). |
 | L5 | A plugin can write raw HTML and SVG elements, not only exposed components. |
@@ -82,11 +82,10 @@ What the language plugins are written in can and can't do. The design is in [the
 | U1 | Thixo provides a chat interface where a user describes a plugin and an agent writes it. |
 | U2 | Every version of a plugin is stored. Versions are distinct. There is no concept of branches. |
 | U3 | Plugin source lives in object storage, such as R2 or S3. |
-| U4 | The build enforces an import allowlist: the SDK, the app's slot definitions, React, Thixo's own modules and the plugin's own files. Dynamic imports are rejected. |
-| U5 | The authoring agent runs the same checks while it writes, so a failed build is feedback to the agent before a person sees it. |
-| U6 | The authoring agent can search the registry as a tool. |
-| U7 | The authoring agent reaches its model through a model adapter, and the implementor picks which. Thixo ships adapters for model providers such as Anthropic, OpenAI and X, and an implementor can write their own. |
-| U8 | A plugin's data declarations and its metadata are written in a literal form the build can read without running the code. |
+| U4 | The authoring agent runs the same checks while it writes, so a failed build is feedback to the agent before a person sees it. |
+| U5 | The authoring agent can search the registry as a tool. |
+| U6 | The authoring agent reaches its model through a model adapter, and the implementor picks which. Thixo ships adapters for model providers such as Anthropic, OpenAI and X, and an implementor can write their own. |
+| U7 | A plugin's data declarations and its metadata are written in a literal form the build can read without running the code. |
 
 ## The registry
 

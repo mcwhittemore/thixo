@@ -3,7 +3,7 @@
 // The plugin's data (D1). The build reads the fields and types from this
 // file, hashes them and records the hash with the version (D3). It is
 // written as plain literals so the build can read it without running it
-// (U8).
+// (U7).
 
 import { annotate, store } from "thixo/data";
 import { t } from "thixo/schema";

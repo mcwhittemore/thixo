@@ -47,7 +47,7 @@ flowchart TD
 ```
 
 The build checks and what the manifest holds are in the [security model](04-security-model.md#at-build). The checks
-are the same whether the source came from the agent or the implementor's `plugins/` folder (P6, U5).
+are the same whether the source came from the agent or the implementor's `plugins/` folder (P6, U4).
 
 ## What happens on a call
 

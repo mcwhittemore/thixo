@@ -31,9 +31,9 @@ thixo.config.ts   identity, adapters and the default layout
 | [app/slots.ts](app/slots.ts) | Two slots with contracts: context in, events out. One plugin fills each. | S5, S10, S12 |
 | [app/shell.tsx](app/shell.tsx) | An ordinary React app. No code to wire up plugins. | S1, S7 |
 | [plugins/todo-list/plugin.tsx](plugins/todo-list/plugin.tsx) | Scopes derived from imports. Required and optional endpoints. A grayed-out action. | P2, P4 |
-| [plugins/due-dates/data.ts](plugins/due-dates/data.ts) | An annotation and a private store, declared as literals. | D1, D2, D3, U8 |
+| [plugins/due-dates/data.ts](plugins/due-dates/data.ts) | An annotation and a private store, declared as literals. | D1, D2, D3, U7 |
 | [plugins/due-dates/plugin.tsx](plugins/due-dates/plugin.tsx) | Reading and patching plugin data. | D6 |
-| [thixo.config.ts](thixo.config.ts) | The implementor's own identity adapter. Adapters in one place. | A8, X4, U7, S9 |
+| [thixo.config.ts](thixo.config.ts) | The implementor's own identity adapter. Adapters in one place. | A8, X4, U6, S9 |
 
 ## What the build would derive
 
@@ -86,7 +86,7 @@ question.
 3. **Data declarations carry scopes too.** Annotating a todo requires being able to read todos, so the build derives
    scopes from `data.ts` as well as from endpoint imports.
 4. **Plugins import the slot definitions.** A plugin gets its typed context from `@app/slots`, so that module is
-   generated and allowed like the SDK. (U4)
+   generated and allowed like the SDK. (L2)
 5. **A slot holds one plugin.** The main area has one, and so does the detail panel. (S12)
 6. **One thing is still written by hand: the description.** Search needs words about what a plugin is for. The agent
    can write them, and the build can't derive them.

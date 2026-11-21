@@ -21,7 +21,7 @@ export default defineConfig({
     data: "DB", // a D1 database
   }),
 
-  // Which model runs the authoring agent (U7).
+  // Which model runs the authoring agent (U6).
   model: anthropic(),
 
   // Which default plugins fill which slots for a new user (S9).

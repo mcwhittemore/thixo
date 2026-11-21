@@ -169,7 +169,7 @@ The largest portability question. See [portability](06-portability.md#build).
 - Can the default build run inside a serverless function on all three targets, within their CPU and size limits?
 - If not, what does each target use, and does that break the principle that no feature depends on one provider?
 - Where does type checking run?
-- How strict is the literal form for data declarations (U8)?
+- How strict is the literal form for data declarations (U7)?
 - **Lean:** try compiling inside the function first, since plugins are small and have few imports. Measure before
   deciding.
 
@@ -188,7 +188,6 @@ The largest portability question. See [portability](06-portability.md#build).
 ## Security
 
 - What does Thixo check about a library the implementor exposes, if anything?
-- Is U4's import allowlist still needed, now that the language decides what a plugin can import (L2, L3)?
 
 ## Project
 

@@ -17,7 +17,7 @@ The last section says what the compiled code has to get right.
    a long call into a built-in or an exposed library can't be interrupted
    ([decision 44](07-decisions.md#44-a-plugin-that-hangs-is-a-goal-not-a-requirement)).
 4. **The build can read a plugin without running it.** Its scopes, its data and its slot come from its source
-   (P2, U8).
+   (P2, U7).
 
 Where 1 pulls against 2 to 4, the others win, and the difference from TypeScript goes on a short list the agent
 is given.
@@ -81,7 +81,7 @@ function daysUntil(date: Date) {
 | Elements that bring in another runnable source: `<script>`, `<iframe>`, `<object>`, `<embed>`, and attributes that take code | Decided (L6). Each would run code the language does not control. |
 | Refs and the real event object | Both are handles on the page. A handler gets plain data: the value, the key, the position. |
 | `==` and `!=` | Only `===` and `!==`. One fewer way for the agent to be subtly wrong. |
-| Code at the top of a file, other than declarations | A file can then be read without being run (U8). |
+| Code at the top of a file, other than declarations | A file can then be read without being run (U7). |
 
 ## Where it differs from TypeScript
 

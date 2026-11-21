@@ -52,12 +52,12 @@ The registry compiles every version from its source, so the checks run on exactl
 
 - **Only the language (L1):** anything that isn't in the language is an error. The compiler works from what is
   allowed, never from a list of what is banned.
-- **Imports (L2, L3, U4):** the SDK, the slot definitions and the libraries the implementor exposes. Dynamic imports
+- **Imports (L2):** the SDK, the slot definitions and the libraries the implementor exposes. Dynamic imports
   are rejected.
 - **Endpoint and scope derivation (P2):** the endpoints imported are what the plugin may call.
 - **The manifest (L8):** endpoints, scopes, data schema and shell services, derived, never written by hand.
 - **Schema extraction (D3):** the data fields and their hash come from the plugin's declarations, which are written
-  in a literal form so the build can read them without running the code (U8).
+  in a literal form so the build can read them without running the code (U7).
 
 ### In the page
 
