@@ -115,7 +115,7 @@ written toward.
 | [Architecture](docs/03-architecture.md) | How the parts fit and what happens on a call |
 | [Security model](docs/04-security-model.md) | How a plugin is contained, and the known gaps |
 | [The language](docs/05-language.md) | The language plugins are written in, and what its compiled code has to get right |
-| [Plugin data](docs/06-plugin-data.md) | Stores, annotations, schema hashes and forks |
+| [Data model](docs/06-data-model.md) | What Thixo stores, and the rules that keep plugin data safe |
 | [Portability](docs/07-portability.md) | The adapters, and what each cloud has to provide |
 | [Decisions](docs/08-decisions.md) | What was decided, when and why |
 | [Open questions](docs/09-open-questions.md) | What is not decided |

@@ -485,3 +485,9 @@ changes the database schema. Thixo's SQL adapter is its own package, `thixo-sql`
   an implementor can swap it.
 - **Turned down:** requiring a SQL database.
 - **Requirements:** X4.
+
+### 55. One data model doc
+
+The structures on Thixo's side of the API, such as plugins, versions, manifests, layers, plugin data records and
+layouts, are defined in one place, the [data model](06-data-model.md), in the schema module's types. It replaces the
+plugin data doc, whose rules are about the same structures and now follow them.

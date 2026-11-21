@@ -16,7 +16,7 @@ more access than its author.
 | Stealing the session | A plugin reads the user's cookie or token. | This document |
 | Leaking data to the outside | A plugin allowed to read todos sends them to an outside server. | This document |
 | Reaching into the app | A plugin reads or changes the shell's page, or another plugin's. | This document, with gaps |
-| Destroying data | A plugin version wipes what another version wrote. | [Plugin data](06-plugin-data.md) |
+| Destroying data | A plugin version wipes what another version wrote. | [Data model](06-data-model.md) |
 | Using an admin's access | A plugin that openly imports a payroll endpoint is shared by someone who can't run payroll, and an admin uses it. | The author cap (P3) |
 | Moving data between users | A plugin reads with one user's access and writes it into an annotation other users can see. | **Not covered** |
 | Hanging the app | A plugin, or a library it was given, loops forever. | **Not covered** |

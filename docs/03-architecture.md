@@ -154,18 +154,11 @@ to store it:
 - Patch a record's fields (D6).
 - Delete a field's data (D7).
 
-Those operations use a few types, which every adapter shares:
-
-- **Record reference:** which record the data is on. For an annotation, it's one of the app's records and its id
-  (A10). For a store, it's the store, the record's id and the user it belongs to (D2).
-- **Layer:** one plugin in a lineage. A **chain** is a fork's layers, from its own up to the original (D10).
-- **Field:** a name, a type from the schema, and the layer that declared it (D3, D8).
-- **Filter:** a condition on one field the plugin declared as searchable.
-- **Fields:** the values a read returns or a patch writes, keyed by field.
+The types those operations use, such as records, layers and fields, are in the [data model](06-data-model.md).
 
 A plugin never changes the database schema. Each adapter decides how it stores plugin data, and owns its schema and
 its migrations. For how this works in SQL, see the [`thixo-sql` package docs](../packages/thixo-sql/readme.md).
 
-**Layouts** go through the same adapter. The default layout lives in the implementor's project, beside the default
+**Layouts** go through the same adapter ([data model](06-data-model.md#layouts)). The default layout lives in the implementor's project, beside the default
 plugins (S9, G3). A user's layout stores only what they changed: a slot and the plugin version that fills it. The
 shell reads the user's changes over the default, the way a fork reads over its parent.

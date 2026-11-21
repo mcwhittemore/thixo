@@ -54,7 +54,7 @@ interface DataAdapter {
 }
 ```
 
-`patch` must be atomic on one record. That is what the [plugin data](06-plugin-data.md) rules rest on. The adapter
+`patch` must be atomic on one record. That is what the [data model](06-data-model.md#four-rules-that-keep-data-safe) rules rest on. The adapter
 also holds registry records and layouts. A plugin never changes the database schema. The adapter owns its schema
 and ships its own migrations with each Thixo release.
 

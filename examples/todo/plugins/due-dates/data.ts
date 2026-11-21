@@ -17,7 +17,6 @@ export const due = annotate(Todo, {
 
 // A store: the plugin's own records. This one is private to each user.
 export const prefs = store("prefs", {
-  visibility: "private",
   fields: {
     warnDaysBefore: t.number(),
   },
