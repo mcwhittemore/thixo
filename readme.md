@@ -1,5 +1,7 @@
 # Thixo
 
+![The word thixo, built from a lattice of nodes. A bee, a frog and a swallow each reshape its letters, and a wasp writes it back.](thixo.gif)
+
 Thixotropic: holds its shape at rest, flows when you work it.
 
 Thixo is a framework for building malleable SaaS products: apps whose own users can change them.
