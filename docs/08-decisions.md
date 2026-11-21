@@ -135,7 +135,7 @@ before code is accepted.
 ### 17. Tailor is a working title
 
 - **Why:** it states the property directly, and "tailorable systems" is an older term for user-customisable
-  software. It collides with an existing company. See [open questions](08-open-questions.md#name).
+  software. It collides with an existing company. See [open questions](09-open-questions.md#name).
 
 ## 2026-11-19: after the first review
 
@@ -217,7 +217,7 @@ and React. This is P20.
 - **Turned down:** full TypeScript. Also a subset of TypeScript with Thixo's compiler, which was the lean before
   this decision.
 - **Not decided:** what runs the language, and whether the sandboxed frame goes. P10, P11 and P16 to P19 are
-  still Proposed. See [the coding layer](09-coding-layer.md).
+  still Proposed. See [the coding layer](05-language.md).
 
 ### 25. A plugin can't import outside code
 
@@ -276,7 +276,7 @@ declared as one, and a plugin can only write an address to it, never a string. T
 - **Why:** an image, link, font or style address runs nothing, but the request it sends can carry data out. If a
   plugin can't build an address, it can't put data in one, and no list of allowed hosts is needed.
 - **Not decided:** what to do about a plugin choosing between many fixed addresses, which leaks by the choice.
-  See [the language](10-language.md#choosing-between-fixed-addresses).
+  See [the language](05-language.md#choosing-between-fixed-addresses).
 
 ## 2026-11-20: reviewing the requirements
 
@@ -364,7 +364,7 @@ Several requirements said the same thing in parts. They are now fewer and say it
 
 ### 42. Plugin code runs in the page, compiled from the language
 
-Settles what runs the language ([the coding layer](09-coding-layer.md#what-runs-it)). Thixo compiles a plugin to
+Settles what runs the language ([the language](05-language.md#what-this-tells-us-about-what-runs-it)). Thixo compiles a plugin to
 JavaScript that runs in the app's page, only while the plugin is on screen. The language decides what that code can
 reach, not a sandbox.
 
@@ -425,7 +425,7 @@ promote is the implementor's call. The authoring agent's model is an adapter too
 Cut, because each is how the first version gets built rather than what Thixo must do: the registry builds from
 source (U4), the globals check (U6, which the language makes moot), the first proof of concept on Cloudflare
 (X3), and support for Vercel and AWS (X4). Decision 15 still records the providers. No feature depending on one
-provider (X7) is now a guiding principle in [portability](06-portability.md).
+provider (X7) is now a guiding principle in [portability](07-portability.md).
 
 ### 50. Every requirement is decided, and renumbered
 
@@ -454,3 +454,10 @@ this one use the old ids.
 U4, the build's import allowlist, is cut. L2 and L3 already say what a plugin can import. The two things only U4
 said move into L2: a plugin can import the app's slot definitions, and there are no dynamic imports. The authoring
 ids after it move up by one: U5 to U8 are now U4 to U7.
+
+### 52. The coding layer folds into the language
+
+The coding layer doc was the proposal that replaced the sandboxed frame. Once decided, most of it repeated the
+security model, the architecture and decision 42. Its open questions about exposed libraries and its list of what
+to test first moved to [the language](05-language.md), and the doc is gone. The docs are renumbered so the design
+comes before the decisions and open questions. Links in entries above point at the new file names.

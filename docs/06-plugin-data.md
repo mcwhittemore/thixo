@@ -65,7 +65,7 @@ Version 1 of a due-dates plugin annotates todos with `dueOn`, a string.
 - **Clearing a value.** Whether setting a field to nothing counts as a delete under D7 is undefined.
 - **Size.** Data that is never deleted grows. There are no quotas yet.
 
-These are in [open questions](08-open-questions.md#plugin-data).
+These are in [open questions](09-open-questions.md#plugin-data).
 
 ## Forks and lineage
 
@@ -86,7 +86,7 @@ lineage's data. The broker enforces that from the plugin's manifest, so a lineag
 
 - **Two different plugins can't share a field.** Lineage follows forks. The todo list is not a fork of due-dates, so
   it can never show a due date. This is the first thing a user will ask for, and it is the second of the
-  [questions to answer first](08-open-questions.md#2-how-do-two-plugins-share-data).
+  [questions to answer first](09-open-questions.md#2-how-do-two-plugins-share-data).
 - **Fields flow down only.** A parent can't pick up a field its fork added without becoming a fork of that fork.
 - **A fork's edit shadows its parent's value.** A user who moves from the parent to a fork brings their data. What
   they then write stays in the fork, so if they go back, those edits aren't there.
@@ -113,11 +113,11 @@ Deletion exists and is never a side effect of a new version.
   with the right to do it.
 
 Who that is, and how data is exported or erased on request, is open. See
-[open questions](08-open-questions.md#plugin-data).
+[open questions](09-open-questions.md#plugin-data).
 
 ## What this asks of the data adapter
 
-Patch writes need an atomic read-modify-write on one record. See [portability](06-portability.md#data).
+Patch writes need an atomic read-modify-write on one record. See [portability](07-portability.md#data).
 
 ## Held in reserve
 

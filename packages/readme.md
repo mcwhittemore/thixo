@@ -1,7 +1,7 @@
 # Packages
 
 There are no packages yet. This is the plan for what will live here once code is accepted. The package names are not claimed yet. See
-[open questions](../docs/08-open-questions.md#name).
+[open questions](../docs/09-open-questions.md#name).
 
 | Package | What it owns |
 | --- | --- |
@@ -32,4 +32,4 @@ Generated for each app:
 | `@app/sdk/optional` | The same endpoints, imported as optional |
 | `@app/slots` | The slots in `app/` |
 
-The adapters are described in [portability](../docs/06-portability.md).
+The adapters are described in [portability](../docs/07-portability.md).

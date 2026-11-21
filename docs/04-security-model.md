@@ -16,7 +16,7 @@ more access than its author.
 | Stealing the session | A plugin reads the user's cookie or token. | This document |
 | Leaking data to the outside | A plugin allowed to read todos sends them to an outside server. | This document |
 | Reaching into the app | A plugin reads or changes the shell's page, or another plugin's. | This document, with gaps |
-| Destroying data | A plugin version wipes what another version wrote. | [Plugin data](05-plugin-data.md) |
+| Destroying data | A plugin version wipes what another version wrote. | [Plugin data](06-plugin-data.md) |
 | Using an admin's access | A plugin that openly imports a payroll endpoint is shared by someone who can't run payroll, and an admin uses it. | The author cap (P3) |
 | Moving data between users | A plugin reads with one user's access and writes it into an annotation other users can see. | **Not covered** |
 | Hanging the app | A plugin, or a library it was given, loops forever. | **Not covered** |
@@ -97,13 +97,13 @@ What is still open:
   agent when it works for someone else.
 - **A plugin can hang the page.** Code on the page's main thread can't be stopped from outside, so not hanging the
   app is a goal for the language, not a promise
-  ([decision 44](07-decisions.md#44-a-plugin-that-hangs-is-a-goal-not-a-requirement)).
+  ([decision 44](08-decisions.md#44-a-plugin-that-hangs-is-a-goal-not-a-requirement)).
 
-See [open questions](08-open-questions.md#1-who-agrees-to-a-plugins-scopes).
+See [open questions](09-open-questions.md#1-who-agrees-to-a-plugins-scopes).
 
 ## The spike
 
-Before [decision 42](07-decisions.md#42-plugin-code-runs-in-the-page-compiled-from-the-language), a plugin was to
+Before [decision 42](08-decisions.md#42-plugin-code-runs-in-the-page-compiled-from-the-language), a plugin was to
 run in a sandboxed frame. A spike tested that on 2026-11-19 and 2026-11-20. The code and full
 results are in [`spikes/isolation`](../spikes/isolation/readme.md) on the `isolation-spike` branch.
 
@@ -179,7 +179,7 @@ removals in place, and the WebKit-only results in Safari.
 The frame could be made to hold, but only with a narrow policy that is easy to get wrong, a leak in Chrome with no
 fix, a stuck plugin that freezes the app in Safari whatever the domain, and 35 to 75 ms for every slot. Thixo
 controls the language plugins are written in, so it contains them there instead. See
-[the coding layer](09-coding-layer.md).
+[the language](05-language.md).
 
 ## What the implementor has to provide
 

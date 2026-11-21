@@ -62,7 +62,7 @@ requirement with none of them is a MUST.
 
 ## The plugin language
 
-What the language plugins are written in can and can't do. The design is in [the language](10-language.md).
+What the language plugins are written in can and can't do. The design is in [the language](05-language.md).
 
 | # | Requirement |
 | --- | --- |

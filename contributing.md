@@ -5,9 +5,9 @@ Thixo is at the requirements stage. The work right now is on the documents, not 
 ## How a change is made
 
 1. **Find the requirement.** Every point in [the requirements](docs/02-requirements.md) has an id. Every one is
-   decided. What is not decided is in [open questions](docs/08-open-questions.md).
+   decided. What is not decided is in [open questions](docs/09-open-questions.md).
 2. **Push on it.** If a requirement or a lean is wrong, say what it should be and why.
-3. **Record the outcome.** When something is settled, add an entry to [decisions](docs/07-decisions.md), add or
+3. **Record the outcome.** When something is settled, add an entry to [decisions](docs/08-decisions.md), add or
    change the requirement and remove the matching open question.
 4. **Test it against the example.** If the change alters how an app reads, update
    [examples/todo](examples/todo). If the example gets awkward, the requirement is wrong.

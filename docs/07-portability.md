@@ -1,7 +1,7 @@
 # Portability
 
 An implementor MUST NOT be locked into a cloud provider (X1). The first proof of concept runs on Cloudflare, with
-Vercel and AWS to follow ([decision 15](07-decisions.md#15-no-cloud-lock-in)). How to meet that is below.
+Vercel and AWS to follow ([decision 15](08-decisions.md#15-no-cloud-lock-in)). How to meet that is below.
 
 ## The approach
 
@@ -53,7 +53,7 @@ interface DataAdapter {
 }
 ```
 
-`patch` must be atomic on one record. That is what the [plugin data](05-plugin-data.md) rules rest on.
+`patch` must be atomic on one record. That is what the [plugin data](06-plugin-data.md) rules rest on.
 
 Known to be missing: creating a record, clearing a field, writes that depend on the current value, paging and
 ordering, and what a filter can express. An open-ended filter is a full scan on a key-value database, so the filter
@@ -76,7 +76,7 @@ interface BuildAdapter {
 ```
 
 Whether the default build runs inside the serverless function or hands off to a build service is the largest open
-portability question. See [open questions](08-open-questions.md#build).
+portability question. See [open questions](09-open-questions.md#build).
 
 ### Model
 

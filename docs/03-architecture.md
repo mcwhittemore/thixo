@@ -138,9 +138,9 @@ is filled by one plugin (S12), and the user's layout says which. The shell route
 
 ## What is not designed yet
 
-- How two different plugins work over the same data. See [open questions](08-open-questions.md#2-how-do-two-plugins-share-data).
+- How two different plugins work over the same data. See [open questions](09-open-questions.md#2-how-do-two-plugins-share-data).
 
-- How the build runs on each provider. See [portability](06-portability.md#build).
-- What happens to existing plugins when the API changes. See [open questions](08-open-questions.md#api-changes).
+- How the build runs on each provider. See [portability](07-portability.md#build).
+- What happens to existing plugins when the API changes. See [open questions](09-open-questions.md#api-changes).
 - How a plugin acts without rendering, such as a button the shell draws. See
-  [open questions](08-open-questions.md#slots-1).
+  [open questions](09-open-questions.md#slots-1).

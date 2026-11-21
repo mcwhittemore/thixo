@@ -15,7 +15,7 @@ The last section says what the compiled code has to get right.
    anything behind a value.
 3. **A plugin can always be stopped,** as far as the language can make it true. This is a goal, not a requirement:
    a long call into a built-in or an exposed library can't be interrupted
-   ([decision 44](07-decisions.md#44-a-plugin-that-hangs-is-a-goal-not-a-requirement)).
+   ([decision 44](08-decisions.md#44-a-plugin-that-hangs-is-a-goal-not-a-requirement)).
 4. **The build can read a plugin without running it.** Its scopes, its data and its slot come from its source
    (P2, U7).
 
@@ -206,10 +206,23 @@ out while running. Class names from the implementor are a library they can expos
   carry data out when the user clicks.
 - **How an exposed library looks from inside the language.** It is JavaScript, so its values have prototypes. The
   boundary has to turn what it returns into the language's own values, or wrap it.
+- **Exposed libraries.** How an implementor exposes a library and how its types reach the agent. Whether it runs
+  in the page or beside the plugin, and what Thixo checks about one, if anything. Whether a library counts as
+  something a plugin uses in the registry, as its endpoints do. What a shared plugin does in an app that doesn't
+  expose a library it imports.
 - **Errors for the agent.** What a build error says, so that the agent can fix its own code in one pass.
 - **Tooling.** Whether the type checker is TypeScript's own, run after Thixo's parser has rejected what is out.
 - **Default plugins.** The implementor writes them in the same language (P6). Whether they get any tooling the
   agent doesn't is open.
+
+## What has to be tested first
+
+- How well does the agent write the language, measured against how well it writes TypeScript?
+- Can the compiler's output be escaped? Give the job to an agent whose only task is to break out.
+- Do compiled loop counters stop a stuck plugin, and what do they cost?
+- What does the compiled code add to the download and to a slot's start time?
+- Can a plugin's CSS be scoped so that it can't touch or cover the app? Which properties have to be filtered?
+- Which elements and attributes go on the allowlist, and which URL forms are allowed in them?
 
 ## What this tells us about what runs it
 

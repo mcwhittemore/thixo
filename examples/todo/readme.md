@@ -101,7 +101,7 @@ question.
 
 A separate attempt to write a third plugin from the docs alone: "put tags on todos, show them in the list, filter by
 tag". It could be written only as a fork of the whole todo list, and it exposed the limits below. They are now the
-[second question to answer first](../../docs/08-open-questions.md#2-how-do-two-plugins-share-data).
+[second question to answer first](../../docs/09-open-questions.md#2-how-do-two-plugins-share-data).
 
 1. **A tags editor in the panel and tags in the list can't be two plugins.** They could not share the `tags` field.
 2. **Adding anything to a row means forking the list.** The fork then stops getting the implementor's updates.

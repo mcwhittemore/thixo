@@ -6,8 +6,8 @@ The project is at the requirements stage. There is no framework code, and none s
 requirements say so.
 
 - `docs/02-requirements.md` is the source of truth. Every requirement in it is decided. What isn't settled goes in
-  `docs/08-open-questions.md`, never in the requirements.
-- `docs/07-decisions.md` is append-only. Don't add a requirement without an entry there, and don't add an entry for
+  `docs/09-open-questions.md`, never in the requirements.
+- `docs/08-decisions.md` is append-only. Don't add a requirement without an entry there, and don't add an entry for
   something the project's owner has not settled. Old entries keep the ids they were written with.
 - `docs/01-concepts.md` defines the vocabulary. Use its words with its meanings.
 - `examples/todo` is a sketch that does not run. Keep it in step with the requirements.

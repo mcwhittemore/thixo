@@ -56,18 +56,18 @@ reads for stored data.
 ### 3. What does containment rest on?
 
 Plugin code is compiled from the language and runs in the app's page (P7), so the compiler is the whole wall. The
-sandboxed frame was dropped ([decision 42](07-decisions.md#42-plugin-code-runs-in-the-page-compiled-from-the-language)).
+sandboxed frame was dropped ([decision 42](08-decisions.md#42-plugin-code-runs-in-the-page-compiled-from-the-language)).
 What that leaves:
 
 - **Can the compiler's output be escaped?** Give the job to an agent whose only task is to break out. Records with
   nothing behind them and computed field names are where an escape would be found. See
-  [the language](10-language.md#what-this-tells-us-about-what-runs-it).
+  [the language](05-language.md#what-this-tells-us-about-what-runs-it).
 - **A plugin can hang the page.** Code on the main thread can't be stopped from outside. Counting loops and calls in
   compiled code covers the language, but not a long call into a built-in or a library the implementor exposes. Not
   hanging the app is a goal, not a requirement.
 - **Styles.** A plugin's styles share the app's page. Can they be scoped so that they can't touch or cover the app,
   and which properties have to be filtered?
-- **The rest of the coding layer's tests** are listed in [that document](09-coding-layer.md#what-has-to-be-tested-first).
+- **The rest of the tests** are listed in [the language](05-language.md#what-has-to-be-tested-first).
 
 ## Scopes
 
@@ -164,7 +164,7 @@ The API's versioning is outside the plugin space (A7). Plugins still break when 
 
 ## Build
 
-The largest portability question. See [portability](06-portability.md#build).
+The largest portability question. See [portability](07-portability.md#build).
 
 - Can the default build run inside a serverless function on all three targets, within their CPU and size limits?
 - If not, what does each target use, and does that break the principle that no feature depends on one provider?
@@ -193,7 +193,7 @@ The largest portability question. See [portability](06-portability.md#build).
 
 ### Name
 
-Decided: Thixo. See [decision 22](07-decisions.md#22-the-name-is-thixo). Still to do:
+Decided: Thixo. See [decision 22](08-decisions.md#22-the-name-is-thixo). Still to do:
 
 - Claim the npm name and scope, a GitHub organisation and a domain. Nothing has been registered.
 
