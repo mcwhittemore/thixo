@@ -29,29 +29,30 @@ Data belongs to a lineage (D10), and a lineage follows forks. Two different plug
 
 - The todo list can never show the due date that due-dates writes. "Show the new field in the list" is the first
   thing a user will ask for.
-- A list is one plugin in one slot (S12), so adding anything to a row means forking the whole list. Two users who
+- A list is one plugin in one slot (S12), so without child slots (S13) adding anything to a row means forking the whole list. Two users who
   want tags and due dates in the list need a third fork that merges both, and none of the forks gets the
   implementor's later updates.
 - Two people who each fork the list to add tags get two separate `tags` fields holding different data.
 - There is no way to read annotations for many records at once, or to find records by an annotation's value. A
   filter has to load everything into the plugin, which breaks once the list is paged.
 
-Options, none chosen:
+Options:
 
 - **A plugin can publish its fields.** Another plugin imports the declaration and gets read access, which the build
   derives like a scope.
 - **A plugin can fill more than one slot.** One tags plugin then owns both the editor in the panel and a piece of
   each row.
-- **Rows have slots.** A list plugin exposes a place in each row that other plugins fill. With plugin code in the
-  page there is no frame per row, so this is affordable.
+- **Rows have slots.** Chosen ([decision 53](08-decisions.md#53-slots-can-hold-slots), S13). The list's slot
+  declares a slot in each row, and due-dates can fill it without the list being forked. Still open: how deep slots
+  can nest, and what happens when the plugin filling the list doesn't place its row slots.
 - **Fork and merge is the answer.** State it and make the agent good at merging forks.
 - **Slot events (S11).** A plugin sends an event its slot defines, and the shell routes it into other slots as
   context. A tags plugin sends the current filter and the list receives it. If the list's slot accepts "badges by
   todo id", a due-dates plugin can decorate rows without the list being forked. The limit: a plugin can only send
   while it is loaded, so this needs a slot that loads with the page and draws nothing.
 
-**Lean:** slot events for anything live, such as filters, selection and row decoration. Published fields and batch
-reads for stored data.
+**Lean:** child slots for row decoration, slot events for anything live, such as filters and selection, and
+published fields and batch reads for stored data.
 
 ### 3. What does containment rest on?
 
@@ -137,6 +138,7 @@ event and context in the shell, which only the implementor can write.
 - How is the grouping that decides who sees an annotation (A11) defined?
 - When stores can be shared across users (D2), who picks the grouping, and can a new version or a fork widen it?
   Widening it silently would show private records to others.
+- Which fields can be searched, and how does a plugin declare one?
 - How does Thixo learn that a record was deleted, and what happens to its annotations?
 - How does Thixo check that a user may read one particular record before returning its annotations?
 - Who may delete a field's data from a lineage (D7)? How are export and erasure requests answered?

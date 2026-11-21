@@ -46,6 +46,7 @@ requirement with none of them is a MUST.
 | S10 | A slot's contract is the context the shell passes in and the events a plugin can send back. The slot also sets its size. |
 | S11 | Plugins don't message each other. A slot defines the events a plugin filling it can send, and the shell routes each event to where it belongs. Those events and writes to the API are the only ways plugins communicate. |
 | S12 | Each slot is filled by one plugin. |
+| S13 | A slot's contract can declare child slots, and the plugin filling it places them. Only the implementor defines slots. Each field of a slot's context names the scopes that read it, and a plugin that fills the slot requires them. |
 
 ## Plugins and scopes
 

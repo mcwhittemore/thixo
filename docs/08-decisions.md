@@ -461,3 +461,27 @@ The coding layer doc was the proposal that replaced the sandboxed frame. Once de
 security model, the architecture and decision 42. Its open questions about exposed libraries and its list of what
 to test first moved to [the language](05-language.md), and the doc is gone. The docs are renumbered so the design
 comes before the decisions and open questions. Links in entries above point at the new file names.
+
+### 53. Slots can hold slots
+
+A slot's contract can declare child slots, such as a slot in each row of a list, and the plugin filling the parent
+places them. Only the implementor defines slots, so a fork can't change a contract other plugins depend on.
+
+Each field of a slot's context names the scopes that read it, and a plugin that fills the slot requires them. A
+parent can then hand data down without a child holding data its author could never read.
+
+- **Turned down:** child slots that get only ids. It is safe, but every row would fetch again what the parent already
+  has.
+- **Requirements:** S13.
+
+### 54. The data adapter speaks plugin data
+
+The data adapter's interface is in plugin-data terms: read through a fork chain, read many, find by a declared
+field, patch, delete. Each adapter decides how to store that and owns its schema and its migrations. A plugin never
+changes the database schema. Thixo's SQL adapter is its own package, `thixo-sql`.
+
+- **Why:** a generic document store left Thixo to build the fork chain and filtering on top, which pushed toward
+  requiring SQL. A framework for malleable software shouldn't be rigid there. It has an opinion, the SQL adapter, and
+  an implementor can swap it.
+- **Turned down:** requiring a SQL database.
+- **Requirements:** X4.

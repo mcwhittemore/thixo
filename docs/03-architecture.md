@@ -1,14 +1,14 @@
 # Architecture
 
-How the parts fit. Where a section depends on a requirement, it says which. Where it goes past the requirements, it
-is a design to test.
+How the parts fit.
 
 ## The parts
 
 | Part | Where it runs | What it does |
 | --- | --- | --- |
-| API | Server | The implementor's endpoints. Issues tokens and enforces scopes. |
-| Plugin data | Server | The store and annotations, as fixed endpoints in the API. |
+| App API | Server | The implementor's endpoints. |
+| Thixo API | Server | Thixo's side of the API, the same in every app. Issues tokens and enforces the user's scopes on every endpoint of both sides (A1, A4). |
+| Plugin data | Server | The store and annotations, as fixed endpoints in Thixo's API. |
 | Registry | Server | Stores versions, builds them, derives manifests, answers searches. |
 | Plugin route | Server | Serves a plugin version's compiled JavaScript. |
 | Authoring agent | Server | Writes plugins from a chat. Uses the registry's build and search. |
@@ -28,9 +28,10 @@ plugins/    the default plugins, one folder each (G3)
 thixo.config.ts
 ```
 
-From `api/`, Thixo generates the API SDK and the plugin SDK. From `app/`, it knows the slots. From `plugins/`, it builds the default
-plugins through the same pipeline a user's plugin goes through. Promoting a plugin to default opens a change in
-`plugins/` through the code storage adapter, and a change there publishes a new version to the registry (G3).
+From `api/`, Thixo generates the API SDK and the plugin SDK. From `app/`, it knows the slots. From `plugins/`, it
+builds the default plugins through the same pipeline a user's plugin goes through. Promoting a plugin to default
+opens a change in `plugins/` through the code storage adapter, and a change there publishes a new version to the
+registry (G3).
 
 ## From source to a running plugin
 
@@ -61,8 +62,9 @@ sequenceDiagram
   P->>B: call updateTodo, through the plugin SDK
   B->>B: is updateTodo in this version's manifest?
   B->>B: can the plugin's author call updateTodo?
-  B->>A: request with the user's token
+  B->>A: request, with the user's token it already holds
   A->>A: verify the token, check the user holds the endpoint's scopes
+  A->>A: run updateTodo
   A-->>B: result
   B-->>P: result
 ```
@@ -71,7 +73,8 @@ Two checks happen:
 
 1. **The broker** refuses an endpoint that isn't in the version's manifest, or whose scopes the plugin's author
    doesn't hold (P1, P3). This is where a plugin is held to what it was built with.
-2. **The API** verifies the user's token and checks that the user holds the endpoint's scopes (A4).
+2. **The API** verifies the user's token and checks that the user holds the endpoint's scopes (A4). Only then does
+   it run the endpoint.
 
 The API doesn't see which plugin is calling. A broker that forwards a call it should have refused gets anything the
 user can do. That is accepted, because the shell already holds the user's session. What the design trusts, and why,
@@ -127,20 +130,42 @@ The scopes are written once, on the endpoint. Everything after that is derived (
 
 ## Slots
 
-The implementor defines each slot (S5). Thixo ships page, panel and widget as defaults (S6).
+The implementor defines each slot (S5). Thixo ships page, panel and widget as default slot types (S6).
 
 - **Size:** the slot sets how big the plugin's space is and where it can appear.
 - **Contract:** the context the shell passes in, such as which todo is selected, and the events a plugin can send
   back, such as "this todo was picked" (S10).
+- **Context fields carry scopes:** each field of a slot's context names the scopes that read it, and a plugin that
+  fills the slot requires them (S13). An author who can't read people can't fill a slot that hands out people data.
+- **Child slots:** a slot's contract can declare slots inside it, such as a `todo-row` slot in each row of the
+  list. The plugin filling the parent places them. Only the implementor defines slots (S13).
 
 The app defines each slot once. The shell places it, and a plugin targets it, by importing that definition. A slot
 is filled by one plugin (S12), and the user's layout says which. The shell routes the events a plugin sends (S11).
 
-## What is not designed yet
+## Storing plugin data
 
-- How two different plugins work over the same data. See [open questions](09-open-questions.md#2-how-do-two-plugins-share-data).
+Plugin data goes through the data adapter (X4). Its interface is in plugin-data terms, so each adapter decides how
+to store it:
 
-- How the build runs on each provider. See [portability](07-portability.md#build).
-- What happens to existing plugins when the API changes. See [open questions](09-open-questions.md#api-changes).
-- How a plugin acts without rendering, such as a button the shell draws. See
-  [open questions](09-open-questions.md#slots-1).
+- Read a record's fields for a plugin, through its fork chain (D10).
+- Read many records at once.
+- Find records by a field the plugin declares as searchable.
+- Patch a record's fields (D6).
+- Delete a field's data (D7).
+
+Those operations use a few types, which every adapter shares:
+
+- **Record reference:** which record the data is on. For an annotation, it's one of the app's records and its id
+  (A10). For a store, it's the store, the record's id and the user it belongs to (D2).
+- **Layer:** one plugin in a lineage. A **chain** is a fork's layers, from its own up to the original (D10).
+- **Field:** a name, a type from the schema, and the layer that declared it (D3, D8).
+- **Filter:** a condition on one field the plugin declared as searchable.
+- **Fields:** the values a read returns or a patch writes, keyed by field.
+
+A plugin never changes the database schema. Each adapter decides how it stores plugin data, and owns its schema and
+its migrations. For how this works in SQL, see the [`thixo-sql` package docs](../packages/thixo-sql/readme.md).
+
+**Layouts** go through the same adapter. The default layout lives in the implementor's project, beside the default
+plugins (S9, G3). A user's layout stores only what they changed: a slot and the plugin version that fills it. The
+shell reads the user's changes over the default, the way a fork reads over its parent.

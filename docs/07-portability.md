@@ -42,25 +42,27 @@ the data adapter, not an object-storage listing.
 
 ### Data
 
-The interface is a document store, not SQL, so key-value and relational databases both fit:
+The data adapter speaks plugin data, not documents, so each adapter decides how to store it:
 
 ```ts
 interface DataAdapter {
-  get(collection: string, id: string): Promise<Doc | null>;
-  patch(collection: string, id: string, fields: Partial<Doc>): Promise<Doc>;
-  query(collection: string, filter: Filter): Promise<Doc[]>;
-  remove(collection: string, id: string): Promise<void>;
+  read(record: RecordRef, chain: LayerId[]): Promise<Fields>;
+  readMany(records: RecordRef[], chain: LayerId[]): Promise<Map<RecordRef, Fields>>;
+  find(field: DeclaredField, filter: Filter, chain: LayerId[]): Promise<RecordRef[]>;
+  patch(record: RecordRef, layer: LayerId, fields: Fields): Promise<Fields>;
+  remove(field: DeclaredField, layer: LayerId): Promise<void>;
 }
 ```
 
-`patch` must be atomic on one record. That is what the [plugin data](06-plugin-data.md) rules rest on.
+`patch` must be atomic on one record. That is what the [plugin data](06-plugin-data.md) rules rest on. The adapter
+also holds registry records and layouts. A plugin never changes the database schema. The adapter owns its schema
+and ships its own migrations with each Thixo release.
 
-Known to be missing: creating a record, clearing a field, writes that depend on the current value, paging and
-ordering, and what a filter can express. An open-ended filter is a full scan on a key-value database, so the filter
-has to be limited to what all three targets can index. Record size limits differ by database and matter because
-plugin data is never deleted.
+Thixo's SQL adapter is [`thixo-sql`](../packages/thixo-sql/readme.md). A key-value adapter is possible. Reading
+through a chain costs a fetch per layer, and filtering by value needs effective values stored ahead of time, which
+every parent write then has to update.
 
-Registry search needs more than `query` if it is to rank results by meaning. Whether search is its own adapter is
+Registry search needs more than `find` if it is to rank results by meaning. Whether search is its own adapter is
 open.
 
 ### Build
@@ -101,7 +103,7 @@ Candidates, not commitments. None of these has been tested.
 | --- | --- | --- | --- |
 | Runtime | Workers | Functions | Lambda |
 | Code | R2 | Blob | S3 |
-| Data | D1 | Postgres | DynamoDB or Postgres |
+| Data | D1 | Postgres | RDS or Aurora |
 | Build | Open | Open | Open |
 
 ## What portability rules out

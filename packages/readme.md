@@ -9,6 +9,7 @@ There are no packages yet. This is the plan for what will live here once code is
 | `thixo-cloudflare` | Adapters for Cloudflare. The first to be built. |
 | `thixo-vercel` | Adapters for Vercel. |
 | `thixo-aws` | Adapters for AWS. |
+| `thixo-sql` | The SQL data adapter, used by the provider packages. See [its readme](thixo-sql/readme.md). |
 | `thixo-anthropic` | A model adapter. Others follow the same interface. |
 | `create-thixo-app` | Starts a new app from the todo example. |
 
