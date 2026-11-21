@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Thixo wordmark loop</title>
+<style>
+  :root { --paper:#f4f1ea; --ink:#1f2430; --flow:#e2572b; --muted:#6f727b; --line:#d9d4c8; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.5 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif; }
+  main { max-width:960px; margin:0 auto; padding:32px 16px 64px; }
+  h1 { font-size:24px; margin:0 0 8px; }
+  p { margin:0 0 12px; max-width:68ch; color:var(--muted); font-size:14px; }
+  canvas { width:100%; aspect-ratio:16/9; display:block; border:1px solid var(--line); border-radius:6px;
+    margin:12px 0; }
+  .bar { display:flex; gap:12px; align-items:center; font-size:14px; font-variant-numeric:tabular-nums; }
+  .bar input { flex:1; }
+  button, select { font:inherit; padding:4px 12px; border:1px solid var(--ink); border-radius:4px; background:none;
+    color:var(--ink); cursor:pointer; }
+</style>
+</head>
+<body>
+<main>
+  <h1>The wordmark as a network, looping</h1>
+  <canvas id="wordnet"></canvas>
+  <div class="bar">
+    <button id="play">Pause</button>
+    <button id="back" title="Back one frame">&lsaquo;</button>
+    <button id="fwd" title="Forward one frame">&rsaquo;</button>
+    <label>Speed <select id="speed">
+      <option value="1">1x</option><option value="0.5">0.5x</option><option value="0.25">0.25x</option>
+      <option value="0.1">0.1x</option><option value="0.05">0.05x</option>
+    </select></label>
+    <input id="scrub" type="range" min="0" max="1" step="0.001" value="0">
+    <span id="time"></span>
+  </div>
+  <details id="castbox" open style="margin-top:32px">
+    <summary style="font-size:24px; font-weight:700; cursor:pointer">The cast</summary>
+    <canvas id="cast" style="aspect-ratio:64/21"></canvas>
+  </details>
+  <p style="margin-top:16px">Four animals work the word in turn, each coming in from off the canvas, slow to start
+    and fast once moving. Gel only changes where an animal has been, and each animal leaves one letter alone. The
+    honey bee weaves through the letters, leaving a serif italic, and turns away before the o. The frog leaps from
+    letter to letter, clean over the i; each letter dips under it like a lily pad and flows into a typewriter face
+    when it kicks off. The barn swallow drops in past the t and the wind off its wings blows the gel into a marker
+    hand, except the x, which it blows back to how it started. Then the mud dauber wasp writes the rest of the
+    word back, stroke by stroke, never touching the x. The last frame is the first frame, so the loop has no cut.</p>
+</main>
+
+<script src="animals.js"></script>
+<script>
+const W = 640, H = 360, PAPER = '#f4f1ea', INK = [31, 36, 48], FLOW = [226, 87, 43];
+const SIZE = 205, MID = 182;   // the word's type size and the height of its middle line
+const FONT = '-apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif';
+const clamp = (x) => Math.max(0, Math.min(1, x));
+// colour for a structure value: 0 = flowing, 1 = set
+const mix = (l, a = 1) => { l = clamp(l); return `rgba(${FLOW.map((f, i) => Math.round(f + (INK[i] - f) * l)).join(',')},${a})`; };
+const smooth = (a, b, x) => { x = clamp((x - a) / (b - a)); return x * x * (3 - 2 * x); };
+function rng(seed) {
+  return () => { seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+}
+// the points inside the word, on a grid of the given step
+function wordPoints(step) {
+  const o = document.createElement('canvas'); o.width = W; o.height = H;
+  const x = o.getContext('2d');
+  x.font = `bold ${SIZE}px ${FONT}`; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText('thixo', W / 2, MID);
+  const px = x.getImageData(0, 0, W, H).data, out = [];
+  for (let j = 0; j < H; j += step) for (let i = 0; i < W; i += step)
+    if (px[(j * W + i) * 4 + 3] > 128) out.push([i, j]);
+  return out;
+}
+
+// The loop is four animals working the word in turn, with a rest after each. Each of the first three reshapes
+// the letters into a new face; the fourth writes the word back as it started. A turn runs from t0 to t1 (seconds)
+// and every one starts slow and ends fast, the way the gel itself gives way. Gel only changes where an animal
+// has been: within R of the bee and the swallow as they weave through every letter, under each landing of the
+// frog, and under each stroke of the wasp.
+const FPS = 60, PEN = 25, FLY = 0.8, WRITER = { animal: wasp, size: 0.74, lift: 9 };
+// Each animal leaves one letter alone (letters are numbered t 0, h 1, i 2, x 3, o 4):
+// the bee turns away before the o, the frog leaps clean over the i, the swallow drops in past the t, and the wasp
+// never writes the x. For the loop to close, the x must be back as it started before the wasp begins, so the
+// swallow's wind sets the x back to its first shape instead of into the swallow's own face.
+const BEE_SKIPS = 4, FROG_SKIPS = 2, SWALLOW_SKIPS = 0, WASP_SKIPS = 3;
+const BOXES = letterBoxes(), LANDINGS = [4, 3, 2, 1, 0].filter((L) => L !== FROG_SKIPS).map((L) => [(BOXES[L].x0 + BOXES[L].x1) / 2, MID + 14, L]);   // the frog goes o, x, h, t
+// a weave up and down through the letters from one x to another; it can drop in from above the canvas at the
+// start (enter) or climb out over the top at the end (exit), each given as the share of the turn it takes
+const weave = (amp, waves, from, to, { enter = 0, exit = 0 } = {}) => (q) => {
+  let y = MID + 6 + amp * Math.sin(q * waves * 2 * Math.PI);
+  if (q < enter) y = -70 + (y + 70) * smooth(0, enter, q);
+  if (q > 1 - exit) y += (-70 - y) * smooth(1 - exit, 1, q);
+  return { x: from + (to - from) * q, y };
+};
+// The bee weaves as far as the middle of the x, timed so its last pass through the x is heading up, and then just
+// keeps going in that straight line, up and off the canvas, without turning towards the o.
+const beePath = (() => {
+  const from = -50, to = (BOXES[3].x0 + BOXES[3].x1) / 2, amp = 74, turn = 3.5 * 2 * Math.PI, share = 0.85;
+  return (q) => {
+    if (q <= share) return { x: from + (to - from) * q / share, y: MID + 6 + amp * Math.sin(turn * q / share) };
+    const k = (q - share) / share;
+    return { x: to + (to - from) * k, y: MID + 6 + amp * turn * Math.cos(turn) * k };
+  };
+})();
+// The swallow dives in from above, between the t and the h, and that dive is the first downstroke of its
+// swoops: it reaches the h already moving and carries straight on, with no pause where the dive meets the swoops.
+const swallowPath = (() => {
+  const from = BOXES[1].x0 + 10, to = 705, amp = 70, turn = 3.75 * 2 * Math.PI, dive = 0.14;
+  return (q) => {
+    const k = (q - dive) / (1 - dive);
+    if (k >= 0) return { x: from + (to - from) * k, y: MID + 6 + amp * Math.sin(turn * k) };
+    return { x: from + (to - from) * k, y: MID + 6 + amp * turn * k };
+  };
+})();
+const PASSES = [
+  { t0: 0.4, t1: 4.6, animal: bee, size: 0.74, lift: 9, R: 60, power: 1.6, skip: BEE_SKIPS, at: beePath },
+  { t0: 5.1, t1: 8.9, animal: frog, size: 0.9, lift: (d) => 1.5 + 11 * frogAir(d), power: 1.5, skip: FROG_SKIPS, stops: [[705, 150], ...LANDINGS, [-80, 215]] },
+  { t0: 9.4, t1: 12.8, animal: swallow, size: 0.92, lift: 16, wind: true, power: 1.6, skip: SWALLOW_SKIPS, at: swallowPath },
+];
+const STROKES = [];
+// where each letter sits, measured from the same text the nodes are sampled from
+function letterBoxes() {
+  const o = document.createElement('canvas'); o.width = W; o.height = H;
+  const x = o.getContext('2d', { willReadFrequently: true }), word = 'thixo';
+  x.font = `bold ${SIZE}px ${FONT}`; x.textAlign = 'left'; x.textBaseline = 'middle';
+  const left = W / 2 - x.measureText(word).width / 2;
+  return [...word].map((ch, i) => {
+    x.clearRect(0, 0, W, H); x.fillText(ch, left + x.measureText(word.slice(0, i)).width, MID);
+    const px = x.getImageData(0, 0, W, H).data, b = { x0: W, x1: 0, y0: H, y1: 0 };
+    for (let j = 0; j < H; j++) for (let k = 0; k < W; k++) if (px[(j * W + k) * 4 + 3] > 128) {
+      b.x0 = Math.min(b.x0, k); b.x1 = Math.max(b.x1, k); b.y0 = Math.min(b.y0, j); b.y1 = Math.max(b.y1, j);
+    }
+    return b;
+  });
+}
+// the strokes a hand would use to write the word, down the middle of each letter's limbs
+function letterStrokes() {
+  const [t, h, i, x, o] = letterBoxes(), z = SIZE / 170, m = 13 * z, top = x.y0 + m, base = x.y1 - m;
+  const tx = t.x0 + (t.x1 - t.x0) * 0.45, hx = h.x0 + m, hr = h.x1 - m, ix = (i.x0 + i.x1) / 2;
+  const ocx = (o.x0 + o.x1) / 2, ocy = (o.y0 + o.y1) / 2, orx = (o.x1 - o.x0) / 2 - m - 2, ory = (o.y1 - o.y0) / 2 - m;
+  const ring = Array.from({ length: 33 }, (_, k) => { const an = -Math.PI / 2 - k / 32 * 2 * Math.PI; return [ocx + orx * Math.cos(an), ocy + ory * Math.sin(an)]; });
+  return [
+    [[tx, t.y0 + m], [tx, base - 8 * z], [tx + 8 * z, base], [t.x1 - m + 3, base]],
+    [[t.x0 + m - 3, top], [t.x1 - m + 3, top]],
+    [[hx, h.y0 + m], [hx, base]],
+    [[hx, top + 18 * z], [hx + 14 * z, top + 2], [(hx + hr) / 2 + 4, top - 2], [hr, top + 14 * z], [hr, base]],
+    [[ix, top], [ix, base]],
+    [[ix, i.y0 + m - 4], [ix, i.y0 + m + 4]],
+    [[x.x0 + m, top], [x.x1 - m, base]],
+    [[x.x1 - m, top], [x.x0 + m, base]],
+    ring,
+  ];
+}
+{
+  let t = PASSES[PASSES.length - 1].t1 + 0.9;
+  const strokeLetter = [0, 0, 1, 1, 2, 2, 3, 3, 4];   // which letter each stroke belongs to
+  for (const pts of letterStrokes().filter((_, n) => strokeLetter[n] !== WASP_SKIPS)) {
+    let len = 0; for (let k = 1; k < pts.length; k++) len += Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]);
+    const dur = Math.max(0.3, len / 360);
+    STROKES.push({ t0: t, t1: t + dur, pts, len });
+    t += dur + 0.24;
+  }
+}
+const LAST = STROKES[STROKES.length - 1].t1, T = Math.ceil((LAST + 1.9) * 10) / 10;
+const passAt = (t) => PASSES.find((s) => t >= s.t0 && t <= s.t1);
+// how far through its turn an animal is, 0 to 1: slow to start, fast once moving
+const progress = (s, t) => clamp((t - s.t0) / (s.t1 - s.t0)) ** s.power;
+// the frog's turn is a row of leaps from stop to stop; hops says how many it has made, and how far into the next
+const hops = (s, t) => progress(s, t) * (s.stops.length - 1);
+const swipeDist = (s, t) => s.stops ? HOP * hops(s, t) : 0;
+function swipeAt(s, t) {
+  if (!s.stops) return s.at(progress(s, t));
+  const h = Math.min(hops(s, t), s.stops.length - 1 - 1e-6), i = Math.floor(h), k = (frogTravel(HOP * h) - HOP * i) / HOP;
+  const [ax, ay] = s.stops[i], [bx, by] = s.stops[i + 1];
+  return { x: ax + (bx - ax) * k, y: ay + (by - ay) * k };
+}
+// when the frog is h hops into its turn, in seconds: it lands on stop j at j - 0.1 and leaves it at j + 0.3
+const hopTime = (s, h) => s.t0 + (s.t1 - s.t0) * (h / (s.stops.length - 1)) ** (1 / s.power);
+function along(st, u) {
+  let left = u * st.len;
+  for (let k = 1; k < st.pts.length; k++) {
+    const [ax, ay] = st.pts[k - 1], [bx, by] = st.pts[k], seg = Math.hypot(bx - ax, by - ay);
+    if (left <= seg || k === st.pts.length - 1) { const q = seg ? Math.min(1, left / seg) : 0; return { x: ax + (bx - ax) * q, y: ay + (by - ay) * q }; }
+    left -= seg;
+  }
+}
+// where the writer is: on a stroke (down), or flying in, between strokes, or out
+function writerAt(t) {
+  const S = STROKES, first = S[0], last = S[S.length - 1];
+  if (t < first.t0 - FLY || t > last.t1 + FLY) return null;
+  const lerp = (a, b, q) => ({ x: a[0] + (b[0] - a[0]) * q, y: a[1] + (b[1] - a[1]) * q, down: false });
+  const end = (st) => st.pts[st.pts.length - 1];
+  if (t < first.t0) return lerp([BOXES[0].x0 - 50, H + 45], first.pts[0], smooth(first.t0 - FLY, first.t0, t));   // in from below, up the left of the t
+  if (t > last.t1) return lerp(end(last), [680, 70], ((t - last.t1) / FLY) ** 2);
+  for (let i = 0; i < S.length; i++) if (t <= S[i].t1) {
+    if (t >= S[i].t0) return { ...along(S[i], ((t - S[i].t0) / (S[i].t1 - S[i].t0)) ** 1.8), down: true };
+    return lerp(end(S[i - 1]), S[i].pts[0], smooth(S[i - 1].t1, S[i].t0, t));
+  }
+}
+// whoever is on stage at time t
+function actorAt(t) {
+  const s = passAt(t);
+  if (s) return { ...swipeAt(s, t), a: 1, swipe: s };
+  const w = writerAt(t);
+  return w && { ...w, a: 1 };
+}
+const REACH = 30, ROD = 9, SPACE = 6.5, BOND = 13.5, DOT = 2.2;
+
+// The faces the swipes reshape the word into, one per swipe. SIZE in the font string is replaced by a type size.
+const STYLES = [
+  'italic bold SIZEpx Georgia, "Times New Roman", serif',
+  'bold SIZEpx "American Typewriter", "Courier New", monospace',
+  'SIZEpx "Marker Felt", "Chalkboard SE", "Comic Sans MS", cursive',
+];
+// one alpha mask per letter of the word, set in the given face
+function letterMasks(font, size, baseline) {
+  const o = document.createElement('canvas'); o.width = W; o.height = H;
+  const x = o.getContext('2d', { willReadFrequently: true }), word = 'thixo';
+  x.font = font.replace('SIZE', size); x.textAlign = 'left'; x.textBaseline = baseline ? 'alphabetic' : 'middle';
+  const left = W / 2 - x.measureText(word).width / 2;
+  return [...word].map((ch, i) => {
+    x.clearRect(0, 0, W, H); x.fillText(ch, left + x.measureText(word.slice(0, i)).width, baseline || MID);
+    return x.getImageData(0, 0, W, H).data;
+  });
+}
+const inMask = (px, step) => { const out = []; for (let j = 0; j < H; j += step) for (let i = 0; i < W; i += step) if (px[(j * W + i) * 4 + 3] > 128) out.push([i, j]); return out; };
+// n points spread evenly over the candidates: keep taking the one farthest from those already taken
+function spread(cand, n) {
+  if (!cand.length) return [];
+  const far = cand.map(() => Infinity), out = [];
+  let next = 0;
+  while (out.length < Math.min(n, cand.length)) {
+    const [px, py] = cand[next]; out.push(cand[next]); let best = -1, bi = 0;
+    for (let k = 0; k < cand.length; k++) {
+      far[k] = Math.min(far[k], (cand[k][0] - px) ** 2 + (cand[k][1] - py) ** 2);
+      if (far[k] > best) { best = far[k]; bi = k; }
+    }
+    next = bi;
+  }
+  return out;
+}
+// pair each point of a with a point of b, closest pairs first, comparing where each sits within its own letter
+function pair(a, b) {
+  const unit = (pts) => { const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1]), x0 = Math.min(...xs), y0 = Math.min(...ys);
+    const w = Math.max(...xs) - x0 || 1, h = Math.max(...ys) - y0 || 1; return pts.map(([x, y]) => [(x - x0) / w, (y - y0) / h]); };
+  const ua = unit(a), ub = unit(b), all = [];
+  for (let i = 0; i < a.length; i++) for (let j = 0; j < b.length; j++) all.push([(ua[i][0] - ub[j][0]) ** 2 + (ua[i][1] - ub[j][1]) ** 2, i, j]);
+  all.sort((p, q) => p[0] - q[0]);
+  const out = new Array(a.length), usedA = new Set(), usedB = new Set();
+  for (const [, i, j] of all) if (!usedA.has(i) && !usedB.has(j)) { out[i] = b[j]; usedA.add(i); usedB.add(j); }
+  for (let i = 0; i < a.length; i++) out[i] ||= b[i % b.length];   // a face with too little room shares places
+  // then keep trading places between two nodes whenever that shortens their trips, so no node has far to go
+  const far = (i, q) => (a[i][0] - q[0]) ** 2 + (a[i][1] - q[1]) ** 2;
+  for (let sweep = 0, traded = true; traded && sweep < 60; sweep++) {
+    traded = false;
+    for (let i = 0; i < a.length; i++) for (let j = i + 1; j < a.length; j++)
+      if (far(i, out[i]) + far(j, out[j]) > far(i, out[j]) + far(j, out[i]) + 1e-9) { [out[i], out[j]] = [out[j], out[i]]; traded = true; }
+  }
+  return out;
+}
+// HOME is where each node sits in the word as it starts; SHAPES[k] is where the same node sits after swipe k
+const HOME = [], SHAPES = [], letterOf = [];
+{
+  const base = `bold SIZEpx ${FONT}`, r = rng(11);
+  letterMasks(base, SIZE).forEach((px, L) => { for (const [x, y] of inMask(px, 8)) { HOME.push([x + (r() - 0.5) * 3, y + (r() - 0.5) * 3]); letterOf.push(L); } });
+  const m = document.createElement('canvas').getContext('2d'), width = (font) => { m.font = font.replace('SIZE', SIZE); return m.measureText('thixo').width; };
+  const baseline = BOXES[3].y1 + 1;
+  for (const font of STYLES) {
+    const masks = letterMasks(font, Math.round(SIZE * Math.min(1.25, width(base) / width(font))), baseline), shape = new Array(HOME.length);
+    masks.forEach((px, L) => {
+      const idx = HOME.map((_, i) => i).filter((i) => letterOf[i] === L), cand = inMask(px, 3);
+      const to = cand.length ? pair(idx.map((i) => HOME[i]), spread(cand, idx.length)) : idx.map((i) => HOME[i]);
+      idx.forEach((i, k) => { shape[i] = to[k]; });
+    });
+    SHAPES.push(shape);
+  }
+}
+
+const sk = {
+  init() { this.p = HOME.map(([x, y], i) => ({ x, y, hx: x, hy: y, i, vx: 0, vy: 0, l: 1, stage: 0, goal: null, ox: 0, oy: 0, wx: 0, wy: 0 })); },
+  step(dt, t) {
+    const A = actorAt(t), B = actorAt(t - dt) || A, P = this.p, write = !!(A && A.down);
+    const c = A || { x: -999, y: -999 }, c0 = B || c, a = A ? A.a : 0;
+    const settle = smooth(LAST, T - 0.3, t);   // the last traces ease into place while it sets
+    const cvx = (c.x - c0.x) / dt, cvy = (c.y - c0.y) / dt;
+    const shear = Math.min(1, Math.hypot(cvx, cvy) / 100);
+    // a node's stage is the last animal that called it: 1, 2, 3 for the reshapers, then 4 for the writer.
+    // A node no animal reaches stays where it is, in whatever shape it was last left.
+    const sw = A && A.swipe, k = sw ? PASSES.indexOf(sw) : -1;
+    const call = (p, stage) => {
+      if (p.stage >= stage) return;
+      const home = stage > PASSES.length || (stage === PASSES.length && letterOf[p.i] === WASP_SKIPS);   // the swallow resets the wasp's letter
+      p.stage = stage; p.goal = home ? [p.hx, p.hy] : SHAPES[stage - 1][p.i];
+    };
+    for (const p of P) {
+      p.l += (1 - p.l) * dt / 0.28;
+      let ox = 0, oy = 0;   // how far the frog's weight is bending this node out of place
+      if (write) {
+        // the writer calls the gel that belongs where it is writing
+        if (Math.hypot(p.hx - c.x, p.hy - c.y) < PEN) call(p, PASSES.length + 1);
+      } else if (sw && sw.skip === letterOf[p.i]) {
+        // this animal leaves this letter alone
+      } else if (sw && sw.stops) {
+        // A letter gives under the frog like a lily pad: it dips towards where the frog came down, wobbles and
+        // holds. Only when the frog kicks off does the letter spring back and flow into its new shape.
+        const j = sw.stops.findIndex((q) => q[2] === letterOf[p.i]), [lx, ly] = sw.stops[j];
+        const landed = t - hopTime(sw, j - 0.1), left = t - hopTime(sw, j + 0.3);
+        const bx = p.x - p.ox, by = p.y - p.oy, dist = Math.hypot(bx - lx, by - ly) || 1;
+        if (landed > 0) {
+          const sag = left > 0 ? Math.exp(-left * 8) * Math.cos(left * 18) : 1 - Math.exp(-landed * 9) * Math.cos(landed * 20);
+          const pull = 10 * sag * (dist / 45) * Math.exp(1 - dist / 45);
+          ox = (lx - bx) / dist * pull; oy = (ly - by) / dist * pull;
+        }
+        if (left > 0 && left * 420 > dist) call(p, k + 1);
+      } else if (sw && sw.wind) {
+        // The swallow moves gel with the wind off its wings. The gust is as wide as the wings, strongest right
+        // under the bird and trailing off behind it, and it comes in pulses, one with each downstroke. It pushes
+        // gel the way the bird is flying and out to either side. Gel that takes a real gust comes loose.
+        const V = Math.hypot(cvx, cvy), fx = cvx / (V || 1), fy = cvy / (V || 1), rx = p.x - c.x, ry = p.y - c.y;
+        const ahead = rx * fx + ry * fy, side = -rx * fy + ry * fx;
+        // a bird that is barely moving makes no wind: with no speed there is no flight line to measure from either
+        const gust = V < 20 ? 0 : Math.min(1, V / 150) * Math.exp(-((side / 40) ** 2)) * Math.exp(-((ahead / (ahead > 0 ? 18 : 70)) ** 2)) * (0.45 + 0.55 * (1 - swallowFold(t)));
+        const out = Math.sign(side) * 0.55, push = V * 8 * gust;
+        p.wx += (fx * 0.8 - fy * out) * push * dt; p.wy += (fy * 0.8 + fx * out) * push * dt;
+        if (gust > 0.18) { call(p, k + 1); p.l = Math.min(p.l, 1 - gust); }
+      } else if (sw) {
+        // the bee reshapes what it passes over
+        if (Math.hypot(p.x - c.x, p.y - c.y) < sw.R) call(p, k + 1);
+      }
+      p.x += ox - p.ox; p.y += oy - p.oy; p.ox = ox; p.oy = oy;
+      if (p.goal) {
+        // called gel stays loose until it reaches its new place, then sets like the rest
+        const gx = p.goal[0] + p.ox, gy = p.goal[1] + p.oy;
+        const away = Math.hypot(gx - p.x, gy - p.y);
+        if (p.stage === 3) {
+          // blown gel keeps the speed the wind gave it: it is carried along, then drawn back and into its new
+          // place like a weight on a spring, and it sets once it has come to rest there
+          if (away > 1.5 || Math.hypot(p.wx, p.wy) > 12) p.l = Math.min(p.l, 0.12);
+          p.wx += ((gx - p.x) * 60 - p.wx * 11) * dt; p.wy += ((gy - p.y) * 60 - p.wy * 11) * dt;
+          p.x += p.wx * dt; p.y += p.wy * dt; p.vx = p.vy = 0;
+        } else {
+          if (away > 1.5) p.l = Math.min(p.l, 0.12);
+          const h = Math.min(1, 11 * dt); p.x += (gx - p.x) * h; p.y += (gy - p.y) * h; p.vx = p.vy = 0;
+        }
+      }
+      if (settle > 0) {
+        const k = Math.min(1, settle * 6 * dt); p.x += (p.hx - p.x) * k; p.y += (p.hy - p.y) * k;
+        p.l += (1 - p.l) * settle * 4 * dt;
+      }
+    }
+    for (let i = 0; i < P.length; i++) for (let j = i + 1; j < P.length; j++) {
+      const p = P[i], q = P[j], dx = q.x - p.x, dy = q.y - p.y;
+      if (Math.abs(dx) > SPACE || Math.abs(dy) > SPACE) continue;
+      const d = Math.hypot(dx, dy) || 1; if (d >= SPACE) continue;
+      const k = (SPACE - d) * 0.5 / d;
+      // gel on its way home slips between the nodes that are already set
+      const wp = p.goal ? 0 : 1 - p.l, wq = q.goal ? 0 : 1 - q.l;
+      p.x -= dx * k * wp; p.y -= dy * k * wp;
+      q.x += dx * k * wq; q.y += dy * k * wq;
+    }
+    for (const p of P) {
+      const m = 1 - p.l;
+      p.x += p.vx * m * dt; p.y += p.vy * m * dt;
+      const k = Math.exp(-dt * (5 + 18 * p.l)); p.vx *= k; p.vy *= k;
+    }
+  },
+  draw(ctx, t) {
+    const P = this.p; ctx.lineWidth = 1;
+    for (let i = 0; i < P.length; i++) for (let j = i + 1; j < P.length; j++) {
+      const p = P[i], q = P[j], dx = q.x - p.x, dy = q.y - p.y;
+      if (Math.abs(dx) > BOND || Math.abs(dy) > BOND) continue;
+      const d = Math.hypot(dx, dy); if (d >= BOND) continue;
+      // every pair closer than BOND is joined, set or not; the line thins out over the last fifth so it doesn't pop
+      ctx.strokeStyle = mix(Math.min(p.l, q.l), 0.75 * Math.min(1, (1 - d / BOND) * 5)); ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke();
+    }
+    for (const p of P) { ctx.fillStyle = mix(p.l); ctx.beginPath(); ctx.arc(p.x, p.y, DOT, 0, 7); ctx.fill(); }
+    const A = actorAt(t);
+    if (A) {
+      // face the way it is going; while it is barely moving, look further along the path
+      let vx = 0, vy = 0;
+      for (const h of [0.04, 0.3, 1]) {
+        const p0 = actorAt(t - h) || A, p1 = actorAt(t + h) || A; vx = p1.x - p0.x; vy = p1.y - p0.y;
+        if (Math.hypot(vx, vy) > 0.5) break;
+      }
+      const who = A.swipe || WRITER;
+      ctx.save(); ctx.translate(A.x, A.y); ctx.rotate(Math.atan2(vy, vx)); ctx.scale(who.size, who.size);
+      drawAnimal(ctx, who.animal, t, A.swipe ? swipeDist(A.swipe, t) : 0, who.lift);
+      ctx.restore();
+    }
+  },
+};
+
+// The loop is stepped at 60 fps from a seeded start, so frame n is always the same picture.
+// window.thixo.seek(n) jumps to a frame, for the scrubber and for capturing a gif.
+const canvas = document.getElementById('wordnet'), ctx = canvas.getContext('2d');
+const scale = Math.min(2, window.devicePixelRatio || 1);
+canvas.width = W * scale; canvas.height = H * scale;
+const FRAMES = Math.round(T * FPS);
+let f = 0, playing = true;
+function render() {
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  ctx.fillStyle = PAPER; ctx.fillRect(0, 0, W, H);
+  sk.draw(ctx, f / FPS);
+  scrub.value = f / FRAMES; time.textContent = `${(f / FPS).toFixed(1)} / ${T.toFixed(1)}s`;
+}
+function advance() { for (let k = 0; k < 3; k++) sk.step(1 / FPS / 3, (f + k / 3) / FPS); f++; if (f >= FRAMES) { f = 0; sk.init(); } }
+function seek(n) { n = ((Math.round(n) % FRAMES) + FRAMES) % FRAMES; if (n < f) { f = 0; sk.init(); } while (f < n) advance(); render(); }
+const scrub = document.getElementById('scrub'), time = document.getElementById('time'), play = document.getElementById('play');
+play.onclick = () => { playing = !playing; play.textContent = playing ? 'Pause' : 'Play'; };
+const speed = document.getElementById('speed');
+const pause = () => { playing = false; play.textContent = 'Play'; };
+document.getElementById('back').onclick = () => { pause(); seek(f - 1); };
+document.getElementById('fwd').onclick = () => { pause(); seek(f + 1); };
+scrub.oninput = () => { playing = false; play.textContent = 'Play'; seek(scrub.value * FRAMES); };
+window.thixo = { seek, frames: FRAMES, fps: FPS, canvas };
+sk.init();
+let last = 0, acc = 0;
+const cast = document.getElementById('cast'), cctx = cast.getContext('2d');
+cast.width = W * scale; cast.height = 210 * scale;
+function renderCast(now) {
+  const t = now / 1000;
+  cctx.setTransform(scale, 0, 0, scale, 0, 0); cctx.fillStyle = PAPER; cctx.fillRect(0, 0, W, 210);
+  [[bee, 'honey bee'], [frog, 'frog'], [swallow, 'barn swallow'], [wasp, 'mud dauber wasp']].forEach(([animal, name], i) => {
+    cctx.save(); cctx.translate(80 + i * 160, 95); cctx.rotate(-Math.PI / 2); cctx.scale(2, 2); drawAnimal(cctx, animal, t, t * 75, animal === frog ? (d) => 1.5 + 11 * frogAir(d) : 10); cctx.restore();
+    cctx.fillStyle = mix(1); cctx.font = `600 13px ${FONT}`; cctx.textAlign = 'center'; cctx.fillText(name, 80 + i * 160, 198);
+  });
+}
+// the cast can be folded away; the choice is remembered on this browser
+const castbox = document.getElementById('castbox');
+try { castbox.open = localStorage.getItem('cast') !== 'hidden'; } catch (e) {}
+castbox.ontoggle = () => { try { localStorage.setItem('cast', castbox.open ? 'shown' : 'hidden'); } catch (e) {} };
+let castTime = 0;
+requestAnimationFrame(function frame(now) {
+  const dt = Math.min((now - (last || now)) / 1000, 0.1) * Number(speed.value); last = now;
+  castTime += dt; if (castbox.open) renderCast(castTime * 1000);
+  acc += dt;
+  if (playing) { let n = 0; while (acc >= 1 / FPS) { acc -= 1 / FPS; advance(); n++; } if (n) render(); } else acc = 0;
+  requestAnimationFrame(frame);
+});
+</script>
+</body>
+</html>
