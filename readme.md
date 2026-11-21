@@ -1,13 +1,14 @@
-# Thixo
-
 ![The word thixo, built from a lattice of nodes. A bee, a frog and a swallow each reshape its letters, and a wasp writes it back.](thixo.gif)
 
-Thixotropic: holds its shape at rest, flows when you work it.
+# Thixo
 
-Thixo is a framework for building malleable SaaS products: apps whose own users can change them.
+```sh
+Thixo (n)
+The flexibly opinionated framework for creating malleable software
 
-It is the flexibly opinionated framework. It ships a working answer for every part, and an implementor can swap any
-of them for their own through an adapter. What an implementor changes is an adapter. What a user changes is a plugin.
+Thixotropic (adj)
+holds its shape at rest, flows when you work it
+```
 
 A developer uses Thixo the way they would use Next.js. They define an API and a base app. Thixo adds the part that
 is hard to build yourself: a safe way for the people using the app to write, share and run their own plugins inside
