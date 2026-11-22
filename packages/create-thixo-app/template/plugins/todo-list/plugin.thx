@@ -1,0 +1,45 @@
+// The default plugin for the main slot: the list of todos. Every user has it.
+//
+// Its scopes are not written anywhere. The build reads them from these imports:
+//   required: todos.read, todos.write   (listTodos, createTodo, updateTodo)
+
+import { definePlugin, useQuery, useState } from "thixo/plugin";
+import { Button, Checkbox, Stack, Text, TextInput } from "thixo/ui";
+import { main } from "@app/slots";
+import { createTodo, listTodos, updateTodo } from "@app/sdk";
+
+export default definePlugin(
+  main,
+  {
+    id: "plg_todo_list",
+    name: "Todo list",
+    description: "Every todo in one list. Add and tick off.",
+  },
+  function TodoList({ emit }) {
+    const todos = useQuery(listTodos);
+    const [title, setTitle] = useState("");
+
+    async function add() {
+      await createTodo({ title });
+      setTitle("");
+      todos.refresh();
+    }
+
+    return (
+      <Stack gap="md">
+        <TextInput value={title} onChange={setTitle} onSubmit={add} placeholder="Add a todo" />
+        {todos.loading && <Text tone="muted">Loading…</Text>}
+        {todos.error && <Text tone="danger">{todos.error.message}</Text>}
+
+        {todos.data?.map((todo) => (
+          <Stack key={todo.id} direction="row" gap="sm">
+            <Checkbox checked={todo.done} onChange={(done) => updateTodo({ id: todo.id, done }).then(todos.refresh)} />
+            <Button variant="secondary" onClick={() => emit.select({ todoId: todo.id })}>
+              {todo.title}
+            </Button>
+          </Stack>
+        ))}
+      </Stack>
+    );
+  },
+);

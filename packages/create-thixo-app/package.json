@@ -1,0 +1,17 @@
+{
+  "name": "create-thixo-app",
+  "version": "0.0.1",
+  "description": "Starts a new Thixo app from the template: create-thixo-app <name>.",
+  "type": "module",
+  "files": ["bin", "lib", "template"],
+  "bin": {
+    "create-thixo-app": "./bin/create-thixo-app.js"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "build": "node --check bin/create-thixo-app.js && node --check lib/cli.js && node --check lib/create.js",
+    "test": "node --test \"test/*.test.js\""
+  }
+}
