@@ -17,6 +17,8 @@ export { createContext } from "./context.js";
 export type { Route, RouteCall, RouteMethod, ServerContext, Services, RegistryServices } from "./context.js";
 export { DeployError } from "./deploy.js";
 export type { DeployInput, DeployResult } from "./deploy.js";
+export { runAuthoring, scriptedModel } from "./authoring/index.js";
+export type { AuthoringEvent, AuthoringRequest, ScriptedModel, ScriptedStep, ScriptedTurn } from "./authoring/index.js";
 export { recordDeleted } from "./registry/record-deleted.js";
 export { isAddress } from "./registry/plugin-data.js";
 export { withPluginId, withoutPluginId, readPluginId } from "./registry/plugin-source.js";
