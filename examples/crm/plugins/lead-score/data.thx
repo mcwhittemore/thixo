@@ -1,0 +1,8 @@
+// A lead score on a deal. The app's Deal record groups annotations by the writer's team (A11), so each team keeps
+// its own score for the same deal.
+
+import { annotate } from "thixo/data";
+import { t } from "thixo/schema";
+import { Deal } from "@app/sdk";
+
+export const lead = annotate(Deal, { score: t.number() });
