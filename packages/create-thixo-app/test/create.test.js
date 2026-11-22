@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { createApp, checkName, freshPluginId, UsageError } from "../lib/create.js";
+import { CHECKOUT_PACKAGES, createApp, checkName, findCheckout, freshPluginId, UsageError } from "../lib/create.js";
 import { main } from "../lib/cli.js";
 
 const TEMPLATE = fileURLToPath(new URL("../template/", import.meta.url));
@@ -113,4 +113,37 @@ test("freshPluginId uses plg_ and the random hex", () => {
 test("the template exists and has the default plugins", async () => {
   const plugins = await readdir(join(TEMPLATE, "plugins"));
   assert.deepEqual(plugins.sort(), ["todo-info", "todo-list"]);
+});
+
+test("run from a Thixo checkout, package.json links the packages and React from it, so npm install needs no registry", async () => {
+  const root = await findCheckout();
+  assert.ok(root, "these tests run inside the checkout, after its npm install");
+  await withTempDir(async (cwd) => {
+    const result = await createApp({ name: "linked", cwd });
+    assert.equal(result.checkout, root);
+    const pkg = JSON.parse(await readFile(join(cwd, "linked", "package.json"), "utf8"));
+    for (const [dep, path] of Object.entries(CHECKOUT_PACKAGES)) assert.equal(pkg.dependencies[dep], `file:${join(root, path)}`, dep);
+
+    const out = [];
+    assert.equal(await main(["printed"], { cwd, out: (s) => out.push(s), err: () => {} }), 0);
+    assert.match(out.join("\n"), /not on npm yet, so package\.json links them/);
+    assert.match(out.join("\n"), /thixo agent describe/);
+  });
+});
+
+test("with checkout: null, package.json keeps the npm versions", async () => {
+  await withTempDir(async (cwd) => {
+    const result = await createApp({ name: "pinned", cwd, checkout: null });
+    assert.equal(result.checkout, null);
+    const pkg = JSON.parse(await readFile(join(cwd, "pinned", "package.json"), "utf8"));
+    assert.equal(pkg.dependencies.thixo, "0.0.1");
+    assert.equal(pkg.dependencies.react, "^19.0.0");
+  });
+});
+
+test("a folder that is not a Thixo checkout is not taken for one", async () => {
+  await withTempDir(async (cwd) => {
+    await mkdir(join(cwd, "a", "b", "template"), { recursive: true });
+    assert.equal(await findCheckout(join(cwd, "a", "b", "template")), null);
+  });
 });

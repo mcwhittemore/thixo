@@ -8,7 +8,8 @@ import { realDeps, type Deps } from "./deps.js";
 import { runDev } from "./dev.js";
 import { CliError } from "./errors.js";
 import { processIo, type Io } from "./io.js";
-import { newPlugin } from "./new-plugin.js";
+import { newPlugin, type AppSlots } from "./new-plugin.js";
+import { buildServerBundle, closeAdapters, loadServerBundle } from "./bundle.js";
 import { openProject } from "./project.js";
 import { runRegistryList, runRelease } from "./registry-cmd.js";
 import { runStart } from "./start.js";
@@ -24,6 +25,22 @@ function version(): string {
     return (JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }).version;
   } catch {
     return "unknown";
+  }
+}
+
+/** The app's slots and slot paths, for the layout line `new plugin` prints. Undefined when the app does not load:
+ * the folder is still made. */
+async function appSlots(dir: string, deps: Deps): Promise<AppSlots | undefined> {
+  try {
+    const paths = openProject(dir);
+    const server = await deps.server();
+    if (!server.slotPaths) return undefined;
+    await buildServerBundle(paths);
+    const loaded = await loadServerBundle(paths, server);
+    closeAdapters(loaded.config);
+    return { slots: loaded.app.slots, paths: server.slotPaths(loaded.app.slots) };
+  } catch {
+    return undefined;
   }
 }
 
@@ -51,7 +68,7 @@ export async function run(argv: string[], context: RunContext = {}): Promise<num
       case "compile":
         return await runCompile(command, io, deps);
       case "new-plugin":
-        newPlugin({ name: command.pluginName, slot: command.slot, dir: resolve(io.cwd, command.dir) }, io);
+        newPlugin({ name: command.pluginName, slot: command.slot, dir: resolve(io.cwd, command.dir) }, io, await appSlots(resolve(io.cwd, command.dir), deps));
         return 0;
       case "agent":
         return await runAgent(command.options, io, context.fetch);

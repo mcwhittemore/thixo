@@ -1,7 +1,10 @@
 import { isHttpError } from "../api/errors.js";
 import type { AppDefinition, ThixoConfig } from "../contract.js";
 import { routes as appRoutes } from "./app-routes.js";
-import { createContext, type Route, type Services } from "./context.js";
+import { createContext, type Route, type ServerContext, type Services } from "./context.js";
+import type { Manifest } from "thixo-thx/contract";
+import { optionalScopes, requiredScopes } from "./registry/scopes.js";
+import { summarise } from "./registry/summary.js";
 import { deploy } from "./deploy.js";
 import { createRouter } from "./router.js";
 import { routes as authoringRoutes } from "./routes/authoring.js";
@@ -71,4 +74,12 @@ export function createThixo(app: AppDefinition, config: ThixoConfig): Thixo {
       }
     },
   };
+}
+export { slotPaths, resolveSlotPath } from "../slots/paths.js";
+
+/** What the registry tells a user about a plugin built from `manifest` in `app` (G5): the summary sentences and the
+ * scopes. `thixo compile` prints the same words the plugin browser and `thixo agent check` show. */
+export function describeManifest(app: AppDefinition, manifest: Manifest): { summary: string[]; requiredScopes: string[]; optionalScopes: string[] } {
+  const ctx = { app } as ServerContext;
+  return { summary: summarise(ctx, manifest), requiredScopes: requiredScopes(ctx, manifest), optionalScopes: optionalScopes(ctx, manifest) };
 }

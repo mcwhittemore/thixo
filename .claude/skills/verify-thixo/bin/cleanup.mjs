@@ -19,7 +19,7 @@ if (state.pid && alive(state.pid)) {
   if (alive(state.pid)) process.kill(state.pid, "SIGKILL");
   console.log(`stopped pid ${state.pid}`);
 }
-removeCopy(state.dir);
-console.log(`removed ${state.dir}`);
+if (removeCopy(state.dir)) console.log(`removed ${state.dir}`);
+else if (state.dir) console.log(`left ${state.dir} in place: only a copy launch.mjs made (its name starts thixo-) is deleted`);
 rmSync(stateFile(run), { force: true });
 console.log(`evidence kept in ${runDir(run)}`);

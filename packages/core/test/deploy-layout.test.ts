@@ -10,7 +10,7 @@ const folders = (note = "") => ({
   "due-dates": pluginFiles({ id: "plg_due", name: "Due dates", manifest: detail, note }),
   faces: pluginFiles({ id: "plg_faces", name: "Faces", manifest: row }),
 });
-const layout = { "main/todo-detail": "due-dates", "main/todo-row": "faces" };
+const layout = { "todo-detail": "due-dates", "main/todo-row": "faces" };
 
 async function versionCount(w: World, id: string): Promise<number> {
   return (await w.adapters.data.listVersions(id)).length;
@@ -20,7 +20,7 @@ test("a deploy builds each folder, makes shared implementor plugins, and writes 
   const w = world();
   const release = await w.thixo.services.deploy({ plugins: folders(), layout, deployment: "sha-1" });
   assert.deepEqual(release.plugins.sort(), ["plg_due", "plg_faces"]);
-  assert.deepEqual(release.layout, { "main/todo-detail": { plugin: "plg_due", number: 1 }, "main/todo-row": { plugin: "plg_faces", number: 1 } });
+  assert.deepEqual(release.layout, { "todo-detail": { plugin: "plg_due", number: 1 }, "main/todo-row": { plugin: "plg_faces", number: 1 } });
   assert.equal(release.deployment, "sha-1");
   const plugin = await w.adapters.data.getPlugin("plg_due");
   assert.equal(plugin?.author, "implementor");
@@ -53,13 +53,17 @@ test("a changed folder is a new version, and rolling back finds the old one by h
   const w = world();
   const one = await w.thixo.services.deploy({ plugins: folders(), layout, deployment: "sha-1" });
   const two = await w.thixo.services.deploy({ plugins: folders("v2"), layout, deployment: "sha-2" });
-  assert.equal(two.layout["main/todo-detail"].number, 2);
+  assert.equal(two.layout["todo-detail"].number, 2);
   assert.equal(two.layout["main/todo-row"].number, 1);
   const back = await w.thixo.services.deploy({ plugins: folders(), layout, deployment: "sha-1-again" });
-  assert.equal(back.layout["main/todo-detail"].number, 1);
+  assert.equal(back.layout["todo-detail"].number, 1);
   assert.notEqual(back.id, one.id);
   assert.equal(await versionCount(w, "plg_due"), 2, "nothing new was stored");
   assert.equal((await w.adapters.data.latestRelease())?.id, back.id);
+  // The plugin browser shows the newest version; it also needs the one the default serves (verify-defaults-crm).
+  const [due] = await w.thixo.services.registry.search({ user: w.users.ana, q: "due" });
+  assert.equal(due.latest, 2);
+  assert.equal(due.defaultVersion, 1);
 });
 
 test("a folder without an id, a build error, a wrong slot or a missing folder fails the deploy and stores nothing", async () => {
@@ -75,8 +79,11 @@ test("a folder without an id, a build error, a wrong slot or a missing folder fa
   };
   assert.match(await attempt({ "due-dates": pluginFiles({ manifest: detail }) }, {}), /thixo new plugin/);
   assert.match(await attempt({ "due-dates": pluginFiles({ id: "p", note: "@error", manifest: detail }) }, {}), /fake error/);
-  assert.match(await attempt(folders(), { "main/todo-detail": "faces" }), /fills the slot "todo-row"/);
-  assert.match(await attempt(folders(), { "main/todo-detail": "ghost" }), /no plugins\/ghost/);
+  assert.match(await attempt(folders(), { "todo-detail": "faces" }), /fills the slot "todo-row"/);
+  assert.match(await attempt(folders(), { "todo-detail": "ghost" }), /no plugins\/ghost/);
+  // A layout key no slot reads would deploy a plugin nobody sees (verify-chat): refused, with the path to write.
+  assert.match(await attempt(folders(), { "todo-row": "faces" }), /names the slot "todo-row", which no part of the app shows\. Write "main\/todo-row"/);
+  assert.match(await attempt(folders(), { "main/todo-detail": "due-dates" }), /The slot paths are: main, main\/todo-row, todo-detail/);
   assert.match(await attempt({ a: pluginFiles({ id: "same", manifest: detail }), b: pluginFiles({ id: "same", manifest: detail, note: "b" }) }, {}), /both name the plugin/);
   assert.deepEqual(await w.adapters.data.listPlugins(), []);
   assert.equal(w.adapters.code.objects.size, 0);
@@ -129,8 +136,8 @@ test("promotion round trip: promoting version 4 and deploying finds version 4 (d
   assert.deepEqual(withoutPluginId(folder), stored, "only the id was added");
   assert.equal(folder["plugin.thx"].replace(`id: "${id}", `, ""), stored["plugin.thx"]);
 
-  const release = await w.thixo.services.deploy({ plugins: { "due-dates": folder }, layout: { "main/todo-detail": "due-dates" }, deployment: "merge-1" });
-  assert.deepEqual(release.layout["main/todo-detail"], { plugin: id, number: 4 });
+  const release = await w.thixo.services.deploy({ plugins: { "due-dates": folder }, layout: { "todo-detail": "due-dates" }, deployment: "merge-1" });
+  assert.deepEqual(release.layout["todo-detail"], { plugin: id, number: 4 });
   assert.equal(await versionCount(w, id), 5, "no new version was made");
   const plugin = await w.adapters.data.getPlugin(id);
   assert.deepEqual([plugin?.author, plugin?.visibility], ["implementor", "shared"]);
@@ -161,14 +168,14 @@ test("layouts: an unchanged slot follows the new default and a changed one stays
 
   await w.thixo.services.deploy({ plugins: folders(), layout, deployment: "sha-1" });
   const faces1 = { plugin: "plg_faces", number: 1 };
-  assert.deepEqual((await L.get(ben)).resolved, { "main/todo-detail": { plugin: "plg_due", number: 1 }, "main/todo-row": faces1 });
+  assert.deepEqual((await L.get(ben)).resolved, { "todo-detail": { plugin: "plg_due", number: 1 }, "main/todo-row": faces1 });
 
   const set = await L.set(ben, { slot: "main/todo-row", plugin: mine.plugin.id, number: 1 });
   assert.deepEqual(set.changes, { "main/todo-row": { plugin: mine.plugin.id, number: 1 } });
 
   await w.thixo.services.deploy({ plugins: { ...folders("v2"), faces: pluginFiles({ id: "plg_faces", name: "Faces", manifest: row, note: "v2" }) }, layout, deployment: "sha-2" });
   const after = await L.get(ben);
-  assert.deepEqual(after.resolved["main/todo-detail"], { plugin: "plg_due", number: 2 }, "never changed: follows the new default");
+  assert.deepEqual(after.resolved["todo-detail"], { plugin: "plg_due", number: 2 }, "never changed: follows the new default");
   assert.deepEqual(after.resolved["main/todo-row"], { plugin: mine.plugin.id, number: 1 }, "changed: stays");
   assert.deepEqual(after.defaults["main/todo-row"], { plugin: "plg_faces", number: 2 });
   assert.deepEqual((await L.get(w.users.ana)).resolved["main/todo-row"], { plugin: "plg_faces", number: 2 }, "other users have their own changes");
@@ -184,11 +191,24 @@ test("layout set refuses a plugin the user can't see, can't use, or that fills a
   const anas = await submitOk(w, "ana", { name: "Anas", manifest: detail });
   const L = w.thixo.services.registry.layout;
   const err = async (p: Promise<unknown>) => p.then(() => null, (e) => ({ status: e.status, code: e.code }));
-  assert.deepEqual(await err(L.set(w.users.ben, { slot: "main/todo-detail", plugin: anas.plugin.id, number: 1 })), { status: 404, code: "plugin_not_found" });
-  assert.deepEqual(await err(L.set(w.users.cy, { slot: "main/todo-detail", plugin: "plg_due", number: 1 })), { status: 403, code: "missing_scopes" });
+  assert.deepEqual(await err(L.set(w.users.ben, { slot: "todo-detail", plugin: anas.plugin.id, number: 1 })), { status: 404, code: "plugin_not_found" });
+  assert.deepEqual(await err(L.set(w.users.cy, { slot: "todo-detail", plugin: "plg_due", number: 1 })), { status: 403, code: "missing_scopes" });
   assert.deepEqual(await err(L.set(w.users.ana, { slot: "main/todo-row", plugin: "plg_due", number: 1 })), { status: 400, code: "wrong_slot" });
-  assert.deepEqual(await err(L.set(w.users.ana, { slot: "main/todo-detail", plugin: "plg_due", number: 7 })), { status: 404, code: "version_not_found" });
-  assert.equal(await err(L.set(w.users.ana, { slot: "main/todo-detail", plugin: anas.plugin.id, number: 1 })), null);
+  assert.deepEqual(await err(L.set(w.users.ana, { slot: "todo-detail", plugin: "plg_due", number: 7 })), { status: 404, code: "version_not_found" });
+  assert.equal(await err(L.set(w.users.ana, { slot: "todo-detail", plugin: anas.plugin.id, number: 1 })), null);
+  // A slot that does not exist is refused rather than stored where no slot reads it.
+  assert.deepEqual(await err(L.set(w.users.ana, { slot: "main/todo-detail", plugin: anas.plugin.id, number: 1 })), { status: 400, code: "unknown_slot" });
+  assert.deepEqual(await err(L.set(w.users.ana, { slot: "sidebar", plugin: anas.plugin.id, number: 1 })), { status: 400, code: "unknown_slot" });
+});
+
+test("layout set takes a child slot's bare name and stores it under its path", async () => {
+  const w = world();
+  await w.thixo.services.deploy({ plugins: folders(), layout, deployment: "sha-1" });
+  const mine = await submitOk(w, "ben", { name: "Ben faces", manifest: row });
+  const L = w.thixo.services.registry.layout;
+  const after = await L.set(w.users.ben, { slot: "todo-row", plugin: mine.plugin.id, number: 1 });
+  assert.deepEqual(after.changes, { "main/todo-row": { plugin: mine.plugin.id, number: 1 } });
+  assert.deepEqual((await L.set(w.users.ben, { slot: "todoRow", plugin: mine.plugin.id, number: 1 })).changes, after.changes, "the export name works too");
 });
 
 test("layout routes", async () => {

@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // Drives this run's app in headless Chromium as one user, then saves a screenshot and an ARIA snapshot.
-//   node .claude/skills/verify-thixo/bin/drive.mjs [--run <id>] --as <ana|ben|cy> [--script <file.mjs>] [--name <label>]
+//   node .claude/skills/verify-thixo/bin/drive.mjs [--run <id>] --as <user> [--script <file.mjs>] [--name <label>]
+// The users are the app's own: todo has ana, ben and cy; crm has rita, ravi, mia, sam and ada; an app create-thixo-app
+// made has ana and ben.
 // A script's default export is `async ({ page, url, as, step, expect }) => {}`. `step(label)` saves a screenshot
 // and ARIA snapshot mid-run; `expect(condition, message)` fails the drive. Without --script it only opens the app.
 // Evidence goes to artifacts/verify/<run>/<name>/: <n>-<label>.png, <n>-<label>.aria.txt, requests.json, console.txt.
@@ -15,7 +17,7 @@ const { chromium } = await import(pathToFileURL(join(ROOT, "node_modules/playwri
 const a = args();
 const run = a.run ?? "default";
 const as = a.as;
-if (!as || as === true) fail("say who to drive as: --as ana, ben or cy");
+if (!as || as === true) fail("say who to drive as: --as <user>. todo has ana, ben and cy; crm has rita, ravi, mia, sam and ada; a created app has ana and ben.");
 const state = readState(run);
 if (!state?.url) fail(`no instance for run "${run}". Run launch.mjs and doctor.mjs first.`);
 const name = a.name ?? `${as}-${Date.now()}`;

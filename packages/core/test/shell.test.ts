@@ -205,7 +205,8 @@ test("the authoring chat streams the agent's events and loads the layout again w
   const layoutsBefore = server.requests.filter((r) => r.path === "/_thixo/layout").length;
   const message = byLabel("Message")!;
   await act(async () => setValue(message, "Give todos a due date"));
-  await act(async () => void (byLabel("Send a message") as HTMLFormElement).requestSubmit());
+  // Enter in the box sends, as in any chat (verify-chat); Shift+Enter would start a new line.
+  await act(async () => void message.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }) as unknown as Event));
   const log = await waitFor(() => (byLabel("Chat messages")?.textContent?.includes("Done") ? byLabel("Chat messages") : null), "the chat to finish");
   const lines = [...log.children].map((c) => [c.getAttribute("data-kind"), c.textContent]);
   assert.deepEqual(lines, [

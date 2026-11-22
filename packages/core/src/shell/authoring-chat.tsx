@@ -13,11 +13,14 @@ export function AuthoringChat() {
   const [busy, setBusy] = React.useState(false);
   const conversation = React.useRef<string | undefined>(undefined);
   const abort = React.useRef<AbortController | null>(null);
+  const form = React.useRef<HTMLFormElement | null>(null);
 
   React.useEffect(() => () => abort.current?.abort(), []);
 
   if (!internals) return null;
   const canAuthor = internals.session.user.scopes.includes("thixo.plugins.author");
+  const turn = lines.slice(lines.map((l) => l.kind).lastIndexOf("user") + 1);
+  const lastTool = [...turn].reverse().find((l) => l.kind === "tool");
 
   const push = (line: Line) =>
     setLines((all) => {
@@ -65,7 +68,13 @@ export function AuthoringChat() {
           ),
         )}
       </div>
+      {busy && (
+        <p role="status" className="thixo-muted">
+          The agent is working{lastTool ? `: ${lastTool.text.replace(/^Using /, "using ")}` : ""}…
+        </p>
+      )}
       <form
+        ref={form}
         aria-label="Send a message"
         className="thixo-row"
         onSubmit={(e) => {
@@ -84,6 +93,13 @@ export function AuthoringChat() {
           value={draft}
           disabled={!canAuthor}
           onChange={(e) => setDraft(e.currentTarget.value)}
+          onKeyDown={(e) => {
+            // Enter sends, as in any chat; Shift+Enter starts a new line.
+            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              form.current?.requestSubmit();
+            }
+          }}
           style={{ flex: 1 }}
         />
         <button type="submit" className="thixo-button thixo-button-primary" disabled={busy || !canAuthor} aria-busy={busy} title={canAuthor ? undefined : "Asking needs thixo.plugins.author"}>

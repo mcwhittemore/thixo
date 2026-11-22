@@ -2,6 +2,7 @@
 // function per endpoint.
 
 import { endpoint, record, HttpError } from "thixo/api";
+import { recordDeleted } from "thixo/server";
 import { t } from "thixo/schema";
 import { db } from "./db.js";
 
@@ -65,5 +66,19 @@ export const updateTodo = endpoint({
     const todo = await db.todos.update(id, changes);
     if (!todo) throw new HttpError(404, `No todo ${id}`);
     return todo;
+  },
+});
+
+// Only a user who holds todos.delete may call this: ben does, ana does not. The todo list imports it from
+// @app/sdk/optional, so ana still gets the list, with Delete grayed out (useCan).
+export const deleteTodo = endpoint({
+  method: "DELETE",
+  path: "/todos/:id",
+  scopes: ["todos.read", "todos.delete"],
+  input: t.object({ id: t.string() }),
+  handler: async ({ input }) => {
+    if (!(await db.todos.remove(input.id))) throw new HttpError(404, `No todo ${input.id}`);
+    // Thixo can't see the app's storage, so the app says when a record goes: plugin data on it goes with it.
+    await recordDeleted("todo", input.id);
   },
 });

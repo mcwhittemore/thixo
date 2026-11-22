@@ -23,7 +23,7 @@ library.
 | `packages/thixo-node` | `thixo-node` | Local adapters: files for code, `node:sqlite` for data, an in-process build, a Node HTTP server, a Claude Code model adapter. |
 | `packages/thixo-anthropic` | `thixo-anthropic` | The model adapter for the Claude API. |
 | `packages/cli` | `thixo-cli` | The `thixo` command. |
-| `packages/create-thixo-app` | `create-thixo-app` | Starts a new app from a template. |
+| `packages/create-thixo-app` | `create-thixo-app` | Starts a new app from a template. Run from a checkout, it links the packages and React from it with `file:` deps, since they are not on npm yet. |
 
 ## The language is called thx
 
@@ -56,7 +56,9 @@ The hooks:
 - `useStore(decl)` returns `[fields | undefined, patch]` for the user's one record in that store.
   `useStoreList(decl)` returns `{ records, create, patch, remove }` for a store with many records.
 - `ChildSlot` places a child slot the parent slot's contract declares (S13): `<ChildSlot is={todoRow} context={...} />`.
+  A layout names it by its path, the parent's path and its own name: `main/todo-row`.
 - `css({...})` turns a style object into a class name. The `style` prop takes the same objects.
+- `DateInput` holds a calendar day as midnight UTC, so it reads back as the same day in every time zone.
 - A component gets `{ context, emit }`. `emit.select({ todoId })` sends an event the slot declares (S11).
 
 ### Data declarations
@@ -176,7 +178,7 @@ thixo.config.ts
 | `GET /_thixo/plugins/:id/:n.js` | The compiled module. A personal plugin is served to its author only. Takes a token, or the ticket the load route puts in `PluginLoad.code` (see below). |
 | `GET /_thixo/plugins/:id/:n/load` | `PluginLoad`. |
 | `GET /_thixo/layout` | `LayoutReply`. |
-| `PUT /_thixo/layout/:slot` | `{ plugin, number }`. Refused when the user lacks a required scope or can't see the plugin. |
+| `PUT /_thixo/layout/:slot` | `{ plugin, number }`. Refused when the user lacks a required scope or can't see the plugin, and when no slot reads that path (`unknown_slot`). A child slot's bare name or export name that sits in one place is stored under its path. |
 | `DELETE /_thixo/layout/:slot` | Back to the default. |
 | `POST /_thixo/data/read`, `read-many`, `patch`, `list`, `remove` | Plugin data. The bodies are `DataBodies` in the core contract: the plugin version and `at: { store, id } \| { record, id }`. `read` answers `{ fields }`, `read-many` `{ fields: [...] }` in the order asked, `list` `{ ids }`, `patch` and `remove` 204. The body names the plugin version. The server works out the chain, checks the fields against that version's schema (D6), and checks the scopes (D11, D12) and the record (A13). |
 | `POST /_thixo/data/remove-field` | D7. Needs `thixo.data.admin`. |
@@ -197,7 +199,10 @@ identity adapter's `scopesOf`, or from the scopes Thixo last saw for that user. 
 `implementor`, who holds everything.
 
 **A deploy** takes the folders in `plugins/` and the layout in the config. It builds each folder, finds or stores a
-version by `sourceHash`, and writes a release. `thixo dev` and `thixo start` deploy when they start, and `thixo dev`
+version by `sourceHash`, and writes a release. Each layout key must be a slot path the app has (`main/todo-row`, not
+`todo-row`): a layout, or a user's layout change, keyed where no slot reads it would hold a plugin nobody sees. When a
+folder the layout names fails to compile, `thixo dev` keeps the last release and says so rather than deploying
+without it. `thixo dev` and `thixo start` deploy when they start, and `thixo dev`
 deploys again when a file in `plugins/` changes.
 
 **Promotion** writes the plugin's source to `plugins/<slug>/` through the code adapter, with the plugin's id in its
@@ -226,9 +231,9 @@ Three ways to drive it:
 | `thixo dev [dir] [--port 3000]` | Builds the app, deploys, serves, and rebuilds on change. |
 | `thixo build [dir]` | Builds into `.thixo/build/`: the server bundle, the shell bundle, the SDK, each default plugin. Fails on any plugin error. |
 | `thixo start [dir]` | Serves a build. |
-| `thixo compile <folder or file> [--out dir] [--json]` | Compiles thx. Prints the manifest and summary, or the errors. |
-| `thixo new plugin <name> --slot <slot>` | A new folder in `plugins/`, with an id. The slot is its name or its export name. |
-| `thixo agent <tool> --as <user> [...]` | The authoring tools, against a running `thixo dev`. |
+| `thixo compile <folder or file> [--out dir] [--json]` | Compiles thx. Prints the summary in the registry's words (as `agent check` and the plugin browser give it), the scopes, the manifest, or the errors. |
+| `thixo new plugin <name> --slot <slot>` | A new folder in `plugins/`, with an id. The slot is its name or its export name. Prints the `layout` line with the slot's path. |
+| `thixo agent <tool> --as <user> [...]` | The authoring tools, against a running `thixo dev`. Exits 1 on a refusal and on a reply with `ok: false`. |
 | `thixo registry list` / `thixo release` | What the local registry holds, and the current release. |
 
 The build uses esbuild twice: `api/`, `app/slots.ts` and the config for Node, and `app/shell.tsx` for the browser.
@@ -248,7 +253,9 @@ State lives in `.thixo/`: `data.sqlite`, `code/`, `signing-key`, `agent-key`, `b
 - **Queries follow writes**: a call to a non-GET endpoint through any plugin makes every `useQuery` on the page ask
   again, so a child slot's plugin shows a change its parent made.
 - **`<PluginBrowser />`** is the registry: search, a plugin's summary and scopes (G5), use, fork, share, promote, and
-  reset a slot. A default plugin carries a `Default` badge and another user's plugin a `From <author>` badge, beside
+  reset a slot. Each plugin shows its id, and a default the release serves at an older version than its newest says
+  so (`PluginSummary.defaultVersion`). After a fork the status names the copy's id; after a promote it names the
+  folder and the layout edit that makes it a default. A default plugin carries a `Default` badge and another user's plugin a `From <author>` badge, beside
   the name, not only in the muted caption.
 - **What a plugin shows in shell chrome is attributed.** A dialog from `openModal` keeps the plugin's `title` but
   always has a line under it, drawn by the shell outside the plugin's box: "From the plugin “<name>”, by <author>"

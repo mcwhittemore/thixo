@@ -31,12 +31,23 @@ function words(text: string): string[] {
 export function createRegistryServices(ctx: ServerContext): RegistryServices {
   const data = ctx.adapters.data;
 
-  async function defaultIds(): Promise<Set<string>> {
-    return new Set((await data.latestRelease())?.plugins ?? []);
+  /** Each default plugin of the newest release, with the version its layout serves (the highest, if two slots
+   * differ). A deployed folder the layout does not name is a default with no version served. */
+  async function defaultIds(): Promise<Map<string, number | undefined>> {
+    const release = await data.latestRelease();
+    const out = new Map<string, number | undefined>((release?.plugins ?? []).map((id) => [id, undefined]));
+    for (const ref of Object.values(release?.layout ?? {})) {
+      if (!out.has(ref.plugin)) continue;
+      const seen = out.get(ref.plugin);
+      out.set(ref.plugin, seen === undefined ? ref.number : Math.max(seen, ref.number));
+    }
+    return out;
   }
 
-  function summaryOf(plugin: Plugin, version: PluginVersion, defaults: Set<string>): PluginSummary {
+  function summaryOf(plugin: Plugin, version: PluginVersion, defaults: Map<string, number | undefined>): PluginSummary {
+    const defaultVersion = defaults.get(plugin.id);
     return {
+      ...(defaultVersion !== undefined ? { defaultVersion } : {}),
       plugin,
       latest: version.number,
       manifest: version.manifest,

@@ -203,7 +203,7 @@ export function NumberInput(props: NumberInputProps) {
 function dateText(value: unknown): string {
   if (!(value instanceof Date) || Number.isNaN(value.getTime())) return "";
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
+  return `${value.getUTCFullYear()}-${pad(value.getUTCMonth() + 1)}-${pad(value.getUTCDate())}`;
 }
 
 export interface DateInputProps {
@@ -226,7 +226,8 @@ export function DateInput(props: DateInputProps) {
         disabled={props.disabled === true}
         onChange={(e) => {
           const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(e.currentTarget.value);
-          call(props.onChange, match ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])) : undefined);
+          // A date is a calendar day: midnight UTC, so every time zone reads the same day back.
+          call(props.onChange, match ? new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]))) : undefined);
         }}
         style={sanitizeStyle(props.style)}
       />

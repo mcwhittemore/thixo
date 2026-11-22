@@ -280,6 +280,16 @@ test("agent: posts { tool, as, input } with the key and prints the result", asyn
     assert.equal(code, 1);
     assert.match(denied.stderr.join("\n"), /search_registry failed \(401 invalid_agent_key\): Wrong key\. The agent key may be stale/);
 
+    // A build that fails is a normal reply (ok: false), but the exit code says it failed, for a script.
+    const failing = testIo(w.root);
+    const failed = await run(["agent", "check", "--as", "ana", "--dir", "plugins/hello", "--port", "3999"], {
+      io: failing,
+      deps: fakeDeps(),
+      fetch: async () => new Response(JSON.stringify({ ok: false, errors: [{ file: "plugin.thx", line: 2, column: 3, code: "thx/no-global", message: "`window` does not exist" }] }), { headers: { "content-type": "application/json" } }),
+    });
+    assert.equal(failed, 1);
+    assert.match(failing.stdout.join("\n"), /plugin\.thx:2:3 thx\/no-global/);
+
     const down = testIo(w.root);
     assert.equal(await run(["agent", "describe", "--as", "ana"], { io: down, deps: fakeDeps(), fetch: async () => { throw new TypeError("fetch failed", { cause: new Error("ECONNREFUSED") }); } }), 1);
     assert.match(down.stderr.join("\n"), /Could not reach the dev server[\s\S]*thixo dev/);

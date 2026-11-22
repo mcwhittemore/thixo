@@ -24,5 +24,6 @@ export const db = {
       rows.set(id, todo);
       return todo;
     },
+    remove: async (id: string) => rows.delete(id),
   },
 };

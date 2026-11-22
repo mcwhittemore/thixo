@@ -14,8 +14,8 @@ The browser half of Thixo: `<Shell>` signs in with the page's own session and ke
 - `query-refresh` makes every `useQuery` on the page ask again after any plugin's write (a non-GET endpoint call), so the `Done badge` in a row follows a tick made by the list.
 - `emit` checks each event's payload against the slot's `emits` before the shell's handler sees it (S11). A child slot's events reach the parent plugin's `on` handler the same way.
 - `services` refuses every shell service the manifest does not list (S8). `navigate` takes only a same-origin path, `download` a sanitised file name and a text type, and `openModal` renders the plugin's content in a shell-owned dialog.
-- `plugin-browser` lists each slot path with the version that fills it, searches, shows a plugin's summary and scopes before use, and offers Use, Fork, Share, Promote and Reset, each disabled with the reason when the user can't. While it is open, an empty slot shows `Empty slot: <path>`.
-- `authoring-chat` posts to `/_thixo/authoring/chat`, renders the newline-delimited events (text, tool, done), and loads the layout again when the agent is done.
+- `plugin-browser` lists each slot path with the version that fills it, searches, shows a plugin's summary and scopes before use, and offers Use, Fork, Share, Promote and Reset, each disabled with the reason when the user can't. While it is open, an empty slot shows `Empty slot: <path>`. Each caption reads `v<latest> · fills <slot> · <visibility> · by <author> · id <plugin id>`, with `(the default is v<n>)` after the version when a default serves an older one. Thixo's own scopes carry words: `thixo.data.read (read the plugin's own saved data)`. The status after Fork names the copy's id and says it is not in the layout yet; after Promote it names the folder written and the layout edit that makes it a default.
+- `authoring-chat` posts to `/_thixo/authoring/chat`, renders the newline-delimited events (text, tool, done), and loads the layout again when the agent is done. Enter in `Message` sends; Shift+Enter is a new line. While it works the button reads `Working…` and is disabled, and a `status` reads `The agent is working: using <tool>…`.
 - `example-shell` is the todo app's real `app/shell.tsx`: a header with the `Signed in as` user switcher (sets the `thixo-user` cookie to `ana`, `ben` or `cy` and reloads), the main slot, the detail slot for the selected todo, and `Plugins` and `Ask for a plugin` toggles.
 
 ## How to get to it (user POV)
@@ -45,4 +45,6 @@ Preconditions:
 - `contain: layout paint style` reads back as `contain: content` from `getComputedStyle` in Chromium. Both mean the same.
 - A plugin whose required scopes the user lacks is refused at `load` with 403 (G1). That is the shell working, not a broken plugin.
 - happy-dom runs without React's `act()`; the DOM tests poll with `waitFor`.
+- A `Card` with a `title` is a region named by that title. A plugin whose Card title starts with a word its own `Select` is labelled with (`Priority: <todo>` beside a `Priority` select) makes `getByLabel("Priority")` match both. Use roles: `getByRole("combobox", { name: "Priority" })`.
+- The DOM test `the authoring chat streams the agent's events …` sends with an Enter keydown, which proves Enter sends.
 - The authoring chat needs a model. The todo config uses `claudeCode()`, which runs the local `claude` command and spends usage; a routine run does not send chat messages.
