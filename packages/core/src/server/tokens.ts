@@ -92,3 +92,33 @@ export async function verifyToken(secret: string, token: string, now: number = D
 export function userOf(claims: TokenClaims): User {
   return { id: claims.sub, scopes: claims.scopes, ...(claims.groups ? { groups: claims.groups } : {}) };
 }
+
+export const CODE_TICKET_SECONDS = 5 * 60;
+
+function ticketInput(user: string, plugin: string, version: number, exp: number): string {
+  return `plugin-code\n${user}\n${plugin}\n${version}\n${exp}`;
+}
+
+/** A short-lived address for one compiled plugin version, so the shell can `import()` it by address under a
+ * `script-src 'self'` CSP. It is bound to the user, the plugin and the version, and grants nothing else. */
+export async function codeTicket(secret: string, user: string, plugin: string, version: number, now: number = Date.now()): Promise<string> {
+  const exp = Math.floor(now / 1000) + CODE_TICKET_SECONDS;
+  const signature = await crypto.subtle.sign("HMAC", await hmacKey(secret, "sign"), encoder.encode(ticketInput(user, plugin, version, exp)));
+  return new URLSearchParams({ u: user, e: String(exp), k: base64url(new Uint8Array(signature)) }).toString();
+}
+
+/** The user a ticket was made for, or null when it is missing, forged, for another version, or expired. */
+export async function checkCodeTicket(secret: string, query: URLSearchParams, plugin: string, version: number, now: number = Date.now()): Promise<string | null> {
+  const user = query.get("u");
+  const exp = Number(query.get("e"));
+  const k = query.get("k");
+  if (!user || !k || !Number.isInteger(exp) || exp * 1000 <= now) return null;
+  let signature: Uint8Array<ArrayBuffer>;
+  try {
+    signature = fromBase64url(k);
+  } catch {
+    return null;
+  }
+  const ok = await crypto.subtle.verify("HMAC", await hmacKey(secret, "verify"), signature, encoder.encode(ticketInput(user, plugin, version, exp)));
+  return ok ? user : null;
+}

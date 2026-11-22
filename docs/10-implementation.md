@@ -145,15 +145,21 @@ thixo.config.ts
 | `POST /_thixo/registry/plugins/:id/fork` | `{ version, empty? }` to a new personal plugin whose first version has the same source (G4, D9). |
 | `POST /_thixo/registry/plugins/:id/share` | Personal to shared. The author only, with `thixo.plugins.share`. |
 | `POST /_thixo/registry/plugins/:id/promote` | Asks the promotion adapter, then opens a change in `plugins/` through the code adapter (G3). |
-| `GET /_thixo/plugins/:id/:n.js` | The compiled module. A personal plugin is served to its author only. |
+| `GET /_thixo/plugins/:id/:n.js` | The compiled module. A personal plugin is served to its author only. Takes a token, or the ticket the load route puts in `PluginLoad.code` (see below). |
 | `GET /_thixo/plugins/:id/:n/load` | `PluginLoad`. |
 | `GET /_thixo/layout` | `LayoutReply`. |
 | `PUT /_thixo/layout/:slot` | `{ plugin, number }`. Refused when the user lacks a required scope or can't see the plugin. |
 | `DELETE /_thixo/layout/:slot` | Back to the default. |
-| `POST /_thixo/data/read`, `read-many`, `patch`, `list`, `remove` | Plugin data. The body names the plugin version. The server works out the chain, checks the fields against that version's schema (D6), and checks the scopes (D11, D12) and the record (A13). |
+| `POST /_thixo/data/read`, `read-many`, `patch`, `list`, `remove` | Plugin data. The bodies are `DataBodies` in the core contract: the plugin version and `at: { store, id } \| { record, id }`. `read` answers `{ fields }`, `read-many` `{ fields: [...] }` in the order asked, `list` `{ ids }`, `patch` and `remove` 204. The body names the plugin version. The server works out the chain, checks the fields against that version's schema (D6), and checks the scopes (D11, D12) and the record (A13). |
 | `POST /_thixo/data/remove-field` | D7. Needs `thixo.data.admin`. |
 | `POST /_thixo/authoring/chat` | `{ conversation?, message }` to the agent's events, as newline-delimited JSON. Needs `thixo.plugins.author`. |
 | `POST /_thixo/authoring/tool` | One of the agent's tools, called directly. Off unless the server was started with an agent key, and the request carries it. See below. |
+
+**Plugin code by address.** The page's CSP is `script-src 'self'`, so the shell imports a compiled module by its
+address, not from a `blob:`. A module import can't carry the token, so the load route answers with
+`code: "/_thixo/plugins/<id>/<n>.js?u=<user>&e=<expiry>&k=<hmac>"`: a ticket signed with the signing key, bound to the
+user, the plugin and the version, good for five minutes. It grants reading that one module and nothing else; the
+route still applies the author-only rule and re-checks the code (P7).
 
 There is no route that takes plugin source from a browser (P6). A version is stored by the authoring agent, by a
 deploy, or by a fork that copies one.
@@ -193,7 +199,7 @@ Three ways to drive it:
 | `thixo build [dir]` | Builds into `.thixo/build/`: the server bundle, the shell bundle, the SDK, each default plugin. Fails on any plugin error. |
 | `thixo start [dir]` | Serves a build. |
 | `thixo compile <folder or file> [--out dir] [--json]` | Compiles thx. Prints the manifest and summary, or the errors. |
-| `thixo new plugin <name> --slot <slot>` | A new folder in `plugins/`, with an id. |
+| `thixo new plugin <name> --slot <slot>` | A new folder in `plugins/`, with an id. The slot is its name or its export name. |
 | `thixo agent <tool> --as <user> [...]` | The authoring tools, against a running `thixo dev`. |
 | `thixo registry list` / `thixo release` | What the local registry holds, and the current release. |
 
@@ -209,11 +215,17 @@ State lives in `.thixo/`: `data.sqlite`, `code/`, `signing-key`, `agent-key`, `b
   call (P1, P3), and holds the token (P5). A refused call rejects with an error the plugin can catch.
 - **The box**: `contain: layout paint style`, `overflow: auto`, `isolation: isolate`, `position: relative`.
 - **Errors**: a plugin that throws or runs out of budget is replaced, in its slot, by a message. The rest of the app
-  keeps running.
+  keeps running. So is one the user may not load (G1): a default plugin whose required scopes the user lacks shows
+  `<id> stopped: Plugin <name> needs the scope <scope>`.
+- **Queries follow writes**: a call to a non-GET endpoint through any plugin makes every `useQuery` on the page ask
+  again, so a child slot's plugin shows a change its parent made.
 - **`<PluginBrowser />`** is the registry: search, a plugin's summary and scopes (G5), use, fork, share, promote, and
   reset a slot.
 
 ## Verification
+
+`npm run e2e` (`tests/e2e/todo.e2e.mjs`) runs `thixo dev` on a temp copy of `examples/todo` and drives it in headless
+Chromium as each user, with the agent path through `thixo agent`.
 
 `.claude/skills/verify-thixo/` is the project's verification skill, in the shape pstack's
 `create-verification-skill` gives. Each part of the build adds a file to its `features/` for what it made. A change

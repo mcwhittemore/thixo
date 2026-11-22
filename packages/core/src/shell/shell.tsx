@@ -1,13 +1,21 @@
 import * as React from "react";
 import type { CreateRuntime } from "thixo-thx/contract";
 import type { AppInfo, LayoutReply, User } from "../contract.js";
+import { createWrites, type Writes } from "../plugin-host/host-modules.js";
 import type { ShellServiceHost, Tone } from "../plugin-host/services.js";
 import { createApi, createClient, type ApiFunction, type Client } from "./client.js";
-import { defaultCreateRuntime, defaultLoadModule, type CompiledModule } from "./runtime.js";
+import { defaultCreateRuntime, importByAddress, type CompiledModule } from "./runtime.js";
 import { Session } from "./session.js";
 import { SHELL_CSS } from "./styles.js";
 
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
+
+let mountedLibraries: Record<string, Record<string, unknown>> = {};
+
+/** What `mount(App, { libraries })` was given. */
+export function setMountedLibraries(libraries: Record<string, Record<string, unknown>>): void {
+  mountedLibraries = libraries;
+}
 
 export interface ShellProps {
   children?: React.ReactNode;
@@ -66,6 +74,7 @@ export interface ShellInternals {
   loadCode(code: string): Promise<CompiledModule>;
   /** Per version: its `PluginLoad` and module, loaded once per page. */
   cache: Map<string, Promise<unknown>>;
+  writes: Writes;
 }
 
 const InternalContext = React.createContext<ShellInternals | null>(null);
@@ -107,6 +116,7 @@ export function Shell(props: ShellProps) {
   const [toasts, setToasts] = React.useState<Toast[]>([]);
   const nextId = React.useRef(1);
   const cache = React.useRef(new Map<string, Promise<unknown>>());
+  const writes = React.useRef(createWrites());
   const propsRef = React.useRef(props);
   propsRef.current = props;
 
@@ -179,13 +189,14 @@ export function Shell(props: ShellProps) {
       browserOpen,
       setBrowserOpen,
       services,
-      libraries: propsRef.current.libraries ?? {},
+      libraries: propsRef.current.libraries ?? mountedLibraries,
       budget: propsRef.current.budget,
       cache: cache.current,
+      writes: writes.current,
       getCreateRuntime: async () => runtimeOption ?? defaultCreateRuntime(),
       loadCode: async (code) => {
-        const text = await client.pluginCode(code);
-        return (loadOption ?? defaultLoadModule)(text, code);
+        if (!loadOption) return importByAddress(new URL(code, propsRef.current.baseUrl ?? window.location.href).href);
+        return loadOption(await client.pluginCode(code), code);
       },
     };
   }, [state, client, layout, refreshLayout, browserOpen, services, runtimeOption, loadOption]);

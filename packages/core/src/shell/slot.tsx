@@ -140,6 +140,7 @@ export function SlotView(props: { path: string; def: SlotDef; context: Record<st
         signal,
         ChildSlotView: SlotView,
         libraries: internals.libraries,
+        writes: internals.writes,
       });
       Object.assign(modules, host.modules);
       const returned = rt.instantiate(module);

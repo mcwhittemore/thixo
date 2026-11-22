@@ -32,10 +32,10 @@ const fork = await call(w.thixo, "POST", `/_thixo/registry/plugins/${v1.plugin.i
 show("ben forks", fork);
 const scope = { plugin: v1.plugin.id, version: 1 };
 const data = (path: string, token: string, body: unknown) => call(w.thixo, "POST", `/_thixo/data/${path}`, { token, body });
-show("ana patches dueOn", await data("patch", ana, { ...scope, record: "todo", id: "t1", fields: { dueOn: "2026-12-01" } }));
-show("ana patches undeclared priority", await data("patch", ana, { ...scope, record: "todo", id: "t1", fields: { priority: 1 } }));
+show("ana patches dueOn", await data("patch", ana, { ...scope, at: { record: "todo", id: "t1" }, fields: { dueOn: "2026-12-01" } }));
+show("ana patches undeclared priority", await data("patch", ana, { ...scope, at: { record: "todo", id: "t1" }, fields: { priority: 1 } }));
 const forkScope = { plugin: fork.body.plugin.id, version: 1 };
-show("ben reads t1 through his fork", await data("read", ben, { ...forkScope, record: "todo", id: "t1" }));
+show("ben reads t1 through his fork", await data("read", ben, { ...forkScope, at: { record: "todo", id: "t1" } }));
 const js = await w.thixo.fetch(new Request(`http://x/_thixo/plugins/${v1.plugin.id}/1.js`, { headers: { authorization: `Bearer ${ana}` } }));
 say(`plugin route: ${js.status} ${js.headers.get("content-type")} ${js.headers.get("cache-control")}`);
 

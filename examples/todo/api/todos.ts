@@ -2,6 +2,7 @@
 // SDK that plugins import from this file, one function per endpoint (A9).
 
 import { endpoint, record, HttpError } from "thixo/api";
+import { recordDeleted } from "thixo/server";
 import { t } from "thixo/schema";
 import { db } from "./db.js";
 
@@ -86,5 +87,9 @@ export const deleteTodo = endpoint({
   path: "/todos/:id",
   scopes: ["todos.read", "todos.delete"],
   input: t.object({ id: t.string() }),
-  handler: async ({ input }) => db.todos.remove(input.id),
+  handler: async ({ input }) => {
+    await db.todos.remove(input.id);
+    // Thixo can't see the app's storage, so the app says when a record goes (A13): its annotations go with it.
+    await recordDeleted("todo", input.id);
+  },
 });

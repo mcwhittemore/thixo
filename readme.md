@@ -14,9 +14,21 @@ A developer uses Thixo the way they would use Next.js. They define an API and a 
 is hard to build yourself: a safe way for the people using the app to write, share and run their own plugins inside
 it.
 
-> **Status: requirements.** There is no framework code yet. This repo holds the intent, the decisions made so far and
-> the questions still open, so they can be argued with before any code is accepted. Start with
-> [the requirements](docs/02-requirements.md).
+> **Status: first build.** The requirements are settled in [docs/02](docs/02-requirements.md), and a first build of
+> the framework runs locally: the plugin language and its compiler, the API layer, the shell, the registry, plugin
+> data, the authoring agent and the `thixo` command, with local adapters (SQLite and files) and a Claude API model
+> adapter. `npx thixo dev examples/todo` runs the example. The cloud adapters (Cloudflare, Vercel, AWS) are not
+> written yet.
+
+## Try it
+
+```sh
+npm install
+npm run build
+npx thixo dev examples/todo --port 4310    # then open http://127.0.0.1:4310
+npm test                                   # every package's tests
+npm run e2e                                # the todo app end to end in headless Chromium
+```
 
 ## Why
 
@@ -94,8 +106,7 @@ The shell says where plugins go:
 </Shell>
 ```
 
-The full sketch is in [examples/todo](examples/todo). It does not run yet. It is the target the requirements are
-written toward.
+The full example is in [examples/todo](examples/todo), and it runs: see its readme.
 
 ## Principles
 
@@ -127,6 +138,8 @@ written toward.
 
 ```
 docs/          the requirements and design, in reading order
-examples/      apps built with Thixo; today, one sketch
-packages/      the framework's packages; today, a plan
+examples/      apps built with Thixo; today, the todo app
+packages/      the framework's packages
+tests/e2e/     the todo app driven end to end in a browser (`npm run e2e`)
+.claude/skills/verify-thixo/   how behaviour is proved: launch, drive, evidence
 ```

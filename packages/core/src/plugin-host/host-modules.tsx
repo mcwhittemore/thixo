@@ -32,6 +32,25 @@ export interface HostModuleOptions {
   ChildSlotView: ChildSlotView;
   /** Exposed libraries (L3) by specifier: the implementor's module, wrapped here at the boundary. */
   libraries?: Record<string, Record<string, unknown>>;
+  /** Shared by every plugin on the page: a write through any plugin makes every `useQuery` ask again, so a child
+   * slot's view of a todo follows a change its parent made. */
+  writes?: Writes;
+}
+
+export interface Writes {
+  bump(): void;
+  subscribe(listener: () => void): () => void;
+}
+
+export function createWrites(): Writes {
+  const listeners = new Set<() => void>();
+  return {
+    bump: () => listeners.forEach((l) => l()),
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
 }
 
 export interface HostModules {
@@ -82,7 +101,12 @@ export function buildHostModules(options: HostModuleOptions): HostModules {
         probe.found = e.name;
         return undefined;
       }
-      return broker.call(e.name, input);
+      const result = broker.call(e.name, input);
+      if (e.method === "GET" || !options.writes) return result;
+      return result.then((value) => {
+        options.writes?.bump();
+        return value;
+      });
     };
     const wrapped = fn(raw);
     endpointNames.set(raw, e.name);
@@ -198,6 +222,7 @@ export function buildHostModules(options: HostModuleOptions): HostModules {
       const [count, setCount] = React.useState(0);
       const [state, setState] = React.useState<{ data?: unknown; error?: { message: string; status?: number }; loading: boolean }>({ loading: !skip });
       const latestInput = useLatest(input);
+      React.useEffect(() => options.writes?.subscribe(() => !signal.aborted && setCount((c) => c + 1)), []);
       React.useEffect(() => {
         if (skip) {
           setState({ loading: false });

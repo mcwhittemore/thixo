@@ -23,22 +23,26 @@ The authoring agent turns a person's request into a plugin: it searches the regi
 - As an outside coding agent, run `thixo agent <tool> --as <user>` against a running `thixo dev`. The CLI sends the key it reads from `.thixo/agent-key` in the `x-thixo-agent-key` header.
 - As a developer, call `POST /_thixo/authoring/chat` with a bearer token and `{ "message": "...", "conversation": "<id from a previous done>" }`.
 
-## Driving it with node
+## Driving it with cli.mjs, drive.mjs and node
 
-There is no shell chat or real model in a verification run. The server's fetch handler is driven with `scriptedModel` and the in-memory adapters the core tests use, so every route and tool runs for real and only the model and the compiler are doubles. The compiler double reads the manifest from a `// @manifest` comment and fails on `@error`, so build messages are not the real thx messages.
+The outside-agent path runs for real: `thixo agent` against `thixo dev`, the real compiler, the real registry and SQLite, and the result checked in the browser. The chat path runs with `scriptedModel` in the package tests; a real model turn is not part of a routine run.
 
 Preconditions:
 
-- `npm install` has run in the repository root. Nothing else needs to be running.
+- `npm run build` has run. `node .claude/skills/verify-thixo/bin/launch.mjs --run agent` printed its state and `doctor.mjs --run agent` printed `healthy`.
+- `C` stands for `node .claude/skills/verify-thixo/bin/cli.mjs --run agent --save <label> --`, and `P` for the absolute path of `.claude/skills/verify-thixo/journeys/todo-summary` (`$PWD/.claude/skills/verify-thixo/journeys/todo-summary` from the repo root).
 
-- **Run the suite.** Run `npm test -w thixo`. The summary reads `# fail 0`. The 11 tests in `packages/core/test/authoring.test.ts` cover the cases below by name.
-- **Full conversation.** The test named `a conversation searches, checks a broken plugin, fixes it, submits and uses it` passes. Tool calls come in the order `search_registry`, `describe_app`, `check`, `check`, `submit`, `use`. The first `check` result has `ok: false` and a `report` that starts `plugin.thx:1:1 thx/test`. The plugin exists as a personal plugin of `ana` and her layout holds it at `main/todo-detail`.
-- **Cap.** The test named `the loop stops at the cap, and defaults to 24 model turns` passes. A run with `maxTurns: 3` ends with an `error` event that starts `Stopped after 3 model turns`, then `done`. A run with no cap makes exactly 24 model turns.
-- **Tool error.** The test named `a tool error goes back to the model and the loop carries on` passes. `read_plugin` of a missing plugin gives `plugin_not_found`, an unknown tool gives `unknown_tool`, bad input gives `bad_input`, and the loop still reaches the model's closing text.
-- **Untrusted data.** The test named `read_plugin and search_registry wrap what other people wrote as untrusted data` passes. A hostile name, description and source come back inside `<<<UNTRUSTED ... token` and `UNTRUSTED token>>>` markers, and the closing token appears once.
-- **Key and scope refusals.** The tests named `the tool route is off without an agent key, and refuses a missing or wrong key` and `the chat route needs thixo.plugins.author, a token, and a model` pass.
-- **Driven session.** Run `node --import tsx packages/core/test/drive-authoring.ts`. Expected lines, in order: `chat -> 200 application/x-ndjson; charset=utf-8`, the events (`tool: search_registry`, `tool: check` with `ok=false`, `tool: check` with `ok=true`, `tool: submit`, `tool: use`, the closing `text:`, `done`), then `tool without key -> 401 agent_key_missing`, `tool with wrong key -> 403 agent_key_wrong`, `tool with key -> 200 ok` and `chat as cy (no author scope) -> 403`.
-- **Proof.** Run `mkdir -p artifacts/authoring && node --import tsx packages/core/test/drive-authoring.ts > artifacts/authoring/drive.txt && npm test -w thixo > artifacts/authoring/tests.txt`. Both files exist after cleanup, and `tests.txt` ends with `# fail 0`.
+- **Describe.** Run `C agent describe --as ana`. Exit `0`; the reference starts `# Writing a plugin for this app`, lists `todo-detail (export todoDetail, panel)` and has a `### @app/sdk` section with `getTodo`.
+- **Check.** Run `C agent check --as ana --dir P`. Exit `0`; the output starts `- Reads todos` and has `"ok": true`, `"slot": "todo-detail"`, `"requiredScopes": ["todos.read"]`. Change `useQuery(getTodo` to `window.fetch(getTodo` in a copy of the folder and check that copy: the output has a `plugin.thx:<line>:<col>` error and nothing is stored.
+- **Submit.** Run `C agent submit --as ana --dir P --raw`. Exit `0`; JSON with `"ok": true`, `"plugin": "plg_…"`, `"version": 1`, `"visibility": "personal"`. Call the id `ID`.
+- **Use.** Run `C agent use --as ana ID@1 --slot todo-detail`. Exit `0`; `"ok": true` and `"resolved": { "plugin": ID, "number": 1 }`.
+- **Seen by ana, not by ben.** Run `EXPECT_DETAIL="Todo summary" node .claude/skills/verify-thixo/bin/drive.mjs --run agent --as ana --script .claude/skills/verify-thixo/journeys/detail-panel.mjs --name ana-detail` and `EXPECT_DETAIL="Due dates" node … --as ben … --name ben-detail`. Both print their `ok todo-detail is filled by …` line.
+- **Share (ana, in the plugin browser).** Run `node .claude/skills/verify-thixo/bin/drive.mjs --run agent --as ana --script .claude/skills/verify-thixo/journeys/share.mjs --name ana-share`. It prints `ok Todo summary reads shared · by ana`.
+- **Use, fork and promote (ben, in the plugin browser).** Run `node .claude/skills/verify-thixo/bin/drive.mjs --run agent --as ben --script .claude/skills/verify-thixo/journeys/use-fork-promote.mjs --name ben-use-fork-promote`. It prints `ok ben's layout puts Todo summary in todo-detail`, `ok the panel shows Todo summary for ben`, `ok a personal fork by ben is listed`, `ok promote answered 200 with folder todo-summary` and `ok plugins/todo-summary/plugin.thx exists in the app copy`. That file has `id: "ID", ` in its `definePlugin` literal, and `dev.log` gains a `deployed  release … (4 plugins; …)` line.
+- **Registry after.** Run `C registry list`: `Todo summary` twice, `personal  ben` (the fork) and `shared  implementor` (the promoted one, after the redeploy).
+- **Chat, scripted.** Run `npm test -w thixo`: `# fail 0`. The 11 tests in `packages/core/test/authoring.test.ts` include `a conversation searches, checks a broken plugin, fixes it, submits and uses it` (tool calls `search_registry`, `describe_app`, `check`, `check`, `submit`, `use`), `the loop stops at the cap, and defaults to 24 model turns`, `a tool error goes back to the model and the loop carries on`, `read_plugin and search_registry wrap what other people wrote as untrusted data`, `the tool route is off without an agent key, and refuses a missing or wrong key` and `the chat route needs thixo.plugins.author, a token, and a model`.
+- **Key refusals, by hand.** Run `node --import tsx packages/core/test/drive-authoring.ts`. It ends with `tool without key -> 401 agent_key_missing`, `tool with wrong key -> 403 agent_key_wrong`, `tool with key -> 200 ok` and `chat as cy (no author scope) -> 403`.
+- **Proof.** Keep `artifacts/verify/agent/` (`cli/*.txt`, the four drive folders, `dev.log`). Run `cleanup.mjs --run agent`; the promoted folder goes with the copy, the evidence stays.
 
 ## Gotchas
 
@@ -48,5 +52,7 @@ Preconditions:
 - A failed build is a normal result (`ok: false` with `errors` and `report`), not an HTTP error, so a `check` that fails gives status 200.
 - The chat stream answers 200 even when the run ends in an `error` event (no model, the model threw, the cap). Read the events, not the status.
 - Conversations are held in memory per server, 500 at most. A restart, or a second server process, does not know the id and the chat answers with an `error` event.
-- Nothing here ran against the real thx compiler or a real model. Before trusting the prompt, run a chat once with `anthropic()` or `claudeCode()` and a real app.
-- `npm run build` at the root fails in `examples/todo` until the thx package is built (`thixo-thx/dist` missing). `npm run build -w thixo` is clean.
+- The tools ran against the real compiler through `thixo agent`. The chat loop has only run with `scriptedModel`: before trusting the prompt, send one message in `Ask for a plugin` with `claudeCode()` (the todo config's model, which spends Claude usage) or `anthropic()`.
+- Promote writes into the app's `plugins/`. Never run it against `examples/todo` itself; the skill's copy is disposable.
+- A fork keeps the plugin's name, so the plugin browser lists two `Todo summary` items. Tell them apart by `by ana` / `personal · by ben`.
+- `use` and `fork` do not need `thixo.plugins.author`; `submit` and the chat do.

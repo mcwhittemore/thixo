@@ -3,9 +3,10 @@
 The model adapter for the Claude API. It is what the authoring chat calls when a user asks for a plugin (U1).
 
 ```ts
+import { defineConfig } from "thixo";
 import { anthropic } from "thixo-anthropic";
 
-export default defineThixo({
+export default defineConfig({
   // ...
   model: anthropic(),
 });

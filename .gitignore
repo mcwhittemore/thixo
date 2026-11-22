@@ -4,4 +4,4 @@ node_modules
 dist
 .thixo
 *.tsbuildinfo
-package-lock.json
+artifacts
