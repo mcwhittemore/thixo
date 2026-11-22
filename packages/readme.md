@@ -1,17 +1,19 @@
 # Packages
 
-There are no packages yet. This is the plan for what will live here once code is accepted. The package names are not claimed yet. See
-[open questions](../docs/09-open-questions.md#name).
+An npm workspace. `npm run build` at the root builds them in dependency order (`tsc -b`), and `npm test` runs each
+one's tests. [docs/10](../docs/10-implementation.md) is the build spec; `thx/src/contract.ts` and
+`core/src/contract.ts` are the contract between packages.
 
-| Package | What it owns |
-| --- | --- |
-| `thixo` | The core: the API layer, the shell and slots, the plugin SDK, the registry, the build checks and the plugin route. No provider code. |
-| `thixo-cloudflare` | Adapters for Cloudflare. The first to be built. |
-| `thixo-vercel` | Adapters for Vercel. |
-| `thixo-aws` | Adapters for AWS. |
-| `thixo-sql` | The SQL data adapter, used by the provider packages. See [its readme](thixo-sql/readme.md). |
-| `thixo-anthropic` | A model adapter. Others follow the same interface. |
-| `create-thixo-app` | Starts a new app from the todo example. |
+| Folder | npm name | What it owns | State |
+| --- | --- | --- | --- |
+| `thx` | `thixo-thx` | The plugin language, thx: compiler, output verifier, in-page runtime. The wall. | Built |
+| `core` | `thixo` | `thixo`, `thixo/api`, `thixo/schema`, `thixo/slots`, `thixo/server` (API, token, registry, plugin data, layouts, deploy, authoring agent), `thixo/shell` (shell, slots, broker, plugin host, `thixo/ui`). No provider code. | Built |
+| `thixo-sql` | `thixo-sql` | The data adapter, on a small SQL driver interface. See [its readme](thixo-sql/readme.md). | Built, run on SQLite only |
+| `thixo-node` | `thixo-node` | Local adapters: `local()` (files for code, `node:sqlite` for data, an in-process build), `serve()`, and `claudeCode()`, a model adapter on the local `claude` command. | Built |
+| `thixo-anthropic` | `thixo-anthropic` | The model adapter for the Claude API. | Built, tested against a local fake of the API |
+| `cli` | `thixo-cli` | The `thixo` command: dev, build, start, compile, new plugin, agent, registry list, release. | Built |
+| `create-thixo-app` | `create-thixo-app` | Starts a new app from the todo example. | Not written |
+| `thixo-cloudflare`, `thixo-vercel`, `thixo-aws` | | Adapters for each cloud. | Not written |
 
 What the core exposes, as the todo example imports it:
 
@@ -20,10 +22,11 @@ What the core exposes, as the todo example imports it:
 | `thixo` | `defineConfig` |
 | `thixo/api` | `endpoint`, `record`, `defineScopes` |
 | `thixo/schema` | `t`, the one way to describe a type, used by the API, slots and plugin data |
-| `thixo/shell` | `Shell`, `Slot`, `slot`, `AuthoringChat` |
-| `thixo/plugin` | `definePlugin` and the React helpers: `useQuery`, `useCan`, `useAnnotation`, `useStore` |
-| `thixo/data` | `store`, `annotate` |
-| `thixo/ui` | Default components and design tokens |
+| `thixo/shell` | `Shell`, `Slot`, `slot`, `AuthoringChat`, `PluginBrowser`, `useThixo`, `mount` |
+| `thixo/plugin` | `definePlugin`, the hooks (`useState`, `useMemo`, `useEffect`, `useQuery`, `useCan`, `useAnnotation`, `useAnnotations`, `useStore`, `useStoreList`), `ChildSlot`, `css`. For plugins, which are written in thx |
+| `thixo/data` | `store`, `annotate` (plugins) |
+| `thixo/services` | `navigate`, `openModal`, `copyToClipboard`, `download`, `toast` (plugins) |
+| `thixo/ui` | Default components and design tokens (plugins) |
 
 Generated for each app:
 
