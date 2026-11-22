@@ -128,6 +128,8 @@ export interface CodeAdapter {
 
 export interface BuildAdapter {
   build(files: SourceFiles, env: CompileEnv): Promise<CompileResult>;
+  /** The compiler's `verifyOutput`. The plugin route runs it again on stored code before serving it (P7). */
+  verify?(code: string): { ok: true } | { ok: false; errors: string[] } | Promise<{ ok: true } | { ok: false; errors: string[] }>;
 }
 
 export interface Plugin {

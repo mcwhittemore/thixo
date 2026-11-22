@@ -1,0 +1,238 @@
+import type { SourceFiles, ThxError } from "thixo-thx/contract";
+import type { Plugin, PluginLoad, PluginSummary, PluginVersion, PluginVersionRef, SchemaDiff, SubmitReply, User } from "../../contract.js";
+import type { ServerContext } from "../context.js";
+import { canSee, chainOf, latestVersion, versionOf, visiblePlugin } from "./access.js";
+import { readCompiled, readSource, storeCompiled, storeSource } from "./code-store.js";
+import { fail, missingScopes } from "./errors.js";
+import { newId } from "./hash.js";
+import { createLayoutServices } from "./layouts.js";
+import { withPluginId, withoutPluginId } from "./plugin-source.js";
+import { createDataServices } from "./plugin-data.js";
+import { diffSchemas, lineageTypeChanges } from "./schema-diff.js";
+import { endpointsCallableBy, optionalScopes, requiredScopes } from "./scopes.js";
+import { summarise } from "./summary.js";
+import type { PluginDetail, PromotionReply, RegistryServices, SubmitResult } from "./types.js";
+
+function slugOf(name: string, fallback: string): string {
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return slug || fallback;
+}
+
+function words(text: string): string[] {
+  return text.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+}
+
+export function createRegistryServices(ctx: ServerContext): RegistryServices {
+  const data = ctx.adapters.data;
+
+  async function defaultIds(): Promise<Set<string>> {
+    return new Set((await data.latestRelease())?.plugins ?? []);
+  }
+
+  function summaryOf(plugin: Plugin, version: PluginVersion, defaults: Set<string>): PluginSummary {
+    return {
+      plugin,
+      latest: version.number,
+      manifest: version.manifest,
+      summary: summarise(ctx, version.manifest),
+      requiredScopes: requiredScopes(ctx, version.manifest),
+      optionalScopes: optionalScopes(ctx, version.manifest),
+      isDefault: defaults.has(plugin.id),
+    };
+  }
+
+  /** What every version of the plugin and of each plugin it reads through to has declared (D8). */
+  async function lineageSchemas(plugin: Plugin) {
+    const schemas = [];
+    for (const id of await chainOf(ctx, plugin)) for (const v of await data.listVersions(id)) schemas.push(v.manifest.data);
+    return schemas;
+  }
+
+  async function detailOf(user: User, pluginId: string): Promise<PluginDetail> {
+    const plugin = await visiblePlugin(ctx, user, pluginId);
+    const versions = await data.listVersions(plugin.id);
+    const latest = await latestVersion(ctx, plugin.id);
+    if (!latest) fail(ctx, 404, `Plugin ${plugin.id} has no versions`, "version_not_found");
+    return {
+      ...summaryOf(plugin, latest, await defaultIds()),
+      versions: versions
+        .sort((a, b) => a.number - b.number)
+        .map((v) => ({ number: v.number, sourceHash: v.sourceHash, createdBy: v.createdBy, createdAt: v.createdAt, schemaHash: v.manifest.schemaHash })),
+    };
+  }
+
+  async function checkLoadable(user: User, ref: PluginVersionRef): Promise<{ plugin: Plugin; version: PluginVersion }> {
+    const plugin = await visiblePlugin(ctx, user, ref.plugin);
+    const version = await versionOf(ctx, ref);
+    if (plugin.visibility === "shared") missingScopes(ctx, user, requiredScopes(ctx, version.manifest), `Plugin ${plugin.name}`);
+    return { plugin, version };
+  }
+
+  return {
+    chainOf: (plugin) => chainOf(ctx, plugin),
+
+    async submit({ user, files, plugin: pluginId }): Promise<SubmitResult> {
+      let existing: Plugin | null = null;
+      if (pluginId) {
+        existing = await ctx.adapters.data.getPlugin(pluginId);
+        if (!existing || !canSee(user, existing)) fail(ctx, 404, `There is no plugin ${pluginId}`, "plugin_not_found");
+        if (existing.author !== user.id) fail(ctx, 403, "Only the author can add a version to a plugin. Fork it to change it.", "not_author");
+      }
+      const source = withoutPluginId(files);
+      const built = await ctx.adapters.build.build(source, ctx.compileEnv);
+      if (!built.ok) return { ok: false, errors: built.errors };
+      const verdict = await ctx.adapters.build.verify?.(built.code);
+      if (verdict && !verdict.ok) {
+        return { ok: false, errors: verdict.errors.map((message): ThxError => ({ file: "", line: 0, column: 0, code: "thx/verify-output", message })) };
+      }
+
+      const history = existing ? await lineageSchemas(existing) : [];
+      const typeChanged = lineageTypeChanges(built.manifest.data, history);
+      if (typeChanged.length) {
+        return {
+          ok: false,
+          typeChanged,
+          errors: typeChanged.map((c): ThxError => ({
+            file: "data.thx",
+            line: 0,
+            column: 0,
+            code: "registry/field-type-changed",
+            message: `${c.scope} field "${c.field}" was ${c.from} and this version declares it as ${c.to}. A field's type never changes.`,
+            hint: `Give the ${c.to} value a new field name and keep "${c.field}" as ${c.from}.`,
+          })),
+        };
+      }
+
+      let plugin: Plugin;
+      if (existing) {
+        plugin = { ...existing, name: built.meta.name, description: built.meta.description };
+        await data.putPlugin(plugin);
+      } else {
+        plugin = { id: newId("plg"), name: built.meta.name, description: built.meta.description, author: user.id, visibility: "personal", readsParentData: true };
+        await data.putPlugin(plugin);
+      }
+
+      const versions = await data.listVersions(plugin.id);
+      const previous = versions.reduce<PluginVersion | null>((best, v) => (!best || v.number > best.number ? v : best), null);
+      let version = await data.findVersionByHash(plugin.id, built.sourceHash);
+      let diff: SchemaDiff = { added: [], noLongerShown: [], typeChanged: [] };
+      if (!version) {
+        version = await data.addVersion({
+          plugin: plugin.id,
+          source: await storeSource(ctx, source),
+          sourceHash: built.sourceHash,
+          compiled: await storeCompiled(ctx, built.code),
+          manifest: built.manifest,
+          createdBy: user.id,
+          createdAt: new Date().toISOString(),
+        });
+        diff = diffSchemas(previous?.manifest.data ?? null, version.manifest.data);
+      }
+      return { ok: true, plugin, version: version.number, manifest: version.manifest, summary: summarise(ctx, version.manifest), diff };
+    },
+
+    async search({ user, q, slot }) {
+      const tokens = words(q ?? "");
+      const defaults = await defaultIds();
+      const found: { summary: PluginSummary; score: number }[] = [];
+      for (const plugin of await data.listPlugins()) {
+        if (!canSee(user, plugin)) continue;
+        const latest = await latestVersion(ctx, plugin.id);
+        if (!latest) continue;
+        if (slot && latest.manifest.slot !== slot && !slot.endsWith(`/${latest.manifest.slot}`)) continue;
+        if (!ctx.holds(user, requiredScopes(ctx, latest.manifest))) continue;
+        const haystack = new Set(words(`${plugin.name} ${plugin.description}`));
+        const score = tokens.filter((t) => haystack.has(t) || [...haystack].some((w) => w.startsWith(t))).length;
+        if (tokens.length && score === 0) continue;
+        found.push({ summary: summaryOf(plugin, latest, defaults), score });
+      }
+      return found.sort((a, b) => b.score - a.score || a.summary.plugin.name.localeCompare(b.summary.plugin.name)).map((f) => f.summary);
+    },
+
+    getPlugin: ({ user, plugin }) => detailOf(user, plugin),
+
+    async listVersions({ user, plugin }) {
+      await visiblePlugin(ctx, user, plugin);
+      return (await data.listVersions(plugin)).sort((a, b) => a.number - b.number);
+    },
+
+    async getSource({ user, ref }): Promise<SourceFiles> {
+      await visiblePlugin(ctx, user, ref.plugin);
+      return readSource(ctx, (await versionOf(ctx, ref)).source);
+    },
+
+    async fork({ user, ref, empty }): Promise<SubmitReply> {
+      const parent = await visiblePlugin(ctx, user, ref.plugin);
+      const version = await versionOf(ctx, ref);
+      missingScopes(ctx, user, requiredScopes(ctx, version.manifest), `Forking ${parent.name}`);
+      const plugin: Plugin = {
+        id: newId("plg"),
+        name: parent.name,
+        description: parent.description,
+        author: user.id,
+        visibility: "personal",
+        forkedFrom: { plugin: ref.plugin, number: ref.number },
+        readsParentData: !empty,
+      };
+      await data.putPlugin(plugin);
+      const first = await data.addVersion({
+        plugin: plugin.id,
+        source: version.source,
+        sourceHash: version.sourceHash,
+        compiled: version.compiled,
+        manifest: version.manifest,
+        createdBy: user.id,
+        createdAt: new Date().toISOString(),
+      });
+      return { plugin, version: first.number, manifest: first.manifest, summary: summarise(ctx, first.manifest), diff: { added: [], noLongerShown: [], typeChanged: [] } };
+    },
+
+    async share({ user, plugin: id }) {
+      const plugin = await visiblePlugin(ctx, user, id);
+      if (plugin.author !== user.id) fail(ctx, 403, "Only the author can share a plugin.", "not_author");
+      missingScopes(ctx, user, ["thixo.plugins.share"], "Sharing a plugin");
+      if (plugin.visibility === "shared") return plugin;
+      const shared: Plugin = { ...plugin, visibility: "shared" };
+      await data.putPlugin(shared);
+      return shared;
+    },
+
+    async promote({ user, plugin: id, version: number }): Promise<PromotionReply> {
+      const plugin = await visiblePlugin(ctx, user, id);
+      const allowed = ctx.config.promotion ? await ctx.config.promotion.canPromote(user, plugin) : ctx.holds(user, ["thixo.plugins.promote"]);
+      if (!allowed) fail(ctx, 403, "You may not promote plugins here.", "promotion_refused", ctx.config.promotion ? {} : { missingScopes: ["thixo.plugins.promote"] });
+      if (plugin.visibility !== "shared") fail(ctx, 409, "Share the plugin before promoting it.", "not_shared");
+      const target = number !== undefined ? await versionOf(ctx, { plugin: id, number }) : await latestVersion(ctx, id);
+      if (!target) fail(ctx, 404, `Plugin ${id} has no versions`, "version_not_found");
+      const files = withPluginId(await readSource(ctx, target.source), plugin.id);
+      const folder = slugOf(plugin.name, plugin.id);
+      const change = await ctx.adapters.code.openChange({
+        title: `Promote ${plugin.name} (version ${target.number}) to a default plugin`,
+        files: Object.fromEntries(Object.entries(files).map(([path, text]) => [`plugins/${folder}/${path}`, text])),
+      });
+      return { where: change.where, folder, version: target.number };
+    },
+
+    async load({ user, ref }): Promise<PluginLoad> {
+      const { plugin, version } = await checkLoadable(user, ref);
+      const author = { id: plugin.author, scopes: await ctx.scopesOf(plugin.author) };
+      return {
+        plugin,
+        version: version.number,
+        manifest: version.manifest,
+        code: `/_thixo/plugins/${plugin.id}/${version.number}.js`,
+        authorCan: endpointsCallableBy(ctx, version.manifest, author),
+        userCan: endpointsCallableBy(ctx, version.manifest, user),
+        authorData: { read: ctx.holds(author, ["thixo.data.read"]), write: ctx.holds(author, ["thixo.data.write"]) },
+      };
+    },
+
+    async code({ user, ref }) {
+      const { version } = await checkLoadable(user, ref);
+      return readCompiled(ctx, version.compiled);
+    },
+
+    layout: createLayoutServices(ctx),
+    data: createDataServices(ctx),
+  };
+}
