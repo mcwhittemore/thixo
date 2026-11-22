@@ -9,8 +9,8 @@ function appInfo(ctx: ServerContext): AppInfo {
   const { app } = ctx;
   return {
     scopes: app.scopes,
-    endpoints: app.endpoints.map((e) => ({ name: e.name, method: e.method, path: e.path, scopes: e.scopes })),
-    records: app.records.map((r) => ({ name: r.name, exportName: r.exportName, read: r.read })),
+    endpoints: app.endpoints.map((e) => ({ name: e.name, method: e.method, path: e.path, scopes: e.scopes, input: e.input, output: e.output })),
+    records: app.records.map((r) => ({ name: r.name, exportName: r.exportName, read: r.read, fields: r.fields })),
     slots: app.slots,
     libraries: app.libraries.map((l) => l.specifier),
   };

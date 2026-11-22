@@ -1,0 +1,65 @@
+// A default plugin: the implementor ships it and every user has it. It goes through the same build as a plugin a
+// user writes.
+//
+// Its scopes are not written anywhere. The build reads them from these imports (P2):
+//   required: todos.read, todos.write   (listTodos, createTodo, updateTodo)
+//   optional: todos.delete, people.read (deleteTodo and listAssignees, from @app/sdk/optional)
+//
+// Each row places the todo-row child slot (S13). Whatever plugin fills that slot decides what else a row shows,
+// without forking this list.
+
+import { ChildSlot, definePlugin, useCan, useQuery, useState } from "thixo/plugin";
+import { Button, Checkbox, Stack, Text, TextInput } from "thixo/ui";
+import { main, todoRow } from "@app/slots";
+import { createTodo, listTodos, updateTodo } from "@app/sdk";
+import { deleteTodo, listAssignees } from "@app/sdk/optional";
+
+export default definePlugin(
+  main,
+  {
+    id: "plg_todo_list",
+    name: "Todo list",
+    description: "Every todo in one list. Add, tick off and delete.",
+  },
+  function TodoList({ emit }) {
+    const todos = useQuery(listTodos);
+    const [title, setTitle] = useState("");
+    const canDelete = useCan(deleteTodo);
+    // Loads nothing for a user who can't call it.
+    const assignees = useQuery(listAssignees);
+    const assigneeOf = (todoId: string) => assignees.data?.find((a) => a.todoId === todoId)?.name;
+
+    async function add() {
+      await createTodo({ title });
+      setTitle("");
+      todos.refresh();
+    }
+
+    return (
+      <Stack gap="md">
+        <TextInput value={title} onChange={setTitle} onSubmit={add} placeholder="Add a todo" />
+        {todos.loading && <Text tone="muted">Loading…</Text>}
+        {todos.error && <Text tone="danger">{todos.error.message}</Text>}
+
+        {todos.data?.map((todo) => (
+          <Stack key={todo.id} direction="row" gap="sm">
+            <Checkbox checked={todo.done} onChange={(done) => updateTodo({ id: todo.id, done }).then(todos.refresh)} />
+            <Button variant="secondary" onClick={() => emit.select({ todoId: todo.id })}>
+              {todo.title}
+            </Button>
+
+            <ChildSlot is={todoRow} context={{ todoId: todo.id }} on={{ select: (e) => emit.select(e) }} />
+
+            {/* Shown only to a user who can call listAssignees. */}
+            {assigneeOf(todo.id) && <Text tone="muted">{assigneeOf(todo.id)}</Text>}
+
+            {/* Greyed out for a user who can't delete (P4). */}
+            <Button variant="danger" disabled={!canDelete} onClick={() => deleteTodo({ id: todo.id }).then(todos.refresh)}>
+              Delete
+            </Button>
+          </Stack>
+        ))}
+      </Stack>
+    );
+  },
+);

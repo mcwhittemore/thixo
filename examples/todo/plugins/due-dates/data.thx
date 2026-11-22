@@ -1,0 +1,12 @@
+// The plugin's data (D1). The build reads the fields and types from this file, hashes them and records the hash
+// with the version (D3). It is written as plain literals so the build can read it without running it (U7).
+
+import { annotate, store } from "thixo/data";
+import { t } from "thixo/schema";
+import { Todo } from "@app/sdk";
+
+// An annotation: a field this plugin attaches to the app's todos. The app's schema does not change.
+export const due = annotate(Todo, { dueOn: t.date() });
+
+// A store: the plugin's own records. This one is private to each user (D2).
+export const prefs = store("prefs", { fields: { warnDaysBefore: t.number() } });
