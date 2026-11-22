@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, statSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, statSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 import { run } from "../src/main.js";
@@ -223,10 +223,14 @@ test("compile: inside a project it uses the real env and prints manifest, summar
 test("compile outside a project says a project is needed for @app/sdk", async () => {
   const dir = join(process.env.TMPDIR ?? "/tmp", `thixo-cli-noproject-${process.pid}`);
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "p.thx"), "x");
-  const io = testIo(dir);
-  assert.equal(await run(["compile", "p.thx"], { io, deps: fakeDeps() }), 1);
-  assert.match(io.stderr.join("\n"), /No project found[\s\S]*@app\/sdk and @app\/slots/);
+  try {
+    writeFileSync(join(dir, "p.thx"), "x");
+    const io = testIo(dir);
+    assert.equal(await run(["compile", "p.thx"], { io, deps: fakeDeps() }), 1);
+    assert.match(io.stderr.join("\n"), /No project found[\s\S]*@app\/sdk and @app\/slots/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("new plugin, then compile it", async () => {

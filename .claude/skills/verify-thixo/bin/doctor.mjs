@@ -11,6 +11,11 @@ const run = args().run ?? "default";
 const state = readState(run);
 if (!state?.pid) fail(`no instance for run "${run}". Start one with launch.mjs --run ${run}.`);
 
+// The user each example's own login accepts (examples/todo: ana; examples/crm: rita, a sales rep).
+const SIGN_IN_AS = { todo: "ana", crm: "rita" };
+const user = SIGN_IN_AS[state.example];
+if (!user) fail(`no sign-in user known for example "${state.example}" (run ${run}). Add it to SIGN_IN_AS in doctor.mjs.`);
+
 const checks = [];
 const check = (name, ok, detail) => {
   checks.push(`${ok ? "ok  " : "FAIL"} ${name}${detail ? `: ${detail}` : ""}`);
@@ -29,8 +34,8 @@ check("copy is disposable", !state.dir.startsWith(ROOT), state.dir);
 const appInfo = await fetch(`${state.url}/_thixo/app`).then((r) => (r.ok ? r.json() : null), () => null);
 check("app info", Boolean(appInfo?.slots?.length), appInfo ? `slots ${appInfo.slots.map((s) => s.name).join(", ")}` : "no answer");
 
-const token = await fetch(`${state.url}/_thixo/token`, { method: "POST", headers: { cookie: "thixo-user=ana" } }).then((r) => (r.ok ? r.json() : null), () => null);
-check("sign-in as ana", token?.user?.id === "ana", token ? `scopes ${token.user.scopes.length}` : "token refused");
+const token = await fetch(`${state.url}/_thixo/token`, { method: "POST", headers: { cookie: `thixo-user=${user}` } }).then((r) => (r.ok ? r.json() : null), () => null);
+check(`sign-in as ${user}`, token?.user?.id === user, token ? `scopes ${token.user.scopes.length}` : "token refused");
 
 const layout = await fetch(`${state.url}/_thixo/layout`, { headers: { authorization: `Bearer ${token.token}` } }).then((r) => (r.ok ? r.json() : null), () => null);
 const defaults = layout ? Object.entries(layout.defaults).map(([slot, ref]) => `${slot}=${ref.plugin}@${ref.number}`) : [];

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import test from "node:test";
+import test, { after } from "node:test";
 import { buildAgentRequest, formatAgentResult, parseRef, resolveAgentTarget, type AgentOptions } from "../src/agent.js";
 import { classifyChange } from "../src/changes.js";
 import { clientEntry, indexHtml, serverEntry } from "../src/entries.js";
@@ -13,7 +13,16 @@ import { compileFolder, readPluginFolder, readPlugins, reportOutcome, summarizeM
 import { findProjectRoot, openProject, projectPaths } from "../src/project.js";
 import { FAKE_ERROR, fakeThx, testIo } from "./support/helpers.js";
 
-const tmp = () => mkdtempSync(join(tmpdir(), "thixo-cli-"));
+// Every folder a test makes goes here, and is removed when the file's tests end.
+const made: string[] = [];
+const tmp = () => {
+  const dir = mkdtempSync(join(tmpdir(), "thixo-cli-"));
+  made.push(dir);
+  return dir;
+};
+after(() => {
+  for (const dir of made) rmSync(dir, { recursive: true, force: true });
+});
 const put = (root: string, path: string, text = "") => {
   const file = join(root, path);
   mkdirSync(join(file, ".."), { recursive: true });

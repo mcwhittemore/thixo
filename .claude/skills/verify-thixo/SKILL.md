@@ -5,7 +5,7 @@ description: "Prove Thixo behaviour the way a user meets it: start `thixo dev` o
 
 # Verify Thixo
 
-Thixo is a framework; its user surface is an app built on it. The app this skill drives is `examples/todo`, run by
+Thixo is a framework; its user surface is an app built on it. The app this skill drives is `examples/todo` (or `examples/crm`, see Launch), run by
 the `thixo` command from `packages/cli`. A person uses it in a browser (the todo list, the detail panel, the plugin
 browser, the authoring chat). An outside coding agent uses it through `thixo agent <tool> --as <user>`. The
 implementor uses `thixo dev`, `thixo build`, `thixo start`, `thixo compile` and `thixo new plugin`.
@@ -40,6 +40,11 @@ layouts are in the copy's `.thixo/data.sqlite`. Users are chosen by the `thixo-u
 | `ben` | everything, including todos.delete and plugins.promote | Delete enabled, can promote |
 | `cy` | todos.read, thixo.data.read | The default list is refused (it needs todos.write) |
 
+`--example crm` launches `examples/crm` instead, the CRM example, and the doctor and drive then sign in as `rita`
+(a sales rep) rather than `ana`. Its feature is `features/crm-app.md`. `create-thixo-app <name>` makes a new app from
+the template; it is not copied by `launch.mjs` (that copies `examples/<name>` only), so `features/create-app.md` runs
+it on its own folder with `npx`, `thixo dev` and curl.
+
 Two runs with different ids run side by side: each has its own copy, port and database. Never point a helper at a
 `thixo dev` you did not launch, and never launch into `examples/todo` itself (a promote writes into `plugins/`).
 
@@ -50,7 +55,7 @@ node .claude/skills/verify-thixo/bin/doctor.mjs --run <id>
 ```
 
 Read-only. Checks the recorded pid is alive, that the copy's `.thixo/dev.json` names the same pid and url (the port
-is ours), that the copy is outside the repo, `GET /_thixo/app` lists the slots, `POST /_thixo/token` signs ana in,
+is ours), that the copy is outside the repo, `GET /_thixo/app` lists the slots, `POST /_thixo/token` signs in the run's example user (`ana` for todo, `rita` for crm, read from the run's state),
 `GET /_thixo/layout` has the three default plugins, `/` is the shell page and its CSP has `script-src 'self'`. It
 prints each check and `healthy`, or exits 1 naming the first failure. Run it first, and again whenever a drive
 behaves oddly.
@@ -132,8 +137,8 @@ Stops only the pid recorded for the run (SIGTERM, then SIGKILL after 5 s), delet
 
 | Script | Use |
 | --- | --- |
-| `bin/launch.mjs [--run id] [--example todo] [--port 0]` | Disposable copy, `thixo dev` in the background, prints state when ready |
-| `bin/doctor.mjs [--run id]` | Read-only health check of that instance |
+| `bin/launch.mjs [--run id] [--example todo\|crm] [--port 0]` | Disposable copy of `examples/<example>`, `thixo dev` in the background, prints state when ready |
+| `bin/doctor.mjs [--run id]` | Read-only health check of that instance; signs in as `ana` for todo and `rita` for crm |
 | `bin/drive.mjs [--run id] --as <user> [--script file] [--name label]` | Chromium as a user; screenshots, ARIA snapshots, requests, console |
 | `bin/cli.mjs [--run id] [--save label] -- <args>` | The `thixo` command in the copy, transcript saved |
 | `bin/cleanup.mjs [--run id]` | Stop what launch started, remove the copy, keep evidence |
