@@ -98,6 +98,19 @@ export class ScopedStyles {
     return name;
   }
 
+  /** A rule the runtime's own `css()` made for `className` (RuntimeHost.insertStyle). Every selector of that class is
+   * put under the scope class too, so the rule reaches only elements inside this plugin's box (P8). The runtime has
+   * already checked values and addresses; a rule that selects anything but its own class is dropped. */
+  insert(className: string, cssText: string): void {
+    if (!/^[a-zA-Z][\w-]*$/.test(className) || this.rules.has(className)) return;
+    if (/@import/i.test(cssText)) return;
+    const selectors = cssText.replace(/\{[^{}]*\}/g, "{}").match(/[^{}]+(?=\{)/g) ?? [];
+    const own = new RegExp(`^\\.${className}(:[a-z-]+(\\([a-z]+\\))?)?$`);
+    if (selectors.some((sel) => !sel.trim().startsWith("@media") && !own.test(sel.trim()))) return;
+    this.rules.set(className, cssText.split(`.${className}`).join(`.${this.scopeClass} .${className}`));
+    for (const listener of this.listeners) listener();
+  }
+
   text(): string {
     return [...this.rules.values()].join("\n");
   }
