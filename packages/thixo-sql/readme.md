@@ -7,12 +7,11 @@ It implements the data adapter in [portability](../../docs/07-portability.md#dat
 
 ## How it stores plugin data
 
-All plugin data lives in a few fixed tables, one row per record, fork layer and field. A plugin never adds a table
+All plugin data lives in a few fixed tables, one row per record, plugin in the chain and field. A plugin never adds a table
 or a column.
 
 - **Reading through a fork chain** is one query. It takes the rows for the record across every layer in the chain
   and keeps the nearest layer's value for each field ([D10](../../docs/02-requirements.md#plugin-data)).
-- **Finding records by value** runs on that same view, so a fork's filter sees values it inherited.
 - **A patch** writes rows in one layer, inside one transaction.
 
 ## Migrations
@@ -24,4 +23,3 @@ and the implementor runs it on upgrade.
 
 - How deep a fork chain can get before reads need flattening.
 - What a row is keyed by, with stores private to each user (D2) and annotations seen by a grouping (A11).
-- Which indexes the searchable fields get.

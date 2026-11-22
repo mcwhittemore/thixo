@@ -46,11 +46,10 @@ The data adapter speaks plugin data, not documents, so each adapter decides how 
 
 ```ts
 interface DataAdapter {
-  read(record: RecordRef, chain: LayerId[]): Promise<Fields>;
-  readMany(records: RecordRef[], chain: LayerId[]): Promise<Map<RecordRef, Fields>>;
-  find(field: DeclaredField, filter: Filter, chain: LayerId[]): Promise<RecordRef[]>;
-  patch(record: RecordRef, layer: LayerId, fields: Fields): Promise<Fields>;
-  remove(field: DeclaredField, layer: LayerId): Promise<void>;
+  read(record: RecordRef, chain: PluginId[]): Promise<Fields>;
+  readMany(records: RecordRef[], chain: PluginId[]): Promise<Map<RecordRef, Fields>>;
+  patch(record: RecordRef, plugin: PluginId, fields: Fields): Promise<Fields>;
+  remove(field: Field, plugin: PluginId): Promise<void>;
 }
 ```
 
@@ -59,11 +58,10 @@ also holds registry records and layouts. A plugin never changes the database sch
 and ships its own migrations with each Thixo release.
 
 Thixo's SQL adapter is [`thixo-sql`](../packages/thixo-sql/readme.md). A key-value adapter is possible. Reading
-through a chain costs a fetch per layer, and filtering by value needs effective values stored ahead of time, which
-every parent write then has to update.
+through a chain costs a fetch per layer.
 
-Registry search needs more than `find` if it is to rank results by meaning. Whether search is its own adapter is
-open.
+Finding plugin data by value is not in the first version. Registry search ranks plugins by meaning, which plain
+reads don't do. Whether search is its own adapter is open.
 
 ### Build
 

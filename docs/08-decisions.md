@@ -491,3 +491,41 @@ changes the database schema. Thixo's SQL adapter is its own package, `thixo-sql`
 The structures on Thixo's side of the API, such as plugins, versions, manifests, layers, plugin data records and
 layouts, are defined in one place, the [data model](06-data-model.md), in the schema module's types. It replaces the
 plugin data doc, whose rules are about the same structures and now follow them.
+
+## 2026-11-21: the data model
+
+### 56. Only a deploy publishes a default plugin
+
+A default plugin is a folder in `plugins/` whose metadata names its `PluginId`. A commit publishes nothing. A deploy
+builds every folder, reuses the version with the same source hash or stores a new one, and records the default
+layout, resolved to versions, as a release. Promoting a version writes its source into `plugins/`, so the deploy
+after the merge finds that same version and makes no new one. Each environment has its own registry, and rolling
+back is a deploy of an older commit. See the [data model](06-data-model.md#default-plugins-and-deploys).
+
+- **Why:** "a change there publishes a new version" left open when a change counts, which version a layout in the
+  repo names before the registry has numbered it, and what a promotion or a rollback mints.
+- **Requirements:** G3, S9.
+
+### 57. Default is not a visibility
+
+A plugin's visibility is personal or shared. Default is where its source lives, the implementor's `plugins/`, and
+the current release says which plugins those are.
+
+- **Requirements:** G3.
+
+### 58. No search over plugin data in the first version
+
+The data adapter reads through a chain, reads many, patches and deletes. Finding records by a field's value, and
+declaring fields searchable, are cut. Registry search is unchanged.
+
+- **Why:** it pulled indexes, a filter language and inherited values into the adapter before anything needs them.
+- **Changes:** decision 54.
+
+### 59. Deleting data and the app's records are requirements
+
+Two parts of the data model were requirements, not structures: deletion is never a side effect of a new version
+(D13), and an annotatable record's definition gives Thixo a way to check it and a signal when it is deleted (A13).
+"Two versions, two truths" is cut as a limit: it is a fact of malleable software, not something Thixo can solve.
+Cambria is no longer held in reserve.
+
+- **Requirements:** A13, D13.

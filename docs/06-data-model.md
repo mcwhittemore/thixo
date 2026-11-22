@@ -1,91 +1,135 @@
 # Data model
 
-The structures on Thixo's side of the API, and the rules that keep plugin data safe across versions and forks.
-
-Types are written with `t` from the schema module, the one way Thixo describes a type. The API, slots and plugin
-data use it too.
+The structures for the data models that Thixo ships.
 
 ## What Thixo holds
 
-| Structure | What it is | Where it lives |
+| Structure | What it is | Who writes it |
 | --- | --- | --- |
-| Plugin | A plugin and where it stands: personal, shared or default | Registry |
-| Version | One immutable snapshot of a plugin's source, with its manifest | Registry, source in object storage (U3) |
-| Manifest | What the build derived from a version | Registry |
-| Layer | One plugin's place in a lineage of forks | Registry |
-| Store record | A plugin's own record, private to one user | Plugin data |
-| Annotation | A plugin's fields on one of the app's records | Plugin data |
-| Layout | Which plugin versions fill which slots | Default in the implementor's project, a user's changes in Thixo's data |
+| Plugin | A plugin and whether it is personal or shared | The registry, when a plugin is submitted, forked, shared or promoted |
+| PluginVersion | One immutable snapshot of a plugin's source, with its manifest | The registry, once, on submission. Never changed after (U2) |
+| PluginVersionManifest | What the build derived from a version | The build, once, when it compiles the version (L8) |
+| PluginRecord | A plugin's own record, private to one user | The plugin, through the SDK, for the current user (D2, D6) |
+| PluginAnnotation | A plugin's fields on one of the app's records | The plugin, through the SDK (D6) |
+| UserLayout | Which plugin versions fill which slots | The user, through the shell. The default comes from the implementor's project (S9) |
+| Release | The default plugins and default layout one deploy published | The deploy, once, from the implementor's project (G3) |
 
 All of it goes through the adapters ([portability](07-portability.md)). A plugin never changes the database schema.
 
 ## Plugins and versions
 
-```ts
-const Plugin = t.object({
-  id: t.id(),
-  name: t.string(),
-  description: t.string(),     // written by the agent; search reads it
-  author: UserId,
-  visibility: t.enum(["personal", "shared", "default"]),   // G3
-  forkedFrom: t.optional(VersionRef),                      // the version a fork started from (G4)
-  layer: Layer,
-});
+**Plugin**
 
-const Version = t.object({
-  plugin: PluginId,
-  number: t.number(),          // versions are distinct; there are no branches (U2)
-  source: SourceRef,           // where the code storage adapter keeps it
-  compiled: CodeRef,           // what the plugin route serves
-  manifest: Manifest,
-  createdBy: UserId,
-  createdAt: t.date(),
-});
-```
+| Name | Type | Description |
+| --- | --- | --- |
+| id | `PluginId`, required | Set by the registry. |
+| name | `string`, required | |
+| description | `string`, required | What the plugin is for. Written by the agent, and read by search. |
+| author | `UserId`, required | Who asked the agent for it, or the implementor (P6). |
+| visibility | `"personal" \| "shared"`, required, default `"personal"` | Who can find it (G3). |
+| forkedFrom | `PluginVersionRef`, optional, default none | The version a fork started from (G4). |
+| readsParentData | `boolean`, required, default `true` | Whether a fork reads through to the data of the plugin it was forked from. `false` if it started empty (D9). Ignored when there is no `forkedFrom`. |
 
-A default plugin is also a folder in the implementor's `plugins/`. A change there publishes a new version, and
-promoting a plugin to default opens a change there (G3).
+**PluginVersion**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| plugin | `PluginId`, required | |
+| number | `number`, required | Counts up from 1. Versions are distinct, and there are no branches (U2). |
+| source | `SourceRef`, required | Where the code storage adapter keeps the source. |
+| sourceHash | `string`, required | A stable hash of the source. A deploy uses it to find a version it already has. |
+| compiled | `CodeRef`, required | What the plugin route serves. |
+| manifest | `PluginVersionManifest`, required | |
+| createdBy | `UserId`, required | |
+| createdAt | `date`, required | |
+
+**PluginVersionRef**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| plugin | `PluginId`, required | The plugin the version belongs to. |
+| number | `number`, required | The version's `number` within that plugin. |
+
+A fork's `forkedFrom` and each slot in a `UserLayout` use it. It always names one fixed version, never "the latest".
+
+### Default plugins and deploys
+
+A default plugin is a folder in the implementor's `plugins/`. The repo and the registry each feed the other one way
+only: a deploy carries the repo into the registry, and promotion carries the registry into the repo as a change
+someone merges (G3).
+
+1. **A folder names its plugin.** Each folder's metadata holds its `PluginId`, in the literal form the build reads
+   (U7). Making a new folder writes one, and a promotion writes the id of the plugin being promoted.
+2. **Only a deploy publishes.** A commit publishes nothing. The deploy builds every folder with the same checks as
+   any plugin (P6). For each, it looks for a version of that plugin with the same `sourceHash`: if there is one it
+   uses it, and if not it stores a new version.
+3. **The repo's layout names plugins, not versions.** The registry numbers versions, so a commit can't know the
+   number. The deploy resolves each slot to the version it just found or stored, and records the result as a
+   release.
+4. **A plugin is default while the current release has it.** Promoting version 4 of a shared plugin opens a change
+   that writes its source into `plugins/`. When that merges and deploys, the hash matches version 4, so no new
+   version is made: version 4 is now the default. Removing the folder ends that at the next deploy. Its versions
+   stay (U2).
+5. **Each environment has its own registry.** Staging and production deploy into their own, with their own version
+   numbers and data. A folder's `PluginId` is the same in each.
+6. **Rolling back is a deploy.** Deploying an older commit finds its versions by hash and makes a release from them.
+   Nothing new is stored.
+
+**Release**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| id | `ReleaseId`, required | Set by the deploy. |
+| deployment | `string`, required | The implementor's deploy that made it, such as a commit sha. |
+| plugins | `PluginId[]`, required | The default plugins: one per folder in `plugins/`. |
+| layout | map of `SlotPath` to `PluginVersionRef`, required | The default layout, resolved to versions. |
+| createdAt | `date`, required | |
+
+The newest release is the default. A slot a user never changed moves to the new default version on the next deploy.
+A slot they changed stays where they put it (S9).
+
+A Thixo upgrade recompiles unchanged source. Whether that makes a new version or a new `compiled` on the same one is
+[open](09-open-questions.md#plugin-data).
 
 ## The manifest
 
 Nobody writes a manifest. The build derives it when it compiles a version (L8).
 
-```ts
-const Manifest = t.object({
-  slot: SlotName,
-  endpoints: t.object({
-    required: t.array(EndpointName),   // from the plain SDK path (P2)
-    optional: t.array(EndpointName),   // from the optional path
-  }),
-  annotates: t.array(RecordName),      // each adds the scopes that read it (P2, D12)
-  data: DataSchema,
-  schemaHash: t.string(),              // D3
-  shellServices: t.array(ServiceName),
-  addresses: t.array(Url),             // every outside address the source names (L7)
-});
-```
+**PluginVersionManifest**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| slot | `SlotName`, required | The slot the plugin fills. |
+| requiredEndpoints | `EndpointName[]`, required, default `[]` | From the plain SDK path (P2). |
+| optionalEndpoints | `EndpointName[]`, required, default `[]` | From the optional path. |
+| annotates | `RecordName[]`, required, default `[]` | Each adds the scopes that read it (P2, D12). |
+| data | `DataSchema`, required | |
+| schemaHash | `string`, required | A stable hash of `data` (D3). |
+| shellServices | `ServiceName[]`, required, default `[]` | |
+| addresses | `Url[]`, required, default `[]` | Every outside address the source names (L7). |
 
 The manifest records endpoints, not scopes. Scopes are looked up from the endpoints when a call is checked or a
-search is filtered, so a change to an endpoint's scopes takes effect without rebuilding any plugin. Context fields
-of the slot a plugin fills add their scopes the same way (S13).
+search is filtered, so a change to an endpoint's scopes takes effect without rebuilding any plugin. Context fields of
+the slot a plugin fills add their scopes the same way (S13).
 
 ## Data schema and fields
 
 Each version declares its data: the stores it uses, the records it annotates, and each field's name and type (D3).
 
-```ts
-const Field = t.object({
-  name: t.string(),
-  type: SchemaType,            // never changes (D8)
-  declaredBy: PluginId,        // the layer that added it (D10)
-  searchable: t.boolean(),     // whether records can be found by its value
-});
+**Field**
 
-const DataSchema = t.object({
-  stores: t.record(StoreName, t.array(Field)),
-  annotations: t.record(RecordName, t.array(Field)),
-});
-```
+| Name | Type | Description |
+| --- | --- | --- |
+| name | `string`, required | |
+| type | `SchemaType`, required | Never changes (D8). |
+| declaredBy | `PluginId`, required | The plugin in the chain that added it (D10). |
+
+**DataSchema**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| stores | map of `StoreName` to `Field[]`, required, default empty | The stores the version uses. |
+| annotations | map of `RecordName` to `Field[]`, required, default empty | The fields it adds to each of the app's records. |
 
 On submission the registry:
 
@@ -96,18 +140,12 @@ On submission the registry:
 
 ## Lineage and layers
 
-A lineage is a plugin and the forks that descend from it. Each plugin in it is a layer over its parent's data, like
-a JavaScript prototype chain (D10).
+A lineage is a plugin and the forks that descend from it. Each plugin in it is a layer over its parent's data, like a
+JavaScript prototype chain (D10).
 
-```ts
-const Layer = t.object({
-  plugin: PluginId,
-  dataParent: t.optional(PluginId),   // whose data this layer reads through to; none if it started empty (D9)
-});
-```
-
-A layer's **chain** is the list from its own layer up through each `dataParent` to the first. A fork always records
-the version it came from (`forkedFrom`), but it reads through to its parent's data only if `dataParent` is set.
+A plugin's **chain** is the list from the plugin up through each fork's parent to the first, stopping at a fork whose
+`readsParentData` is `false`. A fork always records the version it came from (`forkedFrom`), and reads through to
+that plugin's data unless it started empty.
 
 - **Reads step up.** Reading a field looks in the fork's layer first, then its parent's, and so on up the chain.
 - **Writes stay in the fork.** A fork's writes land in its own layer. The parent never sees them.
@@ -118,44 +156,49 @@ chain's data. The broker enforces that from the plugin's manifest, so a lineage 
 
 ## Plugin data records
 
-```ts
-const RecordRef = t.object({ record: RecordName, id: t.string() });   // one of the app's records (A10)
+**RecordRef**
 
-const StoreRecord = t.object({
-  store: StoreName,
-  id: t.id(),
-  owner: UserId,               // a store is private to each user (D2)
-  layer: PluginId,
-  fields: Fields,
-});
+| Name | Type | Description |
+| --- | --- | --- |
+| record | `RecordName`, required | One of the app's records (A10). |
+| id | `string`, required | The record's id in the app. |
 
-const Annotation = t.object({
-  on: RecordRef,
-  layer: PluginId,
-  group: GroupKey,             // who sees it, from the record's grouping (A11)
-  fields: Fields,
-});
-```
+**PluginRecord**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| store | `StoreName`, required | |
+| id | `string`, required | Set by Thixo when the record is created. |
+| owner | `UserId`, required | A store is private to each user (D2). |
+| plugin | `PluginId`, required | The plugin in the chain that wrote it. |
+| fields | `Fields`, required, default empty | |
+
+**PluginAnnotation**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| on | `RecordRef`, required | |
+| plugin | `PluginId`, required | The plugin in the chain that wrote it. |
+| group | `GroupKey`, optional, default none | Who sees it, from the record's grouping (A11). None means everyone. |
+| fields | `Fields`, required, default empty | |
 
 `Fields` maps a field's name to its value. Every field is optional, so a value can always be missing (D5).
 
-`GroupKey` comes from the grouping the implementor set for that kind of record (A11): a user's id when each user
-sees only their own, a group's id such as a team's, or none when everyone sees it.
+`GroupKey` comes from the grouping the implementor set for that kind of record (A11): a user's id when each user sees
+only their own, a group's id such as a team's, or none when everyone sees it.
 
 ## Layouts
 
-```ts
-const Layout = t.record(SlotPath, VersionRef);
+**UserLayout**
 
-const UserLayout = t.object({
-  user: UserId,
-  changes: Layout,             // only the slots this user changed
-});
-```
+| Name | Type | Description |
+| --- | --- | --- |
+| user | `UserId`, required | |
+| changes | map of `SlotPath` to `PluginVersionRef`, required, default empty | Only the slots this user changed. |
 
-The default layout lives in the implementor's project, beside the default plugins (S9, G3). The shell reads a
-user's changes over the default, the way a fork reads over its parent. A `SlotPath` names a slot inside its parents,
-such as `main/todo-row`, so a child slot can be filled differently from the default too (S13).
+The default layout lives in the implementor's project, beside the default plugins (S9, G3). The shell reads a user's
+changes over the default, the way a fork reads over its parent. A `SlotPath` names a slot inside its parents, such as
+`main/todo-row`, so a child slot can be filled differently from the default too (S13).
 
 ## What Thixo's API serves
 
@@ -164,7 +207,7 @@ The other side of A1: the endpoints every app gets.
 | Area | Endpoints |
 | --- | --- |
 | Registry | Search, get a plugin, list its versions, submit a version, fork, share, promote |
-| Plugin data | Read through a chain, read many, find by a searchable field, patch, delete a field's data |
+| Plugin data | Read through a chain, read many, patch, delete a field's data |
 | Layouts | Get the current user's layout, set a slot, reset a slot to the default |
 | Authoring | Start and continue a chat with the authoring agent |
 | Tokens | Trade the user's session for a token (A4) |
@@ -200,8 +243,6 @@ Version 1 of a due-dates plugin annotates todos with `dueOn`, a string.
 
 ### What the rules don't solve
 
-- **Two versions, two truths.** After the last change above, users on version 1 still write `dueOn` and users on
-  version 2 write `dueDate`. The same todo can show different due dates to different people until everyone moves.
 - **Lists and concurrent edits.** A patch replaces a whole field. Adding one tag to a list writes the full list, and
   two people tagging the same todo can overwrite each other.
 - **Clearing a value.** Whether setting a field to nothing counts as a delete under D7 is undefined.
@@ -217,23 +258,3 @@ These are in [open questions](09-open-questions.md#plugin-data).
 - **Fields flow down only.** A parent can't pick up a field its fork added without becoming a fork of that fork.
 - **A fork's edit shadows its parent's value.** A user who moves from the parent to a fork brings their data. What
   they then write stays in the fork, so if they go back, those edits aren't there.
-
-## Records the app owns
-
-An annotation attaches to a record that lives in the implementor's own storage, which Thixo can't see. Thixo
-therefore can't tell whether a record exists, whether this user may read that particular one, or whether it has
-been deleted. The record definition (A10) has to give Thixo a way to ask, and a signal when a record is removed.
-
-## Deleting data
-
-Deletion exists and is never a side effect of a new version.
-
-- A user can delete their own store records.
-- Removing a field's data from a lineage is an explicit act, separate from publishing a version (D7), by someone
-  with the right to do it.
-
-## Held in reserve
-
-Ink & Switch's [Cambria](https://www.inkandswitch.com/cambria/) translates between schema versions in both directions
-with lenses. It would allow real renames and type changes. It is left out until the additive rules prove too
-limiting.

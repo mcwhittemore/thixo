@@ -33,8 +33,8 @@ Data belongs to a lineage (D10), and a lineage follows forks. Two different plug
   want tags and due dates in the list need a third fork that merges both, and none of the forks gets the
   implementor's later updates.
 - Two people who each fork the list to add tags get two separate `tags` fields holding different data.
-- There is no way to read annotations for many records at once, or to find records by an annotation's value. A
-  filter has to load everything into the plugin, which breaks once the list is paged.
+- Finding records by an annotation's value is not in the first version. A filter has to load everything into the
+  plugin, which breaks once the list is paged.
 
 Options:
 
@@ -125,22 +125,23 @@ event and context in the shell, which only the implementor can write.
 ### Layout and versions
 
 - Who can change which plugin fills a slot: each user, an admin, or both? Can the authoring agent?
-- Does a layout pin a version or follow the newest? Pinning means nobody gets fixes. Following means silent change.
+- A slot a user changed pins a version, and one they didn't follows each release
+  ([data model](06-data-model.md#default-plugins-and-deploys)). Does a pinned slot ever move to a newer version, and
+  is the user told?
 - How is a bad version pulled back? Versions are never deleted, and there is no revoke or audit log.
 - When the implementor updates a default plugin, what happens to users who forked it?
 - How does an author try a plugin before it replaces what they use?
 
 ## Plugin data
 
-- How do users move between versions that changed a field, so the same record doesn't show two truths?
 - Are there list or set fields with add and remove, or is it last write wins per field?
 - Is clearing a value a delete?
 - How is the grouping that decides who sees an annotation (A11) defined?
 - When stores can be shared across users (D2), who picks the grouping, and can a new version or a fork widen it?
   Widening it silently would show private records to others.
-- Which fields can be searched, and how does a plugin declare one?
-- How does Thixo learn that a record was deleted, and what happens to its annotations?
-- How does Thixo check that a user may read one particular record before returning its annotations?
+- Which fields can be searched, and how does a plugin declare one? Search is cut from the first version.
+- When the app deletes a record (A13), what happens to its annotations?
+- Does a Thixo upgrade that recompiles unchanged source make a new version, or a new `compiled` on the same one?
 - Who may delete a field's data from a lineage (D7)? How are export and erasure requests answered?
 - When a fork joins a lineage, can the parent's author refuse?
 - How is a fork expressed in source?

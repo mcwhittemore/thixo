@@ -69,7 +69,9 @@ A plugin moves through three levels:
 
 1. **Personal:** only its author can use it.
 2. **Shared:** it is in the registry, and any user with the required scopes can find, use and fork it.
-3. **Default:** it is in the layout every user starts with.
+3. **Default:** its source is a folder in the implementor's `plugins/`, and it is in the layout every user starts
+   with.
 
-A default plugin lives in the implementor's project. Promoting one opens a change there, and a change there publishes
-a new version to the registry.
+Personal and shared are the plugin's visibility. Default is where its source lives: promoting a plugin opens a change
+in `plugins/`, and the deploy after it merges makes the plugin default. How deploys, versions and releases fit is in
+the [data model](06-data-model.md#default-plugins-and-deploys).

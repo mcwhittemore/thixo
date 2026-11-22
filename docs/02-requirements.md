@@ -29,6 +29,7 @@ requirement with none of them is a MUST.
 | A10 | The implementor declares which of the app's records plugins can annotate, such as a todo, and the scopes needed to read one. |
 | A11 | For each annotatable record, the implementor also says who sees an annotation on it, as a grouping of users: from one user, through a team, to everyone. |
 | A12 | Scopes say which API calls a caller can make. They do not say which data a caller can see. What an endpoint returns is the implementor's to get right. |
+| A13 | An annotatable record lives in the implementor's storage, which Thixo can't see. Its definition (A10) MUST give Thixo a way to ask whether a record exists and whether the current user may read it, and a signal when one is deleted. |
 
 ## The shell and slots
 
@@ -94,7 +95,7 @@ What the language plugins are written in can and can't do. The design is in [the
 | --- | --- |
 | G1 | Search MUST account for the user's permissions and each plugin's scope requirements. A user is offered only plugins whose required scopes they hold. |
 | G2 | Users can find their peers' plugins and submit their own. |
-| G3 | A plugin can move from personal to shared to default. A default plugin lives in the implementor's project: promoting one opens a change there through the code storage adapter, and a change there publishes a new version to the registry. |
+| G3 | A plugin can move from personal to shared to default. A default plugin lives in the implementor's project: promoting one opens a change there through the code storage adapter, and the next deploy publishes what changed there to the registry. |
 | G4 | A fork records the version it started from. |
 | G5 | On submission, and before a user takes a plugin, the registry shows a plain summary from the manifest, such as "reads todos, writes its own data, adds two fields". |
 
@@ -114,6 +115,7 @@ What the language plugins are written in can and can't do. The design is in [the
 | D10 | Each fork is its own layer over its parent's data, like a JavaScript prototype chain. Reading a field looks in the fork's layer first and then steps up to its parent. A fork's writes land in its own layer, so two forks that add the same name each have their own field. |
 | D11 | Reading plugin data and writing it are two scopes, held like any other. Most users hold both, but an implementor can withhold either to limit which plugins a user can run. Within them, a plugin reaches only its own lineage's data, which the broker enforces from the plugin's manifest. A lineage is not a scope. |
 | D12 | Annotating a record requires the scopes that read it. The build derives them from the plugin's data declarations. |
+| D13 | Deleting plugin data is never a side effect of a new version. A user can delete their own store records, and removing a field's data from a lineage is an explicit act (D7) by someone with the right to do it. |
 
 ## Portability
 

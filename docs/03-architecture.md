@@ -30,8 +30,9 @@ thixo.config.ts
 
 From `api/`, Thixo generates the API SDK and the plugin SDK. From `app/`, it knows the slots. From `plugins/`, it
 builds the default plugins through the same pipeline a user's plugin goes through. Promoting a plugin to default
-opens a change in `plugins/` through the code storage adapter, and a change there publishes a new version to the
-registry (G3).
+opens a change in `plugins/` through the code storage adapter. Only a deploy publishes: it stores a new version for
+each folder whose source changed and records the default layout as a release (G3). The steps are in the
+[data model](06-data-model.md#default-plugins-and-deploys).
 
 ## From source to a running plugin
 
@@ -150,15 +151,14 @@ to store it:
 
 - Read a record's fields for a plugin, through its fork chain (D10).
 - Read many records at once.
-- Find records by a field the plugin declares as searchable.
 - Patch a record's fields (D6).
 - Delete a field's data (D7).
 
-The types those operations use, such as records, layers and fields, are in the [data model](06-data-model.md).
+The types those operations use, such as records, plugins and fields, are in the [data model](06-data-model.md).
 
 A plugin never changes the database schema. Each adapter decides how it stores plugin data, and owns its schema and
 its migrations. For how this works in SQL, see the [`thixo-sql` package docs](../packages/thixo-sql/readme.md).
 
 **Layouts** go through the same adapter ([data model](06-data-model.md#layouts)). The default layout lives in the implementor's project, beside the default
-plugins (S9, G3). A user's layout stores only what they changed: a slot and the plugin version that fills it. The
+plugins, and each deploy resolves it to versions as a release (S9, G3). A user's layout stores only what they changed: a slot and the plugin version that fills it. The
 shell reads the user's changes over the default, the way a fork reads over its parent.
