@@ -135,6 +135,9 @@ export interface RuntimeHost {
   budget?: number;
   /** Called when a plugin is stopped or throws outside a render. */
   onError?(error: Error): void;
+  /** Called once for each class `css({...})` makes, with its rules. The host adds them to a stylesheet in the page.
+   * The rules only ever select that class, its states and `@media` around it. */
+  insertStyle?(className: string, cssText: string): void;
 }
 
 /** The handle a host holds on one plugin's runtime. The compiled code gets a different object, with the guards. */
@@ -155,6 +158,10 @@ export interface Runtime {
   unwrapUrl(url: Url): string;
   /** Runs compiled code and returns what its `definePlugin` call returned. */
   instantiate(module: { default: (rt: unknown) => unknown }): PluginDefinition;
+  /** Every rule `css({...})` has made so far, for a host that injects styles in one go (such as on the server). */
+  styleSheet(): string;
+  /** True once the plugin ran out of budget or recursed too deep. A stopped runtime refuses to run anything more. */
+  readonly stopped: boolean;
 }
 
 /** What `definePlugin` hands back. `component` is a real React component the host can render. */
