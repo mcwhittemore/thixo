@@ -199,6 +199,11 @@ export function PluginBrowser() {
             <article role="listitem" key={s.plugin.id} aria-label={s.plugin.name} className="thixo-result">
               <div className="thixo-row">
                 <strong>{s.plugin.name}</strong>
+                {s.isDefault ? (
+                  <span className="thixo-badge thixo-tone-success thixo-badge-default">Default</span>
+                ) : (
+                  s.plugin.author !== user.id && <span className="thixo-badge thixo-tone-warning thixo-badge-default">From {s.plugin.author}</span>
+                )}
                 <span className="thixo-muted">
                   v{s.latest} · fills {s.manifest.slot} · {s.isDefault ? "default" : s.plugin.visibility} · by {s.plugin.author}
                 </span>

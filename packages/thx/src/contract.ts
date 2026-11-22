@@ -137,6 +137,10 @@ export interface RuntimeHost {
   /** Loops and calls a plugin may run in one entry (a render, an event handler, a resumed await) before it is
    * stopped. Default 5,000,000. */
   budget?: number;
+  /** The app's `addressHosts`, the same list `CompileEnv.addressHosts` gives the compiler. An outside address a
+   * plugin loads (`<img src>`, a style's `url()`) must be on one of them, whether the source wrote it or the app
+   * handed it in as a `Url`. Left out means none: only paths on the app and `data:` images and fonts load. */
+  addressHosts?: string[];
   /** Called when a plugin is stopped or throws outside a render. */
   onError?(error: Error): void;
   /** Called once for each class `css({...})` makes, with its rules. The host adds them to a stylesheet in the page.

@@ -87,6 +87,9 @@ test("a url field takes only what the broker marks as an address", async () => {
   assert.match((await refused(link({ $url: "javascript:alert(1)" }))).message, /not an address/);
   assert.match((await refused(link({ $url: "//evil.test/x" }))).message, /not an address/);
   assert.match((await refused(link({ $url: "" }))).message, /not an address/);
+  // redteam-language round 2: the server took any data: address, and schemes the runtime can't hold as a Url.
+  for (const bad of ["data:text/html,<script>alert(1)</script>", "data:application/javascript,1", "tel:+15550100", "https:evil.test/x"])
+    assert.match((await refused(link({ $url: bad }))).message, /not an address/, bad);
   for (const ok of ["https://example.com/x", "mailto:a@b.co", "/todos/3", "data:image/png;base64,AAAA"]) {
     assert.deepEqual((await link({ $url: ok })).fields.link, { $url: ok });
   }

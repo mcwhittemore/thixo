@@ -18,6 +18,12 @@ function slugOf(name: string, fallback: string): string {
   return slug || fallback;
 }
 
+/** A name as a reader compares names: case, width, spacing and punctuation folded away, so "Due dates",
+ * "due-dates" and full-width "Due dates" are one name. */
+export function nameKey(name: string): string {
+  return name.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
 function words(text: string): string[] {
   return text.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
 }
@@ -61,6 +67,25 @@ export function createRegistryServices(ctx: ServerContext): RegistryServices {
     };
   }
 
+  /** Another plugin that others see under the same name: a default, or a shared one. A plugin others see must
+   * not take a name its users already trust, since the name and description are most of what G5 shows. */
+  async function nameHolder(plugin: Plugin, name: string): Promise<{ plugin: Plugin; isDefault: boolean } | null> {
+    const key = nameKey(name);
+    if (!key) return null;
+    const defaults = await defaultIds();
+    for (const other of await data.listPlugins()) {
+      if (other.id === plugin.id) continue;
+      const isDefault = defaults.has(other.id);
+      if ((isDefault || other.visibility === "shared") && nameKey(other.name) === key) return { plugin: other, isDefault };
+    }
+    return null;
+  }
+
+  function nameTakenMessage(name: string, holder: { plugin: Plugin; isDefault: boolean }): string {
+    const whose = holder.isDefault ? "a default plugin of this app" : `a plugin ${holder.plugin.author} shared`;
+    return `"${holder.plugin.name}" is already the name of ${whose}. A plugin other people see needs a name of its own, so nobody takes "${name}" for it. Change the name in definePlugin and submit again.`;
+  }
+
   async function checkLoadable(user: User, ref: PluginVersionRef): Promise<{ plugin: Plugin; version: PluginVersion }> {
     const plugin = await visiblePlugin(ctx, user, ref.plugin);
     const version = await versionOf(ctx, ref);
@@ -101,6 +126,11 @@ export function createRegistryServices(ctx: ServerContext): RegistryServices {
             hint: `Give the ${c.to} value a new field name and keep "${c.field}" as ${c.from}.`,
           })),
         };
+      }
+
+      if (existing?.visibility === "shared") {
+        const holder = await nameHolder(existing, built.meta.name);
+        if (holder) return { ok: false, errors: [{ file: "plugin.thx", line: 0, column: 0, code: "registry/name-taken", message: nameTakenMessage(built.meta.name, holder) }] };
       }
 
       let plugin: Plugin;
@@ -192,6 +222,8 @@ export function createRegistryServices(ctx: ServerContext): RegistryServices {
       if (plugin.author !== user.id) fail(ctx, 403, "Only the author can share a plugin.", "not_author");
       missingScopes(ctx, user, ["thixo.plugins.share"], "Sharing a plugin");
       if (plugin.visibility === "shared") return plugin;
+      const holder = await nameHolder(plugin, plugin.name);
+      if (holder) fail(ctx, 409, nameTakenMessage(plugin.name, holder), "name_taken", { plugin: holder.plugin.id });
       const shared: Plugin = { ...plugin, visibility: "shared" };
       await data.putPlugin(shared);
       return shared;

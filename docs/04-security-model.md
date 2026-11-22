@@ -91,6 +91,12 @@ What is still open:
 - **Annotations other users see are a way out.** A plugin can read with the current user's access and write what it
   read into an annotation its author can see (A11). No network is needed. Stores are private to each user (D2), so
   they are not a way out today.
+- **A listed outside host learns what a plugin shows.** A plugin may load from, or link to, a host the implementor
+  lists (`addressHosts`, `linkHosts`). Which of several fixed addresses on that host it shows, or whether it shows
+  one at all, is chosen by what it read, so each load or click tells whoever runs the host a little of that: one bit
+  a render for an image. The registry flags a plugin that chooses among addresses on one host
+  ([implementation](10-implementation.md#addresses)), but a listed host should be one whose logs the implementor
+  trusts. A host the implementor did not list can't be reached this way, by a written-out address or a handed-in one.
 - **A later version can ask for more.** If users follow the newest version of a shared plugin, its author can add an
   endpoint and every user picks it up.
 - **The authoring agent reads other people's plugins.** Text in a plugin's source or description could steer the

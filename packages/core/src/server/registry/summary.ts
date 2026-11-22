@@ -78,7 +78,15 @@ export function summarise(ctx: ServerContext, manifest: Manifest): string[] {
   }
   if (manifest.shellServices.length) push(`Uses: ${manifest.shellServices.map((s) => SERVICE_WORDS[s] ?? s).join(", ")}`);
   if (manifest.libraries.length) push(`Uses the app's libraries: ${manifest.libraries.join(", ")}`);
-  if (manifest.addresses.length) push(`Names outside addresses: ${[...new Set(manifest.addresses.map(host))].join(", ")}`);
+  if (manifest.addresses.length) {
+    push(`Names outside addresses: ${[...new Set(manifest.addresses.map(host))].join(", ")}`);
+    // A plugin that picks which of several fixed addresses on one host to show, by what it read, tells whoever
+    // runs that host what it read: one load or click per choice (redteam rounds 1 and 2). Say so where it happens.
+    const perHost = new Map<string, number>();
+    for (const address of new Set(manifest.addresses)) perHost.set(host(address), (perHost.get(host(address)) ?? 0) + 1);
+    for (const [name, count] of perHost)
+      if (count > 1) push(`Can choose among ${count} addresses on ${name}: which one it shows tells ${name} something about what it read`);
+  }
   if (!out.length) push("Shows something in its slot and reads nothing");
   return out;
 }

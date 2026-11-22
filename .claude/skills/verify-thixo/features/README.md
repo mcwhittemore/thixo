@@ -42,4 +42,5 @@ Each feature file starts with an H1 title and one paragraph describing the user-
 - [The app's API, token and SDK](./app-api.md): token from the session, scope checks, `/_thixo/app`, `/_thixo/sdk.js`. curl.
 - [Plugin language (thx)](./plugin-language.md): compiling and refusing plugins, the wall, the budget. CLI and the thx suites.
 - [Local adapters](./local-adapters.md): `.thixo/` state, SQLite data, file code store, streaming `serve()`, `claudeCode()`. `thixo dev` and node.
+- [Plugin containment against the red team](./security.md): handed-in Urls can't load from unlisted hosts (no CSP needed), the choose-among-addresses summary flag, attributed dialogs and toasts, unique shared names. Browser e2e and the suites.
 - [Model adapters](./model-adapters.md): `anthropic()` against a local fake of the Messages stream. node.

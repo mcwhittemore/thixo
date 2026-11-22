@@ -8,12 +8,17 @@ import { DATA_READ, DATA_WRITE, findRecord } from "./scopes.js";
 import { STORE_SINGLETON_ID, type DataRecord, type DataScope, type DataServices, type DataTargetRef } from "./types.js";
 
 const MAX_IDS = 500;
-const ADDRESS_SCHEMES = new Set(["http:", "https:", "mailto:", "tel:", "data:"]);
+const ADDRESS_SCHEMES = new Set(["http:", "https:", "mailto:"]);
+const DATA_ADDRESS = /^data:(image\/(png|jpeg|gif|webp|avif|svg\+xml)|font\/(woff2?|ttf|otf))[;,]/i;
 
-/** What the broker marks as an address on the wire: `{ "$url": "https://..." }`. A plain string is never an address. */
+/** What the broker marks as an address on the wire: `{ "$url": "https://..." }`. A plain string is never an address.
+ * The same set the in-page runtime lets the host mint a `Url` from: http, https, mailto, a path on the app, or a
+ * `data:` image or font. Where an outside one may load is the runtime's check, against the app's `addressHosts`. */
 export function isAddress(value: string): boolean {
   if (!value || /[\u0000-\u001f\u007f\s]/.test(value)) return false;
   if (value.startsWith("/")) return !value.startsWith("//");
+  if (/^data:/i.test(value)) return DATA_ADDRESS.test(value);
+  if (/^https?:/i.test(value) && !/^https?:\/\/[^/]/i.test(value)) return false;
   try {
     return ADDRESS_SCHEMES.has(new URL(value).protocol);
   } catch {
@@ -41,7 +46,7 @@ function decode(type: FieldType, value: unknown): { ok: true; value: unknown } |
       const keys = value && typeof value === "object" ? Object.keys(value) : [];
       const address = (value as { $url?: unknown } | null)?.$url;
       if (keys.length !== 1 || typeof address !== "string") return no('must be { "$url": "..." }');
-      return isAddress(address) ? { ok: true, value: address } : no("is not an address a plugin may hold (http, https, mailto, tel, data, or a path starting with /)");
+      return isAddress(address) ? { ok: true, value: address } : no("is not an address a plugin may hold (http, https, mailto, a data: image or font, or a path starting with /)");
     }
     case "string[]": return Array.isArray(value) && value.every((v) => typeof v === "string") ? { ok: true, value } : no("must be a list of strings");
     case "number[]": return Array.isArray(value) && value.every((v) => typeof v === "number" && Number.isFinite(v)) ? { ok: true, value } : no("must be a list of numbers");

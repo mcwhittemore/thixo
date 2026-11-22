@@ -2,7 +2,7 @@ import * as React from "react";
 import type { CreateRuntime } from "thixo-thx/contract";
 import type { AppInfo, LayoutReply, User } from "../contract.js";
 import { createWrites, type Writes } from "../plugin-host/host-modules.js";
-import type { ShellServiceHost, Tone } from "../plugin-host/services.js";
+import { sourceLine, type PluginSource, type ShellServiceHost, type Tone } from "../plugin-host/services.js";
 import { createApi, createClient, type ApiFunction, type Client } from "./client.js";
 import { defaultCreateRuntime, importByAddress, type CompiledModule } from "./runtime.js";
 import { Session } from "./session.js";
@@ -48,12 +48,14 @@ interface Modal {
   title?: string;
   pluginName: string;
   scopeClass: string;
+  source: PluginSource;
 }
 
 interface Toast {
   id: number;
   message: string;
   tone: Tone;
+  source?: PluginSource;
 }
 
 /** What `<Slot>`, `<PluginBrowser>` and `<AuthoringChat>` share. Private to the shell: nothing here is ever handed
@@ -158,16 +160,16 @@ export function Shell(props: ShellProps) {
       navigate: (path) => (propsRef.current.onNavigate ?? defaultNavigate)(path),
       openModal(content, options) {
         const id = nextId.current++;
-        setModals((m) => [...m, { id, content, title: options.title, pluginName: options.pluginName, scopeClass: options.scopeClass }]);
+        setModals((m) => [...m, { id, content, title: options.title, pluginName: options.pluginName, scopeClass: options.scopeClass, source: options.source }]);
         return () => setModals((m) => m.filter((x) => x.id !== id));
       },
       async copyToClipboard(text) {
         await navigator.clipboard.writeText(text);
       },
       download: saveFile,
-      toast(message, tone) {
+      toast(message, tone, source) {
         const id = nextId.current++;
-        setToasts((t) => [...t, { id, message, tone }]);
+        setToasts((t) => [...t, { id, message, tone, source }]);
         setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4_000);
       },
     }),
@@ -230,6 +232,7 @@ export function Shell(props: ShellProps) {
               {toasts.map((t) => (
                 <div key={t.id} role="status" className={`thixo-toast thixo-tone-${t.tone}`}>
                   {t.message}
+                  {t.source && <small className="thixo-source">{sourceLine(t.source)}</small>}
                 </div>
               ))}
             </div>
@@ -251,14 +254,24 @@ class ModalBoundary extends React.Component<{ name: string; children: React.Reac
   }
 }
 
+/** A plugin's dialog. The shell draws the frame, so it also says, outside the plugin's box and in words the plugin's
+ * title can't replace, which plugin is talking: the dialog's accessible name and a line under the title both carry it
+ * (S8, P8, G5). A plugin's dialog otherwise looks like the app asking, which is what a fake sign-in prompt needs. */
 function ModalView(props: { modal: Modal; onClose: () => void }) {
   const { modal } = props;
   const label = modal.title ?? `${modal.pluginName}`;
+  const from = sourceLine(modal.source);
+  const id = React.useId();
   return (
     <div className="thixo-modal-backdrop" onClick={(e) => e.target === e.currentTarget && props.onClose()}>
-      <div role="dialog" aria-modal="true" aria-label={label} className="thixo-modal">
+      <div role="dialog" aria-modal="true" aria-labelledby={`${id}-title ${id}-from`} className="thixo-modal" data-plugin-source={modal.source.pluginName}>
         <header>
-          <h2>{label}</h2>
+          <div>
+            <h2 id={`${id}-title`}>{label}</h2>
+            <p id={`${id}-from`} className="thixo-source">
+              {from}
+            </p>
+          </div>
           <button type="button" className="thixo-button" aria-label="Close dialog" onClick={props.onClose}>
             Close
           </button>

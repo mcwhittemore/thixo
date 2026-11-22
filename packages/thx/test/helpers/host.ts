@@ -45,6 +45,10 @@ export interface FakeOptions {
   todos?: Todo[];
   assignees?: { todoId: string; name: string }[];
   annotations?: Record<string, Record<string, unknown>>;
+  /** The runtime's `addressHosts`. */
+  addressHosts?: string[];
+  /** Extra people `listPeople` answers with, after Ana. */
+  people?: { id: string; name: string; avatar: string }[];
 }
 
 export async function macrotask(): Promise<void> {
@@ -84,6 +88,7 @@ export async function fakeApp(code: string, opts: FakeOptions = {}): Promise<Fak
     Fragment: "Fragment",
     modules: {},
     budget: opts.budget,
+    addressHosts: opts.addressHosts,
     onError: (e) => errors.push(e),
     insertStyle: (cls, text) => styles.set(cls, text),
   };
@@ -113,7 +118,10 @@ export async function fakeApp(code: string, opts: FakeOptions = {}): Promise<Fak
       todos.splice(i, 1);
     },
     listAssignees: async () => assignees.map((a) => ({ ...a })),
-    listPeople: async () => [{ id: "p1", name: "Ana", avatar: rt.url("https://avatars.example.com/ana.png") }],
+    listPeople: async () => [
+      { id: "p1", name: "Ana", avatar: rt.url("https://avatars.example.com/ana.png") },
+      ...(opts.people ?? []).map((p) => ({ ...p, avatar: rt.url(p.avatar) })),
+    ],
   };
   const endpointName = new Map<unknown, string>();
   const sdkModule: Record<string, unknown> = {};

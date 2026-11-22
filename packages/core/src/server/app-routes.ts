@@ -13,6 +13,7 @@ function appInfo(ctx: ServerContext): AppInfo {
     records: app.records.map((r) => ({ name: r.name, exportName: r.exportName, read: r.read, fields: r.fields })),
     slots: app.slots,
     libraries: app.libraries.map((l) => l.specifier),
+    addressHosts: [...(ctx.config.addressHosts ?? [])],
   };
 }
 

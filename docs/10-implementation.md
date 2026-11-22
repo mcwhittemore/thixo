@@ -114,9 +114,26 @@ data picks, by control flow, which of several fixed addresses on its author's se
 (`secret ? <a href=".../bit1"> : <a href=".../bit0">`). No address is built, so L7 holds, but each click tells the
 author's server what the plugin read, log2(N) bits for N addresses. The language now refuses the written-out
 outside link, as it refuses the outside image. The same choice still works on a host the implementor lists, so a
-link host should be one whose logs the implementor trusts, not one a plugin author runs. The check is the
-compiler's, as it is for `addressHosts`; the runtime takes any http or https `Url`, since it can only be given one
-the compiler wrote or the app handed in.
+link host should be one whose logs the implementor trusts, not one a plugin author runs. The check on a written-out
+link is the compiler's; the runtime takes any http or https `Url` for a link, since a link waits for a click and
+the runtime can only be given a `Url` the compiler wrote or the app handed in.
+
+A load is different: it fires when the slot renders, with no click. The red team's second round rendered a `Url`
+the app handed in (an avatar field, or a `t.url()` annotation another user had seeded with their own server's
+address) as `<img src>`, and the browser fetched it: a zero-click request to any host, which L4 rules out. So the
+runtime checks every load, a written-out one and a handed-in one alike, against the same `addressHosts` the
+compiler uses. The shell reads them from `AppInfo.addressHosts` and hands them to each plugin's runtime
+(`RuntimeHost.addressHosts`); an outside address on any other host stops the plugin with "can't load that address".
+An outside avatar host is one the implementor lists, as the page's CSP (`img-src`) already required. This holds
+without the CSP; the CSP is the second wall, not the first. The server takes for a `t.url()` field only what the
+runtime can hold as a `Url`: http and https with a host, mailto, a path on the app, or a `data:` image or font.
+
+Choosing among fixed addresses works on a listed load host as it does on a listed link host: which of two images
+a plugin shows tells whoever runs that host one bit of what it read, and even one address, shown or not, is a bit.
+The language can't close that and still load from outside hosts, so the registry says it: a plugin whose manifest
+names more than one address on one host gets the summary line "Can choose among N addresses on <host>: which one
+it shows tells <host> something about what it read" (G5). A listed host, for loads or links, should be one whose
+logs the implementor trusts.
 
 ## The app
 
@@ -231,12 +248,25 @@ State lives in `.thixo/`: `data.sqlite`, `code/`, `signing-key`, `agent-key`, `b
 - **Queries follow writes**: a call to a non-GET endpoint through any plugin makes every `useQuery` on the page ask
   again, so a child slot's plugin shows a change its parent made.
 - **`<PluginBrowser />`** is the registry: search, a plugin's summary and scopes (G5), use, fork, share, promote, and
-  reset a slot.
+  reset a slot. A default plugin carries a `Default` badge and another user's plugin a `From <author>` badge, beside
+  the name, not only in the muted caption.
+- **What a plugin shows in shell chrome is attributed.** A dialog from `openModal` keeps the plugin's `title` but
+  always has a line under it, drawn by the shell outside the plugin's box: "From the plugin “<name>”, by <author>"
+  (or "one of this app's own" for the implementor's). The dialog's accessible name is the title and that line. A
+  toast carries the same line. The red team's second round drew a "Session expired" sign-in form in a dialog that
+  named no plugin at all.
+- **Names others see are unique.** Sharing a plugin, or submitting a new version of a shared one, is refused
+  (`name_taken`, `registry/name-taken`) when its name matches a default plugin's or another shared plugin's, with
+  case, width, spaces and punctuation folded away. A personal plugin may take any name, since only its author sees
+  it. A fork keeps its parent's name and is renamed before it is shared.
 
 ## Verification
 
-`npm run e2e` (`tests/e2e/todo.e2e.mjs`) runs `thixo dev` on a temp copy of `examples/todo` and drives it in headless
-Chromium as each user, with the agent path through `thixo agent`.
+`npm run e2e` runs `tests/e2e/*.e2e.mjs`. `todo.e2e.mjs` runs `thixo dev` on a temp copy of `examples/todo` and
+drives it in headless Chromium as each user, with the agent path through `thixo agent`. `crm.e2e.mjs` does the same
+for `examples/crm`. `security.e2e.mjs` replays the red team's findings against the todo example, with an outside
+listener on another port that must hear nothing, and with the page's CSP turned off where the language must hold
+on its own.
 
 `.claude/skills/verify-thixo/` is the project's verification skill, in the shape pstack's
 `create-verification-skill` gives. Each part of the build adds a file to its `features/` for what it made. A change

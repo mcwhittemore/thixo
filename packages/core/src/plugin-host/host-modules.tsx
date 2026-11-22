@@ -416,7 +416,7 @@ export function buildHostModules(options: HostModuleOptions): HostModules {
 
   // ---- thixo/services ----
 
-  const raw = createServices({ manifest: load.manifest, host: services, pluginName: load.plugin.name, scopeClass: styles.scopeClass, signal });
+  const raw = createServices({ manifest: load.manifest, host: services, pluginName: load.plugin.name, author: load.plugin.author, scopeClass: styles.scopeClass, signal });
   const servicesModule = {
     navigate: fn(raw.navigate),
     openModal: fn((content: unknown, opts?: { title?: unknown }) => {
