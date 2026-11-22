@@ -25,6 +25,14 @@ plugin** for the authoring chat. The chat's model is `claudeCode()`, which runs 
 `thixo dev` keeps plugin data, the registry and the layout in `.thixo/` here (git-ignored); delete it to start over.
 The todos themselves are in memory (`api/db.ts`) and reset when the server restarts or `api/` changes.
 
+Who sees which plugin data, by design:
+
+- An annotation (a field a plugin adds to a todo, such as `dueOn`) is shared by the record's group. `api/todos.ts`
+  groups a todo by the user's first group, and `ana` and `ben` are both in `design`. So when ana's personal plugin
+  stars a todo, ben sees the star too, if he uses a plugin that reads that field. `cy` is in `ops` and does not.
+- A store (`store("prefs", ...)`) is private to each user.
+- A plugin that is only ana's is hidden from ben. Its data is not: it follows the rules above.
+
 An outside coding agent can write a plugin while `thixo dev` runs:
 
 ```sh
@@ -34,6 +42,9 @@ npx thixo agent check --as ana --dir /path/to/my-plugin # build without storing
 npx thixo agent submit --as ana --dir /path/to/my-plugin
 npx thixo agent use --as ana <plugin id>@1 --slot todo-detail
 ```
+
+`use` takes a slot path: a child slot has its parent in front, such as `main/todo-row`. `thixo agent describe` lists
+each slot with its path.
 
 `npm run e2e` at the root drives all of this in headless Chromium on a throwaway copy of this folder.
 
@@ -98,7 +109,7 @@ Nobody writes these. `npx thixo compile examples/todo/plugins/<folder>` prints t
 | Required endpoints | `getTodo` (scope `todos.read`) |
 | Optional endpoints | none |
 | Data | Annotation on `todo`: `dueOn` (date). Private store `prefs`: `warnDaysBefore` (number). Needs `thixo.data.read` and `thixo.data.write`. |
-| Summary | Reads todos. Adds 1 field to todo: dueOn (date). Keeps a private store: prefs. |
+| Summary | Reads todos. Adds 1 field to todo: dueOn (date). Keeps a private store: prefs. Reads its own data. Writes its own data. |
 
 ## A walk through a fork
 

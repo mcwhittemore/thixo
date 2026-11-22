@@ -1,23 +1,9 @@
 import type { Manifest } from "thixo-thx/contract";
 import type { ServerContext } from "../context.js";
-import { DATA_READ, DATA_WRITE, annotatedRecords, findRecord, findSlot } from "./scopes.js";
+import { plainSentence, scopeSentence } from "../../scope-words.js";
+import { DATA_READ, DATA_WRITE, annotatedRecords, declaresData, findRecord, findSlot } from "./scopes.js";
 
-const VERBS = new Set(["read", "see", "create", "change", "delete", "add", "remove", "edit", "update", "write", "send", "view", "list", "manage", "assign", "close", "open"]);
-
-function inflect(word: string): string {
-  return /(s|sh|ch|x|z)$/.test(word) ? `${word}es` : `${word}s`;
-}
-
-/** "Read todos" becomes "Reads todos". "Create and change todos" becomes "Creates and changes todos". */
-export function plainSentence(description: string): string {
-  const words = description.trim().split(/\s+/);
-  const out = words.map((word, i) => {
-    const lower = word.toLowerCase();
-    const afterAnd = words[i - 1]?.toLowerCase() === "and";
-    return (i === 0 || afterAnd) && VERBS.has(lower) ? inflect(word) : word;
-  });
-  return out.join(" ");
-}
+export { plainSentence };
 
 const SERVICE_WORDS: Record<string, string> = {
   navigate: "navigation",
@@ -42,11 +28,7 @@ export function summarise(ctx: ServerContext, manifest: Manifest): string[] {
   const push = (sentence: string) => {
     if (!out.includes(sentence)) out.push(sentence);
   };
-  const describe = (scope: string): string | null => {
-    if (scope.startsWith("thixo.")) return null;
-    const text = ctx.app.scopes[scope];
-    return text ? plainSentence(text) : null;
-  };
+  const describe = (scope: string): string | null => (scope.startsWith("thixo.") ? null : scopeSentence(ctx.app.scopes, scope));
   const endpointScopes = (names: string[]) => names.flatMap((n) => ctx.app.endpoints.find((e) => e.name === n)?.scopes ?? []);
 
   for (const scope of endpointScopes(manifest.requiredEndpoints)) {
@@ -70,6 +52,8 @@ export function summarise(ctx: ServerContext, manifest: Manifest): string[] {
   }
   const stores = Object.keys(manifest.data.stores);
   if (stores.length) push(`Keeps ${stores.length > 1 ? "private stores" : "a private store"}: ${stores.join(", ")}`);
+  // The plugin data scopes it needs (thixo.data.read and .write), in the same words the scope list uses.
+  if (declaresData(manifest)) for (const scope of [DATA_READ, DATA_WRITE]) push(scopeSentence(ctx.app.scopes, scope)!);
 
   const optional = [...new Set(endpointScopes(manifest.optionalEndpoints))].filter((s) => !endpointScopes(manifest.requiredEndpoints).includes(s));
   for (const scope of optional) {

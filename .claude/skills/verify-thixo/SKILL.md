@@ -42,9 +42,11 @@ layouts are in the copy's `.thixo/data.sqlite`. Users are chosen by the `thixo-u
 
 `--example crm` launches `examples/crm` instead, the CRM example, and the doctor then signs in as `rita` (a sales
 rep) rather than `ana`. Its users are `rita` and `ravi` (reps), `mia` (manager), `sam` (support) and `ada` (admin); its
-feature is `features/crm-app.md`. `--dir <app folder>` launches any other app the same way, such as one
-`create-thixo-app` made (`--dir examples-tmp/notes-app`); the doctor signs in as `ana`, the template's user, and
-`--as <user>` on launch or doctor picks another. Its feature is `features/create-app.md`.
+feature is `features/crm-app.md`. `--app <app folder>` launches any other app the same way: one `create-thixo-app`
+made (`--app examples-tmp/notes-app`), one you wrote, or an example by path (`--app examples/crm`). `--dir` is the
+same flag under its older name. The doctor signs in as `ana` (or `rita` for a folder named `crm`); for an app whose
+login has other users, pass `--as <user>` to launch (it is recorded) or to doctor, and drive with `--as` one of them.
+A created app's feature is `features/create-app.md`.
 
 The copy's folder is always named `thixo-<name>-…` in the OS temp folder. `cleanup.mjs` deletes only a folder with
 `thixo-` in its name, so a hand-written `state.json` can't point it at a real folder; for any other path it says it
@@ -93,15 +95,24 @@ Stable handles (ARIA roles and names):
   `Reset <path> to default`; search `Search plugins` (textbox `Search plugins`, combobox `Slot`, button `Search`);
   list `Search results` with a listitem per plugin named by the plugin, holding `v<n> · fills <slot> · <visibility> ·
   by <author>` and buttons `Use|Fork|Share|Promote <plugin name>` (a disabled one has its reason as text beside it);
-  a `status` after an action (`Forked <name> as <id>. …`, `Asked to promote <name>: wrote plugins/<folder>/ …`).
-  Each caption also has `id <plugin id>`, and `(the default is v<n>)` when a default serves an older version.
+  a `status` after an action (`Forked <name> as <id>. … thixo agent read --as <user> <id> --out <folder> …`,
+  `Promoted <name> (version <n>): its files are at plugins/<folder>/ (…). It fills no slot yet. To make it a default,
+  name it in layout in thixo.config.ts, such as "<slot path>": "<folder>", …`).
+  Each caption also has `id <plugin id>`, and `(the default is v<n>)` when a default serves an older version. A
+  result in use has `In use: v<n> in <path>` (label `<name> in use`). A slot whose plugin has a newer version shows
+  `v<n> is newer` and a button `Move <path> to v<n>`. Scopes read `Needs: todos.read (reads todos), thixo.data.read
+  (reads its own data), …`: the app's words from defineScopes, Thixo's for its own.
 - chat: region `Authoring chat`, log `Chat messages`, form `Send a message` with textbox `Message` and button `Send`
   (`Working…`, disabled, while the agent runs). Enter in `Message` sends. A `status` reads `The agent is working…`
-  during a turn; the log has a `Using <tool>` line per tool call (`data-kind="tool"`) and ends with `Done`
-  (`data-kind="done"`). `journeys/chat.mjs` sends one message (it spends model usage).
+  during a turn; the log has a line per tool call (`data-kind="tool"`) that reads `Using <tool>` until it returns,
+  then its outcome (`check passed`, `use put plg_…@2 in main/todo-row (confirmed in your layout)`, `use failed: …`
+  with `data-ok="false"`), and ends with `Done` (`data-kind="done"`). A confirmed use shows in the page at once,
+  without a reload. `journeys/chat.mjs` sends one message (it spends model usage); `features/authoring-chat.md` is
+  its recipe.
 - a slot path names a child slot with its parent in front (`main/todo-row`). `thixo agent describe` lists each slot
   with its path (`todo-row (export todoRow, widget; path main/todo-row)`); `agent use --slot todo-row` stores it as
-  `main/todo-row`, and a path no slot reads is refused.
+  `main/todo-row`, and a path no slot reads is refused (`unknown_slot`, listing the paths). The reply's `resolved` is
+  the layout entry read back, and `confirmed` says it matches.
 - prefer roles over `getByLabel`: a `Card` title names a region, so a label word can match a Card and an input.
 
 Terminal, against the same instance:
@@ -117,8 +128,10 @@ exits 1 on a reply with `ok: false`, so a failed check shows as `exit 1`. Exampl
 `-- agent describe --as ana`, `-- agent check --as ana --dir $PWD/.claude/skills/verify-thixo/journeys/todo-summary`,
 `-- agent submit --as ana --dir … --raw` (a new plugin), `-- agent submit --as ana --dir … --plugin <id>` (a new
 version of your own), `-- agent use --as ana <plugin id>@1 --slot todo-detail`, `-- agent read --as ana <id>@1`
-(or `read_plugin`, the tool's name), `-- agent fork --as ben <id>@1`,
-`-- compile plugins/due-dates`, `-- new plugin my-notes --slot todo-detail`, `-- registry list`, `-- release`.
+(or `read_plugin`, the tool's name), `-- agent read --as ben <id> --out <absolute folder>` (writes the files),
+`-- agent fork --as ben <id>@1`, `-- compile plugins/due-dates`, `-- new plugin my-notes --slot todo-detail`,
+`-- new plugin row-star --slot todo-row --personal mine/row-star` (no id, outside plugins/), `-- registry list`,
+`-- release`. A failed check prints each error once.
 Give `--dir` an absolute path: the command runs in the copy.
 
 The whole todo journey is also an automated test: `npm run e2e` (`tests/e2e/todo.e2e.mjs`) launches its own copy on
@@ -156,7 +169,7 @@ Stops only the pid recorded for the run (SIGTERM, then SIGKILL after 5 s), delet
 
 | Script | Use |
 | --- | --- |
-| `bin/launch.mjs [--run id] [--example todo\|crm \| --dir <app>] [--as user] [--port 0]` | Disposable copy of `examples/<example>` or of any app folder, `thixo dev` in the background, prints state when ready |
+| `bin/launch.mjs [--run id] [--example todo\|crm \| --app <dir>] [--as user] [--port 0]` | Disposable copy of `examples/<example>` or of any app folder, `thixo dev` in the background, prints state when ready |
 | `bin/doctor.mjs [--run id] [--as user]` | Read-only health check of that instance; signs in as `ana` for todo and a created app, `rita` for crm |
 | `bin/drive.mjs [--run id] --as <user> [--script file] [--name label]` | Chromium as a user; screenshots, ARIA snapshots, requests, console |
 | `bin/cli.mjs [--run id] [--save label] [--cwd dir] -- <args>` | The `thixo` command in the copy (or `--cwd`), transcript saved |
@@ -170,7 +183,7 @@ Stops only the pid recorded for the run (SIGTERM, then SIGKILL after 5 s), delet
 | `journeys/default-version.mjs` | After a rollback, the browser reads `v2 (the default is v1)` |
 | `journeys/due-date-day.mjs` | A due date reads back as the same day in any `TZ` |
 | `journeys/created-app.mjs` | A created app: Delete grayed out for ana, working for ben |
-| `journeys/chat.mjs` | `ASK=<message>`: one real chat turn, sent with Enter (spends model usage) |
+| `journeys/chat.mjs` | `ASK=<message>`: one real chat turn, sent with Enter, prints each tool's outcome (spends model usage; `EXPECT_USE=1` to require a confirmed use) |
 | `journeys/todo-summary/plugin.thx` | A small `todo-detail` plugin for the agent path |
 
 `bin/launch.mjs` and `bin/cleanup.mjs` share their copy and teardown code with `tests/e2e/support.mjs`.

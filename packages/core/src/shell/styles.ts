@@ -54,10 +54,12 @@ export const SHELL_CSS = `
 .thixo-muted { color: var(--thixo-color-muted); font-size: var(--thixo-font-size-sm); }
 .thixo-result { border-top: 1px solid var(--thixo-color-border); padding-top: var(--thixo-space-sm); display: flex; flex-direction: column; gap: var(--thixo-space-xs); }
 .thixo-result ul { margin: 0; padding-left: 1.2em; }
-.thixo-chat-log { display: flex; flex-direction: column; gap: var(--thixo-space-xs); max-height: 20rem; overflow: auto; }
+.thixo-chat-log { display: flex; flex-direction: column; gap: var(--thixo-space-xs); max-height: min(36rem, 60vh); overflow: auto; }
+.thixo-chat-log > * { flex-shrink: 0; overflow-wrap: anywhere; }
 .thixo-chat-user { align-self: flex-end; background: var(--thixo-color-accent); color: #fff; border-radius: var(--thixo-radius-md); padding: var(--thixo-space-xs) var(--thixo-space-sm); }
 .thixo-chat-agent { white-space: pre-wrap; }
 .thixo-chat-tool { color: var(--thixo-color-muted); font-size: var(--thixo-font-size-sm); }
+.thixo-chat-tool-failed { color: var(--thixo-color-danger, #b42318); }
 .thixo-modal-backdrop { position: fixed; inset: 0; background: rgba(20, 24, 33, 0.45); display: flex; align-items: center; justify-content: center; z-index: 2147483000; }
 .thixo-modal { background: var(--thixo-color-surface); border-radius: var(--thixo-radius-lg); padding: var(--thixo-space-lg); min-width: 18rem; max-width: min(40rem, 92vw); max-height: 85vh; display: flex; flex-direction: column; gap: var(--thixo-space-md); }
 .thixo-modal header { display: flex; justify-content: space-between; align-items: center; gap: var(--thixo-space-md); }

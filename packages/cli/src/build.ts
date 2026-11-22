@@ -64,7 +64,8 @@ export async function buildProject(paths: ProjectPaths, options: BuildOptions, i
   const thx = await deps.thx();
   const outcomes = compilePlugins(readPlugins(paths.pluginsDir), loaded.compileEnv, thx);
   log(outcomes.length ? "  plugins" : "  plugins   none in plugins/");
-  for (const outcome of outcomes) for (const line of reportOutcome(outcome)) log(line);
+  const describe = server.describeManifest ? (m: Parameters<NonNullable<typeof server.describeManifest>>[1]) => server.describeManifest!(loaded.app, m).summary : undefined;
+  for (const outcome of outcomes) for (const line of reportOutcome(outcome, describe)) log(line);
 
   const failed = failedPlugins(outcomes);
   const manifest: BuildManifest = {

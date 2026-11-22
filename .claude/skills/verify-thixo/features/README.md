@@ -1,6 +1,6 @@
 # Thixo verification map
 
-This directory is the maintained source for verifying Thixo's user-facing behaviour. Thixo is a framework, so its users are three: a person using an app built on it (the browser), the implementor building the app (the `thixo` command), and a coding agent writing plugins (`thixo agent`). The app most recipes drive is `examples/todo`; `features/crm-app.md` drives `examples/crm` and `features/create-app.md` an app create-thixo-app made (`launch.mjs --dir`). Read `../SKILL.md` for launch, doctor, drive, evidence and cleanup, then use the matching feature file as the recipe.
+This directory is the maintained source for verifying Thixo's user-facing behaviour. Thixo is a framework, so its users are three: a person using an app built on it (the browser), the implementor building the app (the `thixo` command), and a coding agent writing plugins (`thixo agent`). The app most recipes drive is `examples/todo`; `features/crm-app.md` drives `examples/crm` and `features/create-app.md` an app create-thixo-app made (`launch.mjs --app <dir>`, which launches any app folder). Read `../SKILL.md` for launch, doctor, drive, evidence and cleanup, then use the matching feature file as the recipe.
 
 ## Baseline preconditions
 
@@ -38,6 +38,7 @@ Each feature file starts with an H1 title and one paragraph describing the user-
 - [Starting a new app with create-thixo-app](./create-app.md): the template copy, checkout links, fresh plugin ids, refusals, the next steps, and the created app launched, doctored and driven (Delete grayed out by `useCan`). Terminal and browser.
 - [The shell, slots and plugin host](./shell-and-plugins.md): slot loading and boxes, plugin code by address, refusals in a slot, the plugin browser, query refresh across plugins. Browser.
 - [Authoring agent](./authoring.md): `thixo agent` describe, check, submit (a new plugin, or a version with `--plugin`) and use (by slot path, a child's bare name resolved), then share, use, fork and promote in the plugin browser; the chat, scripted and for real. CLI and browser.
+- [The authoring chat with a real model](./authoring-chat.md): one message in `Ask for a plugin` as ana, the tool lines with their outcomes, a confirmed `use` at a slot path, the page updated without a reload, real buttons. Browser; spends model usage.
 - [Updating the default plugins](./defaults.md): edit a default under `thixo dev`, roll back by hash, the browser's `v2 (the default is v1)`, layout keys checked against slot paths, a broken default not deployed, promote then name, remove a folder. CLI, files and browser.
 - [The thixo command](./cli.md): dev, build, start, compile, new plugin, registry list, release, redeploy on change. CLI.
 - [Registry, plugin route, plugin data, layouts and deploys](./registry-and-data.md): the server side of the above, in the browser and against the fetch handler.

@@ -86,8 +86,9 @@ export async function runCompile(options: CompileOptions, io: Io, deps: Deps): P
   io.out("");
   if (told) {
     io.out("Scopes");
-    io.out(`  needs: ${told.requiredScopes.join(", ") || "nothing"}`);
-    if (told.optionalScopes.length) io.out(`  uses if the user holds them: ${told.optionalScopes.join(", ")}`);
+    const label = (scope: string) => told.scopeLabels?.[scope] ?? scope;
+    io.out(`  needs: ${told.requiredScopes.map(label).join(", ") || "nothing"}`);
+    if (told.optionalScopes.length) io.out(`  uses if the user holds them: ${told.optionalScopes.map(label).join(", ")}`);
     io.out("");
     io.out("Details");
     for (const line of details) io.out(`  ${line}`);

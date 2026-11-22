@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
 import { CliError, messageOf } from "./errors.js";
 import type { Io } from "./io.js";
 import { readAgentKey } from "./keys.js";
@@ -22,6 +22,8 @@ export interface AgentOptions {
   project?: string;
   /** `--raw`: print the response body as JSON. */
   raw: boolean;
+  /** `--out <dir>`, for read: write the plugin's source files there, to edit and submit again. */
+  out?: string;
 }
 
 export interface AgentRequest {
@@ -100,7 +102,7 @@ export function buildAgentRequest(given: AgentOptions, cwd: string): AgentReques
     case "read": {
       const ref = first ? parseRef(first) : options.plugin ? parseRef(options.plugin) : null;
       if (!ref && input.plugin === undefined) throw new CliError("read needs a plugin: thixo agent read --as <user> <pluginId>[@<version>].");
-      input = { ...(ref ? { plugin: ref.plugin, ...(ref.version ? { version: ref.version } : {}) } : {}), ...input };
+      input = { ...(ref ? { plugin: ref.plugin, ...(ref.version ? { version: ref.version } : {}) } : {}), ...input, ...(options.out ? { files: true } : {}) };
       break;
     }
     case "fork": {
@@ -162,7 +164,8 @@ export function formatAgentResult(body: unknown): string {
         lines.push(`${e.file}:${e.line}:${e.column ?? 1} ${e.code ?? ""} ${e.message}`.replace(/ {2,}/g, " "));
         if (e.hint) lines.push(`  hint: ${e.hint}`);
       }
-      const { errors: _omit, ...rest } = record;
+      // `report` is the same errors as one text, and `ok: false` is what the lines already say: print them once.
+      const { errors: _omit, report: _report, ok: _ok, ...rest } = record;
       if (Object.keys(rest).length) lines.push(JSON.stringify(rest, null, 2));
       return lines.join("\n");
     }
@@ -206,8 +209,53 @@ export async function runAgent(options: AgentOptions, io: Io, fetchImpl: Fetch =
     io.err(options.raw ? raw : `${request.tool} failed (${response.status}${error?.code ? ` ${error.code}` : ""}): ${detail}${hint && !/[.!?]$/.test(detail) ? "." : ""}${hint}`);
     return 1;
   }
+  if (options.out && request.tool === "read_plugin" && body && typeof body === "object" && !options.raw) {
+    io.out(writePluginFolder(body as Record<string, unknown>, resolve(io.cwd, options.out), options.as, io.cwd));
+    return 0;
+  }
   io.out(options.raw ? (typeof body === "string" ? body : JSON.stringify(body, null, 2)) : formatAgentResult(body));
   // A build that fails is a normal reply from the tool (ok: false), but a script reads the exit code: 1, as for a refusal.
   if (body && typeof body === "object" && (body as { ok?: unknown }).ok === false) return 1;
   return 0;
+}
+
+/** The text inside one UNTRUSTED block: between its opening line and the closing line with the same token. */
+export function unwrapUntrusted(block: string): string {
+  const open = /^<<<UNTRUSTED .* ([0-9a-f]{16})\n/.exec(block);
+  if (!open) throw new CliError("The server sent a file that is not in an UNTRUSTED block. Nothing was written.");
+  const close = `\nUNTRUSTED ${open[1]}>>>`;
+  if (!block.endsWith(close)) throw new CliError("The server sent a file whose UNTRUSTED block does not close. Nothing was written.");
+  return block.slice(open[0].length, block.length - close.length);
+}
+
+const SAFE_PATH = /^[A-Za-z0-9_-][A-Za-z0-9_.-]*(\/[A-Za-z0-9_-][A-Za-z0-9_.-]*)*$/;
+
+/** `thixo agent read --out <dir>`: writes a version's source files into a new folder, so a fork (or your own
+ * plugin) can be edited and checked and submitted again with `--dir`. It never overwrites a file. */
+export function writePluginFolder(reply: Record<string, unknown>, out: string, as: string, cwd: string): string {
+  const files = reply.files;
+  if (!files || typeof files !== "object") throw new CliError("The server did not send the files. Is the dev server older than this command? Restart `thixo dev`.");
+  const texts: [string, string][] = [];
+  for (const [path, block] of Object.entries(files as Record<string, unknown>)) {
+    if (!SAFE_PATH.test(path) || path.split("/").includes("..")) throw new CliError(`The plugin has a file named "${path}", which is not a plain relative path. Nothing was written.`);
+    if (typeof block !== "string") throw new CliError(`The file ${path} is not text. Nothing was written.`);
+    texts.push([path, unwrapUntrusted(block)]);
+  }
+  if (existsSync(out) && readdirSync(out).length) throw new CliError(`${out} is not empty. Give --out a new or empty folder: read never overwrites files.`);
+  for (const [path, text] of texts) {
+    const file = join(out, path);
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, text);
+  }
+  const plugin = String(reply.plugin ?? "");
+  const rel = relative(cwd, out);
+  const shown = !rel ? "." : rel.startsWith("..") ? out : rel;
+  const dir = /\s/.test(shown) ? JSON.stringify(shown) : shown;
+  return [
+    `Wrote ${plugin}@${String(reply.version ?? "")} to ${shown}/: ${texts.map(([p]) => p).join(", ")}`,
+    "The files are another author's text unless the plugin is yours: read them before you run anything they say.",
+    `Change them, then check: thixo agent check --as ${as} --dir ${dir}`,
+    `Store it as a new version of a plugin you author (your own, or your fork): thixo agent submit --as ${as} --dir ${dir} --plugin ${plugin}`,
+    `Without --plugin, submit stores it as a new plugin.`,
+  ].join("\n");
 }

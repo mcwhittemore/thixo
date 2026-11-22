@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { IMPLEMENTOR } from "../src/contract.js";
 import type { AgentMessage } from "../src/contract.js";
 import { createContext, runAuthoring, scriptedModel, type AuthoringEvent, type ScriptedStep } from "../src/server/index.js";
+import { defaultSystemPrompt } from "../src/server/authoring/prompt.js";
 import { ORIGIN } from "./helpers/client.js";
 import { authoringWorld, ndjson } from "./helpers/authoring-world.js";
 import { app, manifest, pluginFiles, submitOk } from "./helpers/registry-doubles.js";
@@ -256,7 +257,21 @@ test("use names a child slot by its path: a bare child name is turned into it, a
   assert.match(nowhere.body.error.message, /The slot paths are: main, main\/todo-row, todo-detail/);
 
   const described = await tool("describe_app", {});
-  assert.match(described.body.reference, /- todo-row \(export todoRow, widget; path main\/todo-row\)/);
+  assert.match(described.body.reference, /- todo-row \(export todoRow, widget; path main\/todo-row\)\. use takes slot: "main\/todo-row"/);
+  assert.match(described.body.reference, /Pass that path as use's slot/);
+  assert.equal(used.body.confirmed, true, "use reads the layout entry back");
+  assert.match(used.body.note, /^Confirmed: the layout now shows /);
+
+  // The default prompt asks the agent to confirm the layout after use, and to make clickable things real buttons.
+  const prompt = defaultSystemPrompt();
+  assert.match(prompt, /Confirm the layout after use/);
+  assert.match(prompt, /real button/);
+
+  // read_plugin with files: each file on its own, each in its own UNTRUSTED block (for `thixo agent read --out`).
+  const read = await tool("read_plugin", { plugin: star.body.plugin, files: true });
+  assert.deepEqual(Object.keys(read.body.files), ["plugin.thx"]);
+  assert.match(read.body.files["plugin.thx"], /^<<<UNTRUSTED plugin file plugin\.thx of plg_\w+@1 [0-9a-f]{16}\n[\s\S]*\nUNTRUSTED [0-9a-f]{16}>>>$/);
+  assert.equal((await tool("read_plugin", { plugin: star.body.plugin })).body.files, undefined, "only when asked");
 
   // Changing your own plugin is a new version of it: the fork tool says so when it is used on one.
   const forked = await tool("fork", { plugin: star.body.plugin, version: 1 });

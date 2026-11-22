@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test, { after } from "node:test";
@@ -163,13 +163,45 @@ test("new plugin writes plugins/<name>/plugin.thx with a fresh id and refuses a 
   assert.deepEqual(io.stderr, []);
   assert.throws(() => newPlugin({ name: "due-dates", slot: "main", dir: root }, io), /already exists/);
   assert.throws(() => newPlugin({ name: "Due Dates", slot: "main", dir: root }, io), /kebab-case/);
-  assert.throws(() => newPlugin({ name: "x", slot: "not a slot", dir: root }, io), /is not a slot in app\/slots.ts/);
-  newPlugin({ name: "y", slot: "ghost", dir: root }, io);
-  assert.match(io.stderr[0], /has no slot ghost/);
+  assert.throws(() => newPlugin({ name: "x", slot: "not a slot", dir: root }, io), /There is no slot "not a slot" in app\/slots.ts/);
+  // An unknown slot is refused, with the slots there are, and nothing is written.
+  assert.throws(() => newPlugin({ name: "y", slot: "ghost", dir: root }, io), /There is no slot "ghost" in app\/slots\.ts\. .* The slots are: todo-detail \(todoDetail\)\./);
+  assert.equal(existsSync(join(root, "plugins/y")), false);
   newPlugin({ name: "z", slot: "todo-detail", dir: root }, io);
   assert.match(readPluginFolder(join(root, "plugins/z"))["plugin.thx"], /import \{ todoDetail \} from "@app\/slots";/);
   assert.notEqual(pluginId(), pluginId());
   assert.match(pluginTemplate({ name: "a", slot: "s", id: "plg_1" }), /definePlugin\(\n {2}s,/);
+});
+
+test("new plugin refuses a slot the loaded app lacks, and --personal writes outside plugins/ with no id", () => {
+  const root = tmp();
+  put(root, "thixo.config.ts");
+  const app = {
+    slots: [
+      { name: "main", exportName: "main", children: ["todo-row"] },
+      { name: "todo-row", exportName: "todoRow", children: [] },
+    ],
+    paths: ["main", "main/todo-row"],
+  };
+  const io = testIo(root);
+  assert.throws(() => newPlugin({ name: "x", slot: "nope", dir: root }, io, app), /There is no slot "nope".* The slots are: main \(main\), todo-row \(todoRow\)\./);
+
+  newPlugin({ name: "stars", slot: "todo-row", dir: root }, io, app);
+  assert.match(io.stdout.join("\n"), /"main\/todo-row": "stars"/);
+  assert.match(io.stdout.join("\n"), /The id in its definePlugin is for a default plugin's folder in plugins\//);
+
+  const mine = testIo(root);
+  newPlugin({ name: "stars", slot: "todoRow", dir: root, personal: join(root, "mine/stars") }, mine, app);
+  const text = readPluginFolder(join(root, "mine/stars"))["plugin.thx"];
+  assert.doesNotMatch(text, /id:/, "a personal plugin has no id");
+  assert.match(text, /import \{ todoRow \} from "@app\/slots";/);
+  const said = mine.stdout.join("\n");
+  assert.match(said, /^Created mine\/stars\/plugin\.thx/);
+  assert.match(said, /thixo agent submit --as <user> --dir mine\/stars/);
+  assert.match(said, /--slot main\/todo-row/);
+  assert.doesNotMatch(said, /Add it to the layout/);
+  assert.throws(() => newPlugin({ name: "a", slot: "main", dir: root, personal: join(root, "plugins/a") }, mine, app), /outside plugins\//);
+  assert.throws(() => newPlugin({ name: "a", slot: "main", dir: root, personal: join(root, "mine/stars") }, mine, app), /is not empty/);
 });
 
 test("new plugin prints the layout line with the slot's real path when the app loads", () => {

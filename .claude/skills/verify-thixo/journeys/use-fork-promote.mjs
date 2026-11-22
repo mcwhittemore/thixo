@@ -36,8 +36,9 @@ export default async function ({ page, step, expect, dir, as }) {
   const answer = await reply;
   const body = await answer.json();
   expect(answer.status() === 200, `promote answered 200 with folder ${body.folder}`);
-  await status.getByText(`wrote plugins/${body.folder}/`).waitFor();
-  expect(true, `the status names plugins/${body.folder}/ and the layout edit that makes it a default`);
+  await status.getByText(`its files are at plugins/${body.folder}/`).waitFor();
+  const said = await status.innerText();
+  expect(/It fills no slot yet|already names/.test(said), `the status names plugins/${body.folder}/ and what is left: ${said}`);
   const { existsSync } = await import("node:fs");
   expect(existsSync(`${dir}/plugins/${body.folder}/plugin.thx`), `plugins/${body.folder}/plugin.thx exists in the app copy`);
   await step("promoted");

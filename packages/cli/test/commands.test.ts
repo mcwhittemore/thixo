@@ -285,10 +285,37 @@ test("agent: posts { tool, as, input } with the key and prints the result", asyn
     const failed = await run(["agent", "check", "--as", "ana", "--dir", "plugins/hello", "--port", "3999"], {
       io: failing,
       deps: fakeDeps(),
-      fetch: async () => new Response(JSON.stringify({ ok: false, errors: [{ file: "plugin.thx", line: 2, column: 3, code: "thx/no-global", message: "`window` does not exist" }] }), { headers: { "content-type": "application/json" } }),
+      fetch: async () =>
+        new Response(
+          JSON.stringify({ ok: false, errors: [{ file: "plugin.thx", line: 2, column: 3, code: "thx/no-global", message: "`window` does not exist" }], report: "plugin.thx:2:3 thx/no-global `window` does not exist" }),
+          { headers: { "content-type": "application/json" } },
+        ),
     });
     assert.equal(failed, 1);
     assert.match(failing.stdout.join("\n"), /plugin\.thx:2:3 thx\/no-global/);
+    assert.equal(failing.stdout.join("\n").match(/no-global/g)?.length, 1, "the error is printed once, not again as the report");
+
+    // read --out writes the version's files to a folder, to edit and submit again.
+    const wrap = (label: string, text: string) => `<<<UNTRUSTED ${label} 0123456789abcdef\n${text}\nUNTRUSTED 0123456789abcdef>>>`;
+    const reading = testIo(w.root);
+    const readCalls: string[] = [];
+    const readFetch = async (_url: string, init: RequestInit) => {
+      readCalls.push(init.body as string);
+      return new Response(JSON.stringify({ plugin: "plg_f", version: 2, files: { "plugin.thx": wrap("plugin file plugin.thx of plg_f@2", "export default 1;"), "parts/row.thx": wrap("x", "export const a = 1;") } }));
+    };
+    assert.equal(await run(["agent", "read", "--as", "ben", "plg_f@2", "--out", "fork", "--port", "3999"], { io: reading, deps: fakeDeps(), fetch: readFetch }), 0);
+    assert.deepEqual(JSON.parse(readCalls[0]).input, { plugin: "plg_f", version: 2, files: true });
+    assert.equal(readFileSync(join(w.root, "fork/plugin.thx"), "utf8"), "export default 1;");
+    assert.equal(readFileSync(join(w.root, "fork/parts/row.thx"), "utf8"), "export const a = 1;");
+    assert.match(reading.stdout.join("\n"), /Wrote plg_f@2 to fork\/: plugin\.thx, parts\/row\.thx/);
+    assert.match(reading.stdout.join("\n"), /thixo agent submit --as ben --dir fork --plugin plg_f/);
+    const again = testIo(w.root);
+    assert.equal(await run(["agent", "read", "--as", "ben", "plg_f@2", "--out", "fork", "--port", "3999"], { io: again, deps: fakeDeps(), fetch: readFetch }), 1, "never overwrites");
+    assert.match(again.stderr.join("\n"), /is not empty/);
+    const escaping = testIo(w.root);
+    const evil = async () => new Response(JSON.stringify({ plugin: "plg_f", version: 1, files: { "../evil.thx": wrap("x", "boo") } }));
+    assert.equal(await run(["agent", "read", "--as", "ben", "plg_f@1", "--out", "fork2", "--port", "3999"], { io: escaping, deps: fakeDeps(), fetch: evil }), 1);
+    assert.equal(existsSync(join(w.root, "evil.thx")), false, "a path out of the folder is refused");
 
     const down = testIo(w.root);
     assert.equal(await run(["agent", "describe", "--as", "ana"], { io: down, deps: fakeDeps(), fetch: async () => { throw new TypeError("fetch failed", { cause: new Error("ECONNREFUSED") }); } }), 1);

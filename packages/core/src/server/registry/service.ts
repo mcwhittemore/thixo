@@ -1,3 +1,4 @@
+import { slotPaths } from "../../slots/paths.js";
 import type { SourceFiles, ThxError } from "thixo-thx/contract";
 import type { Plugin, PluginLoad, PluginSummary, PluginVersion, PluginVersionRef, SchemaDiff, SubmitReply, User } from "../../contract.js";
 import type { ServerContext } from "../context.js";
@@ -253,7 +254,25 @@ export function createRegistryServices(ctx: ServerContext): RegistryServices {
         title: `Promote ${plugin.name} (version ${target.number}) to a default plugin`,
         files: Object.fromEntries(Object.entries(files).map(([path, text]) => [`plugins/${folder}/${path}`, text])),
       });
-      return { where: change.where, folder, version: target.number };
+      // Say what happened and what is left, in words a person reads: the folder is written (locally) or a change is
+      // open (elsewhere), and it fills no slot until the layout names it. Where the layout already names the folder,
+      // the next deploy serves this version.
+      const paths = slotPaths(ctx.app.slots).filter((p) => p === target.manifest.slot || p.endsWith(`/${target.manifest.slot}`));
+      const named = Object.entries(ctx.config.layout ?? {}).filter(([, f]) => f === folder).map(([slot]) => slot);
+      const example = paths[0] ?? target.manifest.slot;
+      const next = named.length
+        ? `The layout already names "${folder}" in ${named.join(", ")}, so the next deploy serves this version there.`
+        : `It fills no slot yet. To make it a default, name it in layout in thixo.config.ts, such as ${JSON.stringify(example)}: ${JSON.stringify(folder)}, and deploy (thixo dev redeploys when the config changes).`;
+      return {
+        where: change.where,
+        folder,
+        version: target.number,
+        files: Object.keys(files).map((path) => `plugins/${folder}/${path}`),
+        slotPaths: paths,
+        inLayout: named,
+        done: `Promoted ${plugin.name} (version ${target.number}): its files are at plugins/${folder}/ (${change.where}).`,
+        next,
+      };
     },
 
     async load({ user, ref }): Promise<PluginLoad> {

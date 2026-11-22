@@ -9,7 +9,7 @@ export type Command =
   | { name: "start"; dir: string; port: number }
   | { name: "dev"; dir: string; port: number }
   | { name: "compile"; target: string; out?: string; json: boolean; project?: string }
-  | { name: "new-plugin"; pluginName: string; slot: string; dir: string }
+  | { name: "new-plugin"; pluginName: string; slot: string; dir: string; personal?: string }
   | { name: "agent"; options: AgentOptions }
   | { name: "registry-list"; dir: string; json: boolean }
   | { name: "release"; dir: string; json: boolean };
@@ -66,10 +66,16 @@ Options
   --out <dir>        Write plugin.js and manifest.json there
   --json             Print one machine-readable result
   --project <dir>    The app to compile against`,
-  "new-plugin": `thixo new plugin <name> --slot <slot> [dir]
+  "new-plugin": `thixo new plugin <name> --slot <slot> [--personal <folder>] [dir]
 
-Creates plugins/<name>/plugin.thx with a fresh id and a minimal component. <name> is kebab-case. The slot is its
-name, such as todo-detail, or its export name in app/slots.ts, such as todoDetail.`,
+Creates plugins/<name>/plugin.thx with a fresh id and a minimal component: a default plugin's folder, which
+\`thixo dev\` deploys. It prints the layout line that puts it in its slot. <name> is kebab-case. The slot is its
+name, such as todo-detail, or its export name in app/slots.ts, such as todoDetail. A slot the app does not have is
+refused, with the slots it has.
+
+--personal <folder> writes <folder>/plugin.thx instead, outside plugins/ and with no id: a personal plugin, for
+\`thixo agent check\` and \`thixo agent submit --dir <folder>\`. Only a default plugin's folder has an id; the
+registry gives a submitted plugin its own.`,
   agent: `thixo agent <tool> --as <user> [options]
 
 Calls one authoring tool on the running \`thixo dev\` as <user>. Sends POST /_thixo/authoring/tool with
@@ -79,9 +85,9 @@ Shortcuts
   submit --as ana --dir ./my-plugin [--plugin <id>]   build and store a version
   check  --as ana --dir ./my-plugin                   build without storing
   search --as ana "due" [--slot <slot>]               search the registry
-  read   --as ana <pluginId>[@<n>]                    read a plugin's source
+  read   --as ana <pluginId>[@<n>] [--out <dir>]      read a plugin's source; --out writes its files to edit
   fork   --as ana <pluginId>@<n>                      fork a version
-  use    --as ana <pluginId>@<n> --slot main          put a version in the user's layout
+  use    --as ana <pluginId>@<n> --slot main/todo-row put a version in the user's layout, by slot path
   describe --as ana                                   the SDK, slots and language reference
 Any other <tool> is sent by name with --json.
 
@@ -91,10 +97,13 @@ Options
   --file path=@local   Add a file to input.files (repeatable)
   --dir <folder>       Add every .thx file in a folder to input.files
   --plugin <id>        The plugin a submit is a new version of
-  --slot <slot>        A slot, for use and search
+  --slot <slot>        A slot path, for use and search (a child slot has its parent in front: main/todo-row)
+  --out <dir>          For read: a new folder to write the plugin's source files into
   --port <n>           The dev server's port (default: the one in .thixo/dev.json, else 3000)
   --project <dir>      The app whose .thixo/agent-key to use (default: found from here)
-  --raw                Print the response as JSON`,
+  --raw                Print the response as JSON
+
+A reply with ok: false (a failed check or submit) prints its errors and exits 1.`,
   registry: `thixo registry list [dir] [--json]
 
 Prints the plugins in the local registry with their versions, visibility and author.`,
@@ -159,11 +168,11 @@ export function parseCommand(argv: string[], env: NodeJS.ProcessEnv = process.en
         throw new CliError(`thixo new makes a plugin: \`thixo new plugin <name> --slot <slot>\`.`);
       }
       if (wantsHelp) return { name: "help", topic: "new-plugin" };
-      const { values, positionals } = parse("new plugin", more, { slot: { type: "string" } });
+      const { values, positionals } = parse("new plugin", more, { slot: { type: "string" }, personal: { type: "string" } });
       if (!positionals[0]) throw new CliError("thixo new plugin needs a name: `thixo new plugin <name> --slot <slot>`.");
       if (!values.slot) throw new CliError("thixo new plugin needs --slot <slot>, the slot the plugin fills.");
       if (positionals.length > 2) throw new CliError("thixo new plugin takes a name and, optionally, the app folder.");
-      return { name: "new-plugin", pluginName: positionals[0], slot: values.slot, dir: positionals[1] ?? "." };
+      return { name: "new-plugin", pluginName: positionals[0], slot: values.slot, dir: positionals[1] ?? ".", ...(values.personal !== undefined ? { personal: values.personal } : {}) };
     }
     case "agent": {
       if (wantsHelp) return { name: "help", topic: "agent" };
@@ -177,6 +186,7 @@ export function parseCommand(argv: string[], env: NodeJS.ProcessEnv = process.en
         port: { type: "string" },
         project: { type: "string" },
         raw: { type: "boolean" },
+        out: { type: "string" },
       });
       const [tool, ...others] = positionals;
       if (!tool) throw new CliError("thixo agent needs a tool: submit, check, search, read, fork, use, describe, or a tool name.\nRun `thixo agent --help`.");
@@ -195,6 +205,7 @@ export function parseCommand(argv: string[], env: NodeJS.ProcessEnv = process.en
           port: values.port === undefined ? undefined : parsePort(values.port, env),
           project: values.project,
           raw: !!values.raw,
+          ...(values.out !== undefined ? { out: values.out } : {}),
         },
       };
     }

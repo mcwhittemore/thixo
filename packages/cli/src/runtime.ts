@@ -85,6 +85,7 @@ export async function deployPlugins(app: RunningApp, paths: ProjectPaths, deps: 
   } catch (error) {
     if (options.strict) throw new CliError(`The deploy failed: ${messageOf(error)}`);
     io.err(`  deploy failed: ${messageOf(error)}`);
+    io.err("  The app keeps the last release until a deploy succeeds.");
     return { release: null, failed: failed.map((o) => o.name) };
   }
 }

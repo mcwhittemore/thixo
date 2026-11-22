@@ -1,5 +1,6 @@
 import * as React from "react";
 import type { AppInfo, PluginSummary, PluginVersionRef, User } from "../contract.js";
+import { scopeLabel as labelOf } from "../scope-words.js";
 import { slotPaths as pathsOf } from "../slots/paths.js";
 import { useShellInternals } from "./shell.js";
 
@@ -18,19 +19,10 @@ interface Action {
   done: string | ((reply: unknown) => string);
 }
 
-/** Thixo's own scopes in words, beside the name, so a user reading a plugin's scopes knows what they mean. */
-const THIXO_SCOPE_WORDS: Record<string, string> = {
-  "thixo.data.read": "read the plugin's own saved data",
-  "thixo.data.write": "save the plugin's own data",
-  "thixo.data.admin": "remove a field of plugin data",
-  "thixo.plugins.author": "write plugins",
-  "thixo.plugins.share": "share plugins",
-  "thixo.plugins.promote": "promote plugins",
-};
-
-export function scopeLabel(scope: string): string {
-  const words = THIXO_SCOPE_WORDS[scope];
-  return words ? `${scope} (${words})` : scope;
+/** A scope with its words beside it, so a user reading a plugin's scopes knows what they mean: the app's words from
+ * defineScopes, Thixo's for its own. The registry's summary uses the same words. */
+export function scopeLabel(scope: string, appScopes: Record<string, string> = {}): string {
+  return labelOf(appScopes, scope);
 }
 
 /** Why a user can't take each action on a plugin, or undefined when they can. Buttons are disabled with the reason. */
@@ -69,6 +61,8 @@ export function PluginBrowser() {
   const [slotFilter, setSlotFilter] = React.useState("");
   const [results, setResults] = React.useState<PluginSummary[] | undefined>(undefined);
   const [names, setNames] = React.useState<Record<string, string>>({});
+  // The newest version of each plugin the browser has seen, to say when a slot is on an older one.
+  const [latestOf, setLatestOf] = React.useState<Record<string, number>>({});
   const [message, setMessage] = React.useState<{ text: string; error?: boolean } | undefined>(undefined);
   const [busy, setBusy] = React.useState(false);
 
@@ -87,6 +81,7 @@ export function PluginBrowser() {
         const found = await client.search(q, slot ? lastSegment(slot) : undefined);
         setResults(found);
         setNames((n) => ({ ...n, ...Object.fromEntries(found.map((s) => [s.plugin.id, s.plugin.name])) }));
+        setLatestOf((l) => ({ ...l, ...Object.fromEntries(found.map((s) => [s.plugin.id, s.latest])) }));
       } catch (error) {
         setResults([]);
         setMessage({ text: `Search failed: ${error instanceof Error ? error.message : String(error)}`, error: true });
@@ -108,9 +103,12 @@ export function PluginBrowser() {
     if (!client || !resolvedIds) return;
     let live = true;
     for (const id of resolvedIds.split(",")) {
-      if (names[id]) continue;
       client.plugin(id).then(
-        (s) => live && setNames((n) => ({ ...n, [id]: s.plugin.name })),
+        (s) => {
+          if (!live) return;
+          setNames((n) => ({ ...n, [id]: s.plugin.name }));
+          setLatestOf((l) => ({ ...l, [id]: s.latest }));
+        },
         () => undefined,
       );
     }
@@ -151,11 +149,31 @@ export function PluginBrowser() {
         {paths.map((path) => {
           const changed = layout?.changes[path];
           const reset = changed ? undefined : "This slot already has its default";
+          const ref = resolved[path];
+          const newest = ref ? latestOf[ref.plugin] : undefined;
+          const newer = ref && newest !== undefined && newest > ref.number ? newest : undefined;
           return (
             <li key={path} aria-label={`Slot ${path}`} className="thixo-row">
               <strong>{path}</strong>
-              <span data-testid={`slot-fill-${path}`}>{label(resolved[path])}</span>
+              <span data-testid={`slot-fill-${path}`}>{label(ref)}</span>
               <span className="thixo-muted">{changed ? "your choice" : layout?.defaults[path] ? "default" : ""}</span>
+              {newer !== undefined && ref && (
+                <>
+                  <span className="thixo-badge thixo-tone-warning">v{newer} is newer</span>
+                  <ActionButton
+                    label={`Move to v${newer}`}
+                    name={`Move ${path} to v${newer}`}
+                    disabled={busy ? "Busy" : undefined}
+                    onClick={() =>
+                      act({
+                        label: "Move",
+                        run: () => internals.client.use(path, { plugin: ref.plugin, number: newer }),
+                        done: `Moved ${path} to ${names[ref.plugin] ?? ref.plugin} v${newer}${changed ? "" : ". It is your choice now: it stays on this version until you change or reset it"}`,
+                      })
+                    }
+                  />
+                </>
+              )}
               <ActionButton
                 label="Reset"
                 name={`Reset ${path} to default`}
@@ -216,6 +234,16 @@ export function PluginBrowser() {
                   {s.manifest.slot} · {s.isDefault ? "default" : s.plugin.visibility} · by {s.plugin.author} · id {s.plugin.id}
                 </span>
               </div>
+              {(() => {
+                const using = paths.filter((p) => resolved[p]?.plugin === s.plugin.id);
+                if (!using.length) return null;
+                return (
+                  <p className="thixo-muted" aria-label={`${s.plugin.name} in use`}>
+                    In use: {using.map((p) => `v${resolved[p].number} in ${p}`).join(", ")}
+                    {using.some((p) => resolved[p].number < s.latest) ? ` (v${s.latest} is newer: Use moves to it)` : ""}
+                  </p>
+                );
+              })()}
               <p className="thixo-muted">{s.plugin.description}</p>
               <ul aria-label={`What ${s.plugin.name} does`}>
                 {s.summary.map((line) => (
@@ -223,8 +251,8 @@ export function PluginBrowser() {
                 ))}
               </ul>
               <div className="thixo-muted" aria-label={`Scopes of ${s.plugin.name}`}>
-                Needs: {s.requiredScopes.map(scopeLabel).join(", ") || "nothing"}
-                {s.optionalScopes.length > 0 && <> · Uses if you have them: {s.optionalScopes.map(scopeLabel).join(", ")}</>}
+                Needs: {s.requiredScopes.map((scope) => scopeLabel(scope, app.scopes)).join(", ") || "nothing"}
+                {s.optionalScopes.length > 0 && <> · Uses if you have them: {s.optionalScopes.map((scope) => scopeLabel(scope, app.scopes)).join(", ")}</>}
               </div>
               <div className="thixo-row">
                 <ActionButton
@@ -245,7 +273,7 @@ export function PluginBrowser() {
                       run: () => internals.client.fork(s.plugin.id, s.latest),
                       done: (reply) => {
                         const id = (reply as { plugin?: { id?: string } } | undefined)?.plugin?.id;
-                        return `Forked ${s.plugin.name}${id ? ` as ${id}` : ""}. The copy is yours and is not in your layout yet: Use it below to show it, and change it with Ask for a plugin${id ? ` or \`thixo agent submit --plugin ${id}\`` : ""}.`;
+                        return `Forked ${s.plugin.name}${id ? ` as ${id}` : ""}. The copy is yours and is not in your layout yet: Use it below to show it. To change it, use Ask for a plugin${id ? `, or write its files to a folder with \`thixo agent read --as ${user.id} ${id} --out <folder>\`, edit them, and \`thixo agent submit --as ${user.id} --dir <folder> --plugin ${id}\`` : ""}.`;
                       },
                     })
                   }
@@ -265,8 +293,9 @@ export function PluginBrowser() {
                       label: "Promote",
                       run: () => internals.client.promote(s.plugin.id),
                       done: (reply) => {
-                        const folder = (reply as { folder?: string } | undefined)?.folder;
-                        return `Asked to promote ${s.plugin.name}${folder ? `: wrote plugins/${folder}/ for the implementor. It becomes a default when they name "${folder}" in layout in thixo.config.ts and deploy` : ""}.`;
+                        const r = (reply ?? {}) as { folder?: string; done?: string; next?: string };
+                        if (r.done && r.next) return `${r.done} ${r.next}`;
+                        return `Promoted ${s.plugin.name}${r.folder ? `: wrote plugins/${r.folder}/. It fills no slot until layout in thixo.config.ts names "${r.folder}" and the app deploys` : ""}.`;
                       },
                     })
                   }
