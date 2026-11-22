@@ -75,7 +75,7 @@ export async function fakeApp(code: string, opts: FakeOptions = {}): Promise<Fak
   const assignees = opts.assignees ?? [{ todoId: "1", name: "Ana" }];
   const annotations = new Map<string, Record<string, unknown>>(Object.entries(opts.annotations ?? {}));
   let store: Record<string, unknown> = {};
-  const canCall = new Set(opts.canCall ?? ["listTodos", "getTodo", "createTodo", "updateTodo", "listAssignees"]);
+  const canCall = new Set(opts.canCall ?? ["listTodos", "getTodo", "createTodo", "updateTodo", "listAssignees", "listPeople"]);
 
   const host: RuntimeHost = {
     createElement(type, props, ...children) {

@@ -21,6 +21,7 @@ export const COMPILER_OPTIONS: ts.CompilerOptions = {
   allowUnreachableCode: true,
   skipLibCheck: false,
   isolatedModules: false,
+  moduleDetection: ts.ModuleDetectionKind.Force,
 };
 
 export interface PluginProgram {
@@ -69,7 +70,16 @@ export function createPluginProgram(files: SourceFiles, env: CompileEnv): Plugin
   for (const [path, text] of Object.entries(files)) {
     const tsPath = tsPathOf(path);
     byTsPath.set(tsPath, path);
-    sources.set(tsPath, ts.createSourceFile(tsPath, text, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TSX));
+    sources.set(
+      tsPath,
+      ts.createSourceFile(
+        tsPath,
+        text,
+        { languageVersion: ts.ScriptTarget.ES2022, setExternalModuleIndicator: (sf) => ((sf as unknown as { externalModuleIndicator: unknown }).externalModuleIndicator = true) },
+        true,
+        ts.ScriptKind.TSX,
+      ),
+    );
   }
   const specs = Object.keys(env.modules);
   const modulePath = new Map<string, string>();

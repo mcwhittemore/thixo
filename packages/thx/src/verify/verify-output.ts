@@ -7,6 +7,7 @@ import ts from "typescript";
 /** The members of `rt` compiled code may name. */
 export const RT_NAMES: ReadonlySet<string> = new Set([
   "tick",
+  "done",
   "push",
   "pop",
   "ctx",
@@ -123,9 +124,9 @@ export function verifyOutput(code: string): { ok: true } | { ok: false; errors: 
     }
   };
 
-  const block = (stmts: readonly ts.Statement[], parent: Scope, scope: Scope = { names: new Set(), parent }) => {
+  const block = (stmts: readonly ts.Statement[], parent: Scope, inAsync = false, scope: Scope = { names: new Set(), parent }) => {
     hoist(stmts, scope);
-    for (const s of stmts) statement(s, scope);
+    for (const s of stmts) statement(s, scope, inAsync);
   };
 
   const fnLike = (f: ts.FunctionDeclaration | ts.FunctionExpression | ts.ArrowFunction, scope: Scope, inAsync: boolean) => {
@@ -214,17 +215,17 @@ export function verifyOutput(code: string): { ok: true } | { ok: false; errors: 
         return expression((s as ts.ThrowStatement).expression, scope, inAsync);
       case ts.SyntaxKind.TryStatement: {
         const t = s as ts.TryStatement;
-        block(t.tryBlock.statements, scope);
+        block(t.tryBlock.statements, scope, inAsync);
         if (t.catchClause) {
           const cs: Scope = { names: new Set(), parent: scope };
           if (t.catchClause.variableDeclaration) declare(t.catchClause.variableDeclaration.name, cs);
-          block(t.catchClause.block.statements, cs);
+          block(t.catchClause.block.statements, cs, inAsync);
         }
-        if (t.finallyBlock) block(t.finallyBlock.statements, scope);
+        if (t.finallyBlock) block(t.finallyBlock.statements, scope, inAsync);
         return;
       }
       case ts.SyntaxKind.Block:
-        return block((s as ts.Block).statements, scope);
+        return block((s as ts.Block).statements, scope, inAsync);
       case ts.SyntaxKind.SwitchStatement: {
         const sw = s as ts.SwitchStatement;
         expression(sw.expression, scope, inAsync);

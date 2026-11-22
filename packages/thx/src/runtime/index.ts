@@ -663,19 +663,33 @@ export const createRuntime: CreateRuntime = (host: RuntimeHost): Runtime => {
         if (f === undefined || f === null) return apply(promiseFinally, p, []);
         if (!isCallable(f)) fail(`finally takes a function, not ${describe(f)}.`);
         const k = cur;
-        return apply(promiseFinally, p, [() => resume(k, f, [])]);
+        return quiet(apply(promiseFinally, p, [() => resume(k, f, [])]) as Promise<unknown>);
       },
     }) as [string, Impl][],
   );
+
+  /** Marks a plugin promise as handled for the one rejection the runtime causes itself, the stop. Any other
+   * rejection still surfaces as unhandled. */
+  function quiet<P extends Promise<unknown>>(p: P): P {
+    apply(promiseThen, p, [
+      undefined,
+      (e: unknown) => {
+        if (!(e instanceof ThxStop)) throw e;
+      },
+    ]);
+    return p;
+  }
 
   function thenOf(p: Promise<unknown>, ok: unknown, err: unknown): Promise<unknown> {
     const k = cur;
     if (ok !== undefined && ok !== null && !isCallable(ok)) fail(`then takes a function, not ${describe(ok)}.`);
     if (err !== undefined && err !== null && !isCallable(err)) fail(`catch takes a function, not ${describe(err)}.`);
-    return apply(promiseThen, p, [
-      ok === undefined || ok === null ? undefined : (v: unknown) => resume(k, ok, [v]),
-      err === undefined || err === null ? undefined : (e: unknown) => resume(k, err, [caught(e)]),
-    ]) as Promise<unknown>;
+    return quiet(
+      apply(promiseThen, p, [
+        ok === undefined || ok === null ? undefined : (v: unknown) => resume(k, ok, [v]),
+        err === undefined || err === null ? undefined : (e: unknown) => resume(k, err, [caught(e)]),
+      ]) as Promise<unknown>,
+    );
   }
 
   function methodTable(o: unknown): Map<string, Impl> | undefined {
@@ -739,7 +753,10 @@ export const createRuntime: CreateRuntime = (host: RuntimeHost): Runtime => {
 
   const JSONNs = ns({
     fields: nsFields({
-      parse: (text: unknown) => fromJson(jsonParse(strArg(text, "JSON.parse")!)),
+      parse: (text: unknown, reviver: unknown) => {
+        if (reviver !== undefined) fail("JSON.parse takes no reviver in the language.");
+        return fromJson(jsonParse(strArg(text, "JSON.parse")!));
+      },
       stringify: (value: unknown, replacer: unknown, space: unknown) => {
         if (replacer !== undefined && replacer !== null) fail("JSON.stringify takes no replacer in the language.");
         if (space !== undefined && typeof space !== "number" && typeof space !== "string") fail("JSON.stringify's space is a number or a string.");
@@ -1661,6 +1678,7 @@ export const createRuntime: CreateRuntime = (host: RuntimeHost): Runtime => {
   const guard = freeze(
     Object.assign(create(null), {
       tick,
+      done: (p: unknown) => (p instanceof NativePromise ? quiet(p) : p),
       push,
       pop,
       ctx: () => cur,

@@ -24,7 +24,7 @@ export const FORBIDDEN_FIELDS: ReadonlySet<string> = new Set([
   "__thxUrl",
 ]);
 
-const RESERVED_NAMES = new Set(["arguments", "eval", "undefined", "NaN", "Infinity", "rt"]);
+const RESERVED_NAMES = new Set(["arguments", "eval", "undefined", "NaN", "Infinity"]);
 
 const BINARY_OPS = new Map<ts.SyntaxKind, string>([
   [ts.SyntaxKind.PlusToken, "+"],
@@ -901,7 +901,7 @@ export class Emitter {
     } finally {
       this.fnStack.pop();
     }
-    const core = isAsync ? `return (async () => {\nconst ${ctx.asyncCtx} = rt.ctx();\n${inner}\n})();` : inner;
+    const core = isAsync ? `return rt.done((async () => {\nconst ${ctx.asyncCtx} = rt.ctx();\n${inner}\n})());` : inner;
     return `function ${name}(${params.join(", ")}) {\nrt.tick();\nconst ${depth} = rt.push();\ntry {\n${core}\n} finally {\nrt.pop(${depth});\n}\n}`;
   }
 

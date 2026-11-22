@@ -10,6 +10,7 @@ const TYPE_HINTS: [RegExp, string][] = [
   [/is not assignable to type 'Url'/, "A plugin can't build an address (L7). Pass along a `Url` the app handed you, or write the address out in the attribute."],
   [/Property '\w+' does not exist on type '(string|number|boolean|.*\[\])'/, "Built-in values have only the language's methods. See the lib for the list."],
   [/Cannot find module/, "A plugin imports only the modules the app provides."],
+  [/Cannot find name/, "A plugin can name only what it imports, what it declares and the language's built-ins."],
   [/Property 'constructor' does not exist/, "`constructor` is not a field in the language."],
 ];
 
@@ -145,7 +146,7 @@ export function compile(files: SourceFiles, env: CompileEnv): CompileResult {
   for (const [path, sf] of p.files)
     for (const d of p.program.getSyntacticDiagnostics(sf)) {
       const pos = sf.getLineAndCharacterOfPosition(d.start ?? 0);
-      errors.push({ file: path, line: pos.line + 1, column: pos.character + 1, code: "thx/syntax", message: ts.flattenDiagnosticMessageText(d.messageText, " ") });
+      errors.push({ file: path, line: pos.line + 1, column: pos.character + 1, code: "thx/syntax", message: `This is not valid syntax: ${ts.flattenDiagnosticMessageText(d.messageText, " ")}`, hint: "In a .thx file `<T>value` is read as JSX. Write the value with its type on the declaration instead." });
     }
   if (errors.length) return { ok: false, errors: sortErrors(errors) };
 
@@ -159,7 +160,12 @@ export function compile(files: SourceFiles, env: CompileEnv): CompileResult {
   errors.push(...emitter.errors);
 
   const seen = new Set(errors.map((x) => `${x.file}:${x.line}:${x.column}`));
-  for (const te of typeErrors(p)) if (!seen.has(`${te.file}:${te.line}:${te.column}`)) errors.push(te);
+  const elementLines = new Set(errors.filter((x) => x.code === "thx/element").map((x) => `${x.file}:${x.line}`));
+  for (const te of typeErrors(p)) {
+    if (seen.has(`${te.file}:${te.line}:${te.column}`)) continue;
+    if (/JSX\.IntrinsicElements/.test(te.message) && elementLines.has(`${te.file}:${te.line}`)) continue;
+    errors.push(te);
+  }
   if (errors.length) return { ok: false, errors: sortErrors(errors) };
 
   const code = `export default function (rt) {\n"use strict";\n${registrations.join("\n")}\n${bodies.join("\n")}\nreturn t0;\n}\n`;
