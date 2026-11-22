@@ -3,6 +3,7 @@ import { IMPLEMENTOR, type Adapters, type AppDefinition, type IdentityAdapter, t
 import type { CompileEnv } from "thixo-thx/contract";
 import { buildCompileEnv } from "./compile-env.js";
 import type { DeployInput, DeployResult } from "./deploy.js";
+import type { RegistryServices } from "./registry/types.js";
 import { TokenError, userOf, verifyToken } from "./tokens.js";
 
 export { HttpError };
@@ -24,8 +25,7 @@ export interface Route {
   handler(call: RouteCall): Response | Promise<Response>;
 }
 
-/** What the registry module adds to `services`. The registry agent fills this in. */
-export interface RegistryServices {}
+export type { RegistryServices };
 
 /** What the host (the CLI, a test) can call on the server directly, beside `fetch`. */
 export interface Services {
