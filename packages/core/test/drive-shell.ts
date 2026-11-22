@@ -1,38 +1,38 @@
 // Drives the todo example's real shell (examples/todo/app/shell.tsx, bundled for the browser with esbuild, as the
-// CLI will) in Chromium. The token, /_thixo/app and /api are the real server; layout, plugin loads, registry, data
-// and authoring are the in-memory stand-ins in helpers/todo-server.ts, and thixo-thx/runtime is the fake runtime,
-// with the compiled plugins hand-written in helpers/plugins.ts. Prints what it saw; saves screenshots.
+// CLI will) in Chromium, with the example's .thx plugins compiled by the real thx compiler and run by the real
+// runtime. The token, /_thixo/app and /api are the real server; layout, plugin loads and code, registry, data and
+// authoring are the in-memory stand-ins in helpers/todo-server.ts. Prints what it saw; saves screenshots.
 //
 //   node --import tsx packages/core/test/drive-shell.ts [artifacts-dir]     drive, then stop
 //   node --import tsx packages/core/test/drive-shell.ts --serve             serve on a port and wait
 
 import { build } from "esbuild";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage } from "node:http";
 import { join, resolve } from "node:path";
 import { chromium } from "playwright";
 import type { PluginSummary } from "../src/contract.js";
-import { manifest, modules, pluginLoad } from "./helpers/plugins.js";
-import { fakeServer, type FakeVersion } from "./helpers/todo-server.js";
+import { compile } from "thixo-thx";
+import { buildCompileEnv } from "../src/server/index.js";
+import { pluginLoad } from "./helpers/plugins.js";
+import { app, fakeServer, type FakeVersion } from "./helpers/todo-server.js";
 
 const here = import.meta.dirname;
 const repo = resolve(here, "../../..");
 const serve = process.argv.includes("--serve");
 const artifacts = resolve(process.argv.slice(2).find((a) => !a.startsWith("--")) ?? join(repo, "artifacts/shell-and-plugins"));
 
-// tsx keeps function names with an `__name` helper; the module text needs its own copy.
-const code = (name: string) => `const __name = (f) => f;\nexport default ${modules[name].default.toString()};\n`;
-const versions: FakeVersion[] = [
-  {
-    load: pluginLoad("plg_todo_list", "Todo list", manifest({ slot: "main", requiredEndpoints: ["listTodos", "createTodo", "updateTodo"], optionalEndpoints: ["deleteTodo", "listAssignees"] })),
-    code: code("todo-list"),
-  },
-  { load: pluginLoad("plg_done_badge", "Done badge", manifest({ slot: "todo-row", requiredEndpoints: ["getTodo"] })), code: code("done-badge") },
-  {
-    load: pluginLoad("plg_due_dates", "Due dates", manifest({ slot: "todo-detail", requiredEndpoints: ["getTodo"], annotates: ["todo"], data: { stores: {}, annotations: { todo: [{ name: "dueOn", type: "date" }] } } })),
-    code: code("due-dates"),
-  },
-];
+const env = buildCompileEnv(app, {});
+const pluginsDir = join(repo, "examples/todo/plugins");
+/** Each of the example's plugin folders, compiled by the real thx compiler. */
+function compiled(name: string, id: string): FakeVersion {
+  const files: Record<string, string> = {};
+  for (const file of readdirSync(join(pluginsDir, name))) files[file] = readFileSync(join(pluginsDir, name, file), "utf8");
+  const result = compile(files, env);
+  if (!result.ok) throw new Error(`${name} does not compile: ${JSON.stringify(result.errors)}`);
+  return { load: pluginLoad(id, result.meta.name, result.manifest), code: result.code };
+}
+const versions: FakeVersion[] = [compiled("todo-list", "plg_todo_list"), compiled("done-badge", "plg_done_badge"), compiled("due-dates", "plg_due_dates")];
 const summaries: PluginSummary[] = versions.map((v) => ({
   plugin: v.load.plugin,
   latest: 1,
@@ -78,14 +78,6 @@ const bundle = await build({
   platform: "browser",
   jsx: "automatic",
   define: { "process.env.NODE_ENV": '"development"' },
-  plugins: [
-    {
-      name: "fake-thx-runtime",
-      setup(b) {
-        b.onResolve({ filter: /^thixo-thx\/runtime$/ }, () => ({ path: join(here, "helpers/fake-runtime-entry.ts") }));
-      },
-    },
-  ],
   logLevel: "error",
 });
 const shellJs = bundle.outputFiles[0].text;

@@ -94,6 +94,8 @@ export function createFakeRuntime(host: RuntimeHost): FakeRuntime {
       if (address === undefined) throw new TypeError("not a Url");
       return address;
     },
+    styleSheet: () => "",
+    stopped: false,
     instantiate(module) {
       const api: FakePluginApi = {
         import(specifier) {

@@ -119,9 +119,15 @@ export function SlotView(props: { path: string; def: SlotDef; context: Record<st
       let rt: Runtime | undefined;
       const createElement = (type: unknown, elementProps: Record<string, unknown> | null, ...children: unknown[]) =>
         React.createElement(type as string, hostElementProps(type, elementProps, rt, allowed) as never, ...(children as React.ReactNode[]));
-      rt = createRuntime({ createElement, Fragment: React.Fragment, modules, budget: internals.budget, onError: stop });
-      const styles = new ScopedStyles(scopeClassFor(load.plugin.id, load.version), { rt, allowed });
+      const scopeClass = scopeClassFor(load.plugin.id, load.version);
+      const early: [string, string][] = [];
+      let styles: ScopedStyles | undefined;
+      const insertStyle = (className: string, cssText: string) => (styles ? styles.insert(className, cssText) : early.push([className, cssText]));
+      rt = createRuntime({ createElement, Fragment: React.Fragment, modules, budget: internals.budget, onError: stop, insertStyle });
+      styles = new ScopedStyles(scopeClass, { rt, allowed });
+      for (const [className, cssText] of early) styles.insert(className, cssText);
       const broker = createBroker({ load, app: internals.app, rt, request: internals.session.request, signal });
+      const scoped = styles;
       const host = buildHostModules({
         rt,
         broker,
@@ -129,7 +135,7 @@ export function SlotView(props: { path: string; def: SlotDef; context: Record<st
         load,
         slot: def,
         path: props.path,
-        styles,
+        styles: scoped,
         services: internals.services,
         signal,
         ChildSlotView: SlotView,
@@ -142,7 +148,7 @@ export function SlotView(props: { path: string; def: SlotDef; context: Record<st
       const rawEmit = createEmit(def.emits, (event, payload) => onEvent.current(event, payload), rt, signal, records(internals));
       const emit = rt.toThx(Object.fromEntries(Object.entries(rawEmit).map(([k, f]) => [k, rt!.hostFunction(f)])));
       if (signal.aborted) return;
-      setState({ status: "ready", running: { rt, definition, load, styles, emit, controller } });
+      setState({ status: "ready", running: { rt, definition, load, styles: scoped, emit, controller } });
     })().catch(stop);
     return () => controller.abort();
   }, [internals?.cache, internals?.app, ref?.plugin, ref?.number, props.path, def]);

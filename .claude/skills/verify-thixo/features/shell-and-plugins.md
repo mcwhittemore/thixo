@@ -6,7 +6,7 @@ The browser half of Thixo: `<Shell>` signs in with the page's own session and ke
 
 - `shell-session` trades the page's session for a token at `POST /_thixo/token` (same-origin credentials), keeps it in a module-private `WeakMap`, refreshes it a minute before expiry, and retries a request once after a 401. `useThixo()` gives the implementor's code `{ user, api }`.
 - `shell-slot` resolves a slot path (`main`, `main/todo-row`), loads `PluginLoad` and the compiled module (fetched with the token, imported through a blob address), makes a runtime, builds the host modules and renders the component with `{ context, emit }`.
-- `shell-box` renders each plugin in a box with `contain: layout paint style; overflow: auto; isolation: isolate; position: relative` plus the slot's size, and puts its `css()` rules in a `<style data-thixo-plugin>` element, every rule under the plugin version's `thx-p-<id>-<n>` class.
+- `shell-box` renders each plugin in a box with `contain: layout paint style; overflow: auto; isolation: isolate; position: relative` plus the slot's size, and puts its `css()` rules (handed over by the runtime's `insertStyle`) in a `<style data-thixo-plugin>` element, every rule under the plugin version's `thx-p-<id>-<n>` class.
 - `shell-errors` replaces a plugin that throws while rendering, or that the runtime stops (`onError`, such as running out of budget), with `<name> stopped: <reason>` in its own slot. Every other slot keeps running.
 - `shell-stop` stops a plugin when its slot unmounts (P7): pending calls are aborted and later SDK, data and service calls reject with `the plugin has stopped`, without a request.
 - `broker-manifest` refuses an endpoint that is not in the version's manifest (P1) or not in `authorCan` (P3), and an optional endpoint the user can't call (P4), with a `ThixoRefused` naming the endpoint and the reason. None of these touch the network.
@@ -32,12 +32,13 @@ Preconditions:
 - `npm run build -w thixo` has succeeded. The example and the drive import `thixo/*` from `packages/core/dist`.
 - The drive starts its own server on a free port (`127.0.0.1:0`), so two runs can go side by side. It writes nothing outside the artifacts folder you name.
 
-- **Whole suite.** Run `npm test -w thixo`. The final lines read `# pass 60` and `# fail 0` (the count grows; `fail` must be 0).
+- **Whole suite.** Run `npm test -w thixo`. The final lines read `# pass 113` and `# fail 0` (the count grows as other parts add tests; `fail` must be 0).
 - **Broker.** Run `node --import tsx --test packages/core/test/broker.test.ts`. 8 pass: a refusal for an endpoint outside the manifest and for one outside `authorCan`, both with no request recorded; an optional endpoint the user can't call refused with no request; `href: expected a Url, got string`; a reply's `href` is a `Url` and `seenAt` a `Date`; data patches carry `{ "$url": ... }`; a pending call rejects with `the plugin has stopped` after abort; and a 403 from the real todo server for `cy` creating a todo.
 - **Host modules.** Run `node --import tsx --test packages/core/test/host-modules.test.ts`. 7 pass, including `the token is unreachable from every value handed to a plugin (P5)`, which walks every value the plugin saw and finds neither the token string nor the session, and `navigate goes only to a path inside the app`.
 - **Shell in a DOM.** Run `node --import tsx --test packages/core/test/shell.test.ts` (happy-dom). 9 pass: rows filled by the `main/todo-row` child slot, the box's styles, the scoped stylesheet with no `evil.test`, adding a todo through the plugin, `Broken stopped: kaboom` in the detail slot while the list keeps running, the plugin browser's disabled reasons and Use/Reset, `Empty slot main/todo-row`, the chat's streamed lines, stopping on unmount, and `Done badge stopped: ran out of budget`.
 - **Example plugins type-check.** Run `node --import tsx --test packages/core/test/example-plugins.test.ts`. 3 pass: the three folders are `.thx`, each with an `id`, and each type-checks against the app's generated declarations.
-- **The real example shell in Chromium.** Run `node --import tsx packages/core/test/drive-shell.ts artifacts/shell-and-plugins`. It bundles `examples/todo/app/shell.tsx` with esbuild and drives it. Expected lines, in order:
+- **The real compiler and runtime in a DOM.** Run `node --import tsx --test packages/core/test/real-runtime.test.ts`. 3 pass: the example's `todo-list`, `done-badge` and `due-dates` folders are compiled by `thixo-thx`'s `compile`, run by `thixo-thx/runtime`'s `createRuntime` inside `<Shell>`, fill `main`, every `main/todo-row` and `todo-detail` with no slot stopped, patch `dueOn` through `/_thixo/data/patch`, put the runtime's `css()` rules under `.thx-p-plg_done_badge-1`, and add a todo through `/api/todos`.
+- **The real example shell in Chromium.** Run `node --import tsx packages/core/test/drive-shell.ts artifacts/shell-and-plugins`. It compiles the example's three plugin folders with the real compiler, bundles `examples/todo/app/shell.tsx` (and with it `thixo-thx/runtime`) with esbuild, and drives it. Expected lines, in order:
   - `no cookie: Not signed in`
   - `ana: signed in as ana`, then `main slot: plg_todo_list@1`
   - `row badges (main/todo-row): Open, Done, Open`
@@ -54,11 +55,11 @@ Preconditions:
 
 ## Gotchas
 
-- The thx runtime and compiler are not merged in this branch. Every test and the drive use the fake runtime in `packages/core/test/helpers/fake-runtime.ts` and hand-written "compiled" modules in `helpers/plugins.ts`, so they prove the shell, broker and host modules, not the wall. The `.thx` plugins in `examples/todo/plugins/` are only type-checked. Without the real runtime the shell bundle needs `thixo-thx/runtime` aliased, as the drive does.
+- Two kinds of test: `broker`, `host-modules` and `shell` use the small fake runtime in `packages/core/test/helpers/fake-runtime.ts` with hand-written modules in `helpers/plugins.ts` (so a failure there is the shell's, not the wall's), while `real-runtime.test.ts` and the Chromium drive use the real `thixo-thx` compiler and runtime. Build `thixo-thx` first (`npm run build -w thixo-thx`) if `thixo-thx/runtime` does not resolve.
+- The real runtime implements `definePlugin` and `css` itself, so the shell's own `definePlugin` and `css` in the `thixo/plugin` host module only run under the fake runtime.
 - Layout, plugin load and code, registry, data and authoring routes are stand-ins in `helpers/todo-server.ts` (another part of the build writes the real ones). The token, `/_thixo/app` and `/api` are the real server. If a real route answers differently, the drive is the place to look.
 - A plugin's module is fetched with the token and imported from a `blob:` address. A content security policy on the page has to allow `blob:` in `script-src`.
 - `useStore` keeps the user's one record of a store under the id `default`.
 - `contain: layout paint style` reads back as `contain: content` from `getComputedStyle` in Chromium. Both mean the same.
 - happy-dom runs without React's `act()`; the DOM tests poll with `waitFor`. Unmounting stops a plugin only once React runs the effect cleanups, so a test checks for `the plugin has stopped` by polling.
-- The drive's compiled-module text is a function's source under tsx, which adds an `__name` helper; the drive defines it. A `__name is not defined` message in a slot means that line was lost.
 - Do not report the absent `thixo dev` command as a failure of this feature: it belongs to the CLI.
