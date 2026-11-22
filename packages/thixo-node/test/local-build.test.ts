@@ -37,3 +37,15 @@ test("the default compiler is thixo-thx", async () => {
   assert.equal(typeof thx.compile, "function");
   assert.equal(typeof result.ok, "boolean");
 });
+
+test("verify runs the compiler's verifyOutput on stored code, for the plugin route", async () => {
+  const seen: string[] = [];
+  const build = localBuild({
+    compile: () => ({ ok: false, errors: [] }),
+    verifyOutput: (code) => (seen.push(code), code === "good" ? { ok: true } : { ok: false, errors: ["names globalThis"] }),
+  });
+  assert.deepEqual(await build.verify!("good"), { ok: true });
+  assert.deepEqual(await build.verify!("globalThis.fetch('/x')"), { ok: false, errors: ["names globalThis"] });
+  assert.deepEqual(seen, ["good", "globalThis.fetch('/x')"]);
+  assert.equal((await localBuild().verify!("globalThis.fetch('/x')")).ok, false);
+});

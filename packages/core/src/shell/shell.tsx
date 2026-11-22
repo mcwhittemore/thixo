@@ -9,6 +9,13 @@ import { SHELL_CSS } from "./styles.js";
 
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 
+let mountedLibraries: Record<string, Record<string, unknown>> = {};
+
+/** What `mount(App, { libraries })` was given. */
+export function setMountedLibraries(libraries: Record<string, Record<string, unknown>>): void {
+  mountedLibraries = libraries;
+}
+
 export interface ShellProps {
   children?: React.ReactNode;
   /** Where the app's server is. Default: this page's origin. */
@@ -179,7 +186,7 @@ export function Shell(props: ShellProps) {
       browserOpen,
       setBrowserOpen,
       services,
-      libraries: propsRef.current.libraries ?? {},
+      libraries: propsRef.current.libraries ?? mountedLibraries,
       budget: propsRef.current.budget,
       cache: cache.current,
       getCreateRuntime: async () => runtimeOption ?? defaultCreateRuntime(),

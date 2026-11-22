@@ -22,5 +22,9 @@ export function localBuild(compiler: Pick<Compiler, "compile" | "verifyOutput"> 
         })),
       };
     },
+    verify(code) {
+      const verified = compiler.verifyOutput(code);
+      return verified.ok ? { ok: true } : { ok: false, errors: verified.errors };
+    },
   };
 }
