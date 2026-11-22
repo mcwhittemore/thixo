@@ -1,0 +1,39 @@
+// Due dates from examples/todo, as thx: a date on each todo and a private setting.
+
+import { definePlugin, useAnnotation, useQuery, useStore } from "thixo/plugin";
+import { DateInput, NumberInput, Stack, Text } from "thixo/ui";
+import { todoDetail } from "@app/slots";
+import { getTodo } from "@app/sdk";
+import { due, prefs } from "./data";
+import { daysUntil } from "./lib/dates";
+
+export default definePlugin(
+  todoDetail,
+  {
+    name: "Due dates",
+    description: "Give a todo a due date and see a warning when it is close.",
+  },
+  function DueDate({ context }) {
+    const todo = useQuery(getTodo, { id: context.todoId });
+    const [dates, patchDates] = useAnnotation(due, context.todoId);
+    const [settings, patchSettings] = useStore(prefs);
+
+    const warnDays = settings?.warnDaysBefore ?? 2;
+    const close = dates?.dueOn && daysUntil(dates.dueOn) <= warnDays;
+
+    return (
+      <Stack>
+        <Text>{todo.data?.title}</Text>
+
+        <DateInput label="Due" value={dates?.dueOn} onChange={(dueOn) => patchDates({ dueOn })} />
+        {close && <Text tone="warning">Due soon</Text>}
+
+        <NumberInput
+          label="Warn me this many days before"
+          value={warnDays}
+          onChange={(warnDaysBefore) => patchSettings({ warnDaysBefore })}
+        />
+      </Stack>
+    );
+  },
+);
