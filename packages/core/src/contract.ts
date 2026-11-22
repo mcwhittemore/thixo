@@ -108,6 +108,10 @@ export interface ThixoConfig {
   layout: Record<SlotPath, string>;
   /** Signs tokens (A5). In dev, the CLI makes one and keeps it in `.thixo/`. */
   signingKey?: string;
+  /** Turns on `POST /_thixo/authoring/tool` for an outside coding agent. A request must carry it in the
+   * `x-thixo-agent-key` header. `thixo dev` generates one into `.thixo/agent-key` and sets it here. Leave it unset in
+   * production: the route is then off. */
+  agentKey?: string;
   /** W2. Default: a user who holds `thixo.plugins.promote`. */
   promotion?: PromotionAdapter;
   /** W2: replaces Thixo's authoring flow. */
