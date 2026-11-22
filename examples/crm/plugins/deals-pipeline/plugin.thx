@@ -1,0 +1,94 @@
+// The deals board: a column per stage. Moving a deal needs deals.write, closing it needs deals.close, and a user
+// without it sees the button grayed out (P4). Values come from finance endpoints a user may not be able to call.
+//
+// Derived by the build (P2):
+//   required: deals.read, deals.write    (listDeals, moveDeal)
+//   optional: deals.close                (closeDeal)
+//             finance.read               (listDealValues)
+//   services: toast
+//   library:  @app/format
+
+import { ChildSlot, css, definePlugin, useCan, useQuery } from "thixo/plugin";
+import { Badge, Button, Select, Text } from "thixo/ui";
+import { toast } from "thixo/services";
+import { formatMoney } from "@app/format";
+import { dealCard, deals } from "@app/slots";
+import { listDeals, moveDeal } from "@app/sdk";
+import { closeDeal, listDealValues } from "@app/sdk/optional";
+
+const STAGES = ["lead", "qualified", "proposal", "negotiation", "closed"];
+
+export default definePlugin(
+  deals,
+  {
+    id: "plg_crm_deals_pipeline",
+    name: "Deals pipeline",
+    description: "A board of deals by stage. Move a deal between stages, and close it if you may.",
+  },
+  function DealsPipeline() {
+    const list = useQuery(listDeals);
+    const values = useQuery(listDealValues);
+    const canClose = useCan(closeDeal);
+
+    const board = css({ display: "flex", gap: 12, alignItems: "flex-start", overflowX: "auto" });
+    const column = css({ flex: "1 0 200px", display: "flex", flexDirection: "column", gap: 8, padding: 8, border: "1px solid #8884", borderRadius: 6 });
+    const card = css({ display: "flex", flexDirection: "column", gap: 6, padding: 8, border: "1px solid #8886", borderRadius: 6 });
+
+    const valueOf = (id: string) => values.data?.find((v) => v.dealId === id)?.value;
+
+    async function move(id: string, title: string, stage: string) {
+      try {
+        await moveDeal({ id, stage });
+        toast(`Moved ${title} to ${stage}`, { tone: "success" });
+      } catch (error) {
+        toast(`Could not move ${title}`, { tone: "danger" });
+      }
+      list.refresh();
+    }
+
+    async function close(id: string, title: string) {
+      await closeDeal({ id });
+      toast(`Closed ${title}`, { tone: "success" });
+      list.refresh();
+    }
+
+    return (
+      <div>
+        {list.error && <p role="alert">{list.error.message}</p>}
+        <div className={board}>
+          {STAGES.map((stage) => {
+            const here = (list.data ?? []).filter((d) => d.stage === stage);
+            return (
+              <section key={stage} role="group" aria-label={`Stage ${stage}`} className={column}>
+                <h3 style={{ margin: 0, textTransform: "capitalize" }}>{`${stage} (${here.length})`}</h3>
+                {here.map((d) => (
+                  <article key={d.id} aria-label={d.title} className={card}>
+                    <strong>{d.title}</strong>
+                    <div>
+                      <Badge tone="info">{d.team}</Badge>
+                    </div>
+                    {valueOf(d.id) !== undefined && <Text tone="muted">{formatMoney(valueOf(d.id) ?? 0)}</Text>}
+                    {d.stage !== "closed" && (
+                      <Select
+                        label="Stage"
+                        value={d.stage}
+                        options={STAGES.filter((s) => s !== "closed").map((s) => ({ value: s, label: s }))}
+                        onChange={(next) => move(d.id, d.title, next)}
+                      />
+                    )}
+                    {d.stage !== "closed" && (
+                      <Button variant="danger" disabled={!canClose} onClick={() => close(d.id, d.title)}>
+                        Close deal
+                      </Button>
+                    )}
+                    <ChildSlot is={dealCard} context={{ dealId: d.id }} />
+                  </article>
+                ))}
+              </section>
+            );
+          })}
+        </div>
+      </div>
+    );
+  },
+);

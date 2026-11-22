@@ -14,6 +14,12 @@ function errorsOf(files: SourceFiles) {
   return r.ok ? [] : r.errors;
 }
 
+describe("keys", () => {
+  test("a raw element in a list takes a key", () => {
+    compileOrThrow({ "plugin.thx": wrapBody("return <ul>{[1, 2].map((n) => <li key={n}>{n}</li>)}</ul>;") });
+  });
+});
+
 describe("bundling", () => {
   test("several files with relative imports become one module, and same names in two files don't collide", async () => {
     const files: SourceFiles = {

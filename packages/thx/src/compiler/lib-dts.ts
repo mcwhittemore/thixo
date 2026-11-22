@@ -381,6 +381,7 @@ function jsxDts(): string {
       const lines = Object.entries(attrs)
         .filter(([name]) => name !== "key")
         .map(([name, kind]) => `      ${name}?: ${attrType(tag, name, kind)};`);
+      lines.push("      key?: string | number;");
       return `    ${tag}: {\n${lines.join("\n")}\n      children?: ThxNode;\n      [aria: \`aria-\${string}\`]: string | number | boolean | undefined;\n      [data: \`data-\${string}\`]: string | number | boolean | undefined;\n    };`;
     })
     .join("\n");
