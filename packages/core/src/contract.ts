@@ -262,8 +262,11 @@ export interface AuthoringFlow {
 
 export interface AppInfo {
   scopes: Record<string, string>;
-  endpoints: { name: string; method: string; path: string; scopes: string[] }[];
-  records: { name: string; exportName: string; read: string[] }[];
+  /** `input` and `output` let the broker validate a plugin's input and turn url and date fields of a reply into
+   * `Url`s and `Date`s. */
+  endpoints: { name: string; method: string; path: string; scopes: string[]; input?: SchemaJson; output?: SchemaJson }[];
+  /** `fields` resolves a `{ kind: "record" }` schema. */
+  records: { name: string; exportName: string; read: string[]; fields: Record<string, SchemaJson> }[];
   slots: SlotDef[];
   libraries: string[];
 }
@@ -305,6 +308,35 @@ export interface LayoutReply {
   changes: Record<SlotPath, PluginVersionRef>;
   /** `changes` over `defaults`. */
   resolved: Record<SlotPath, PluginVersionRef>;
+}
+
+// ---- Plugin data on the wire: POST /_thixo/data/* ----
+
+/** A `t.url()` field's value on the wire, both ways. A plain string is never accepted for a url field (L7). */
+export interface WireUrl {
+  $url: string;
+}
+
+/** Which plugin version is asking. The server works out the chain and checks fields against this version (D6). */
+export interface DataCaller {
+  plugin: PluginId;
+  version: number;
+}
+
+/** One record of plugin data: a store record of the current user's, or an annotation on one of the app's records. */
+export type DataAt = { store: string; id: string } | { record: string; id: string };
+
+/** Field values on the wire: dates as ISO strings, urls as `WireUrl`. */
+export type WireFields = Record<string, unknown>;
+
+/** The body of each `POST /_thixo/data/<op>`, by op. `read` answers `{ fields: WireFields }`, `read-many`
+ * `{ fields: WireFields[] }` in the order asked, `list` `{ ids: string[] }`, and `patch` and `remove` 204. */
+export interface DataBodies {
+  read: DataCaller & { at: DataAt };
+  "read-many": DataCaller & { at: DataAt[] };
+  patch: DataCaller & { at: DataAt; fields: WireFields };
+  list: DataCaller & { store: string };
+  remove: DataCaller & { store: string; id: string };
 }
 
 /** D4: what a new version changes about data, next to the one before it. */
