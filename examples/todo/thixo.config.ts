@@ -27,6 +27,8 @@ export default defineConfig({
   // Which default plugins fill which slots for a new user (S9).
   layout: {
     main: "todo-list",
+    // A child slot is named by its path under its parent (S13).
+    "main/todo-row": "done-badge",
     "todo-detail": "due-dates",
   },
 });

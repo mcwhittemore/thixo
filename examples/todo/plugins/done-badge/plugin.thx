@@ -1,0 +1,28 @@
+// A default plugin for a slot inside a slot (S13): the todo list places a todo-row slot in each row, and this
+// fills it. A user can swap it for another row plugin without forking the list.
+//
+// Derived by the build (P2):
+//   required: todos.read   (getTodo, and the todo-row slot's todoId)
+
+import { css, definePlugin, useQuery } from "thixo/plugin";
+import { Badge } from "thixo/ui";
+import { todoRow } from "@app/slots";
+import { getTodo } from "@app/sdk";
+
+export default definePlugin(
+  todoRow,
+  {
+    id: "plg_done_badge",
+    name: "Done badge",
+    description: "Shows whether each todo is done or still open.",
+  },
+  function DoneBadge({ context, emit }) {
+    const todo = useQuery(getTodo, { id: context.todoId });
+    if (!todo.data) return <span className={css({ display: "inline-block", width: 40 })} />;
+    return (
+      <span onClick={() => emit.select({ todoId: context.todoId })}>
+        <Badge tone={todo.data.done ? "success" : "muted"}>{todo.data.done ? "Done" : "Open"}</Badge>
+      </span>
+    );
+  },
+);

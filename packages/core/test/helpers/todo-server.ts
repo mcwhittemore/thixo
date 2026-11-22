@@ -60,7 +60,7 @@ export function fakeServer(options: { user: string; versions: FakeVersion[]; lay
     requests.push({ method, path: url.pathname + url.search, body, authorization: headers.get("authorization") });
     const path = url.pathname;
     if (path === "/_thixo/token" || path === "/_thixo/app" || path.startsWith("/api/")) {
-      headers.set("cookie", `thixo-user=${options.user}`);
+      if (!/thixo-user=/.test(headers.get("cookie") ?? "")) headers.set("cookie", `thixo-user=${options.user}`);
       return thixo.fetch(new Request(url, { method, headers, body: bodyText }));
     }
     if (!headers.get("authorization")?.startsWith("Bearer ")) return json({ error: { code: "unauthorized", message: "No token" } }, 401);
