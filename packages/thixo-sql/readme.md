@@ -13,6 +13,13 @@ const data = sqlDataAdapter(driver);
 await data.migrate();
 ```
 
+## Exports
+
+- `sqlDataAdapter(driver)`: the `DataAdapter`, on any `SqlDriver`.
+- `syncDriver(db)`: a `SqlDriver` on a synchronous single-connection database, such as `node:sqlite`.
+- `SCHEMA_VERSION`: the version of the tables this package creates (currently `1`).
+- The types `SqlDriver`, `SqlExecutor`, `SqlParam`, `SqlRow` and `SyncDatabase`.
+
 ## The driver
 
 The adapter talks to the database through `SqlDriver`, which a provider package writes in a few lines:
