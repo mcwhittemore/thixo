@@ -191,11 +191,19 @@ The largest portability question. See [portability](07-portability.md#build).
 ## Security
 
 - What does Thixo check about a library the implementor exposes, if anything?
-- Choosing between fixed links. The build refuses a written-out `<a href>` to a host not in `linkHosts`
-  ([implementation](10-implementation.md#addresses)), because a plugin can choose which of several fixed links
-  to show from what it read, and the click tells that host. The choice still works among handed-in `Url`s and on
-  listed hosts. Is a listed host enough, or should the registry
-  also flag a plugin whose source picks among many near-identical outside addresses?
+- Choosing between fixed addresses. The build refuses a written-out `<a href>` to a host not in `linkHosts`, and
+  every load, written out or handed in, to a host not in `addressHosts`
+  ([implementation](10-implementation.md#addresses)), because a plugin can choose which of several fixed addresses
+  to show from what it read, and the load or click tells that host. The choice still works on listed hosts, and
+  among handed-in `Url`s for links. The registry now flags a plugin that names more than one address on one host.
+  Is a flag enough, or should a plugin that reads user data be refused more than one outside address per host, or
+  any outside load at all?
+- Shell chrome a plugin fills. A dialog and a toast now carry a line, drawn by the shell, naming the plugin and its
+  author. Should a plugin also be refused form fields that look like a sign-in (a password-like label), or should
+  `openModal` stop taking a free-text title?
+- Look-alike names. Sharing refuses a name equal to a default's or another shared plugin's after folding case,
+  width, spaces and punctuation. Letters from other scripts that look the same ("Due dаtes" with a Cyrillic а) still
+  pass; the `Default` badge is what tells them apart. Should the registry fold confusable letters too?
 
 ## Project
 

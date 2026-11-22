@@ -62,6 +62,9 @@ export const SHELL_CSS = `
 .thixo-modal { background: var(--thixo-color-surface); border-radius: var(--thixo-radius-lg); padding: var(--thixo-space-lg); min-width: 18rem; max-width: min(40rem, 92vw); max-height: 85vh; display: flex; flex-direction: column; gap: var(--thixo-space-md); }
 .thixo-modal header { display: flex; justify-content: space-between; align-items: center; gap: var(--thixo-space-md); }
 .thixo-modal h2 { margin: 0; font-size: var(--thixo-font-size-lg); }
+.thixo-modal .thixo-source { margin: var(--thixo-space-xs, 2px) 0 0; font-size: var(--thixo-font-size-sm); color: var(--thixo-color-muted, #5b6472); }
+.thixo-toast .thixo-source { display: block; opacity: 0.85; font-size: 0.85em; margin-top: 2px; }
+.thixo-badge-default { margin-left: var(--thixo-space-sm); }
 .thixo-toasts { position: fixed; bottom: var(--thixo-space-lg); right: var(--thixo-space-lg); display: flex; flex-direction: column; gap: var(--thixo-space-sm); z-index: 2147483001; }
 .thixo-toast { background: var(--thixo-color-text); color: #fff; padding: var(--thixo-space-sm) var(--thixo-space-md); border-radius: var(--thixo-radius-md); font-size: var(--thixo-font-size-sm); }
 .thixo-toast.thixo-tone-success { background: var(--thixo-color-success); color: #fff; }

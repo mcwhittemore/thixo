@@ -96,11 +96,28 @@ function cssString(text: string): string {
   return `"${text.replace(/["\\\n\r\f]/g, (c) => `\\${c.charCodeAt(0).toString(16)} `)}"`;
 }
 
-/** Which addresses each kind of attribute may hold. Literal addresses were also checked against the hosts at build. */
-function addressAllowed(address: string, kind: "link" | "load" | "any"): boolean {
+/** The host of an http or https address, lower-cased, or undefined for anything else. */
+function outsideHost(address: string): string | undefined {
+  if (!/^https?:\/\/[^/]/i.test(address)) return undefined;
+  try {
+    return new URL(address).hostname.toLowerCase();
+  } catch {
+    return undefined;
+  }
+}
+
+/** Which addresses each kind of attribute may hold. A load (`<img src>`, a style's `url()`) fires with no click, so
+ * an outside one must be on a host in `loadHosts`, the app's `addressHosts`, whether the compiler wrote the `Url` or
+ * the app handed it in: a `Url` from data is not a way out to a host the implementor never listed (L4, L7). A link
+ * waits for a click and may be any http or https `Url`; its written-out hosts were checked at build. */
+function addressAllowed(address: string, kind: "link" | "load" | "any", loadHosts?: ReadonlySet<string>): boolean {
   if (/[\u0000-\u001f\u007f\s]/.test(address)) return false;
   if (address.startsWith("/") && !address.startsWith("//")) return true;
-  if (/^https?:\/\/[^/]/i.test(address)) return true;
+  if (/^https?:\/\/[^/]/i.test(address)) {
+    if (kind !== "load") return true;
+    const host = outsideHost(address);
+    return host !== undefined && loadHosts !== undefined && loadHosts.has(host);
+  }
   if (kind !== "load" && /^mailto:/i.test(address)) return true;
   if (kind !== "link" && /^data:(image\/(png|jpeg|gif|webp|avif|svg\+xml)|font\/(woff2?|ttf|otf))[;,]/i.test(address)) return true;
   return false;
@@ -110,6 +127,7 @@ export const createRuntime: CreateRuntime = (host: RuntimeHost): Runtime => {
   const id = ++runtimeCount;
   const budget = host.budget ?? DEFAULT_BUDGET;
   const maxResumes = Math.max(1000, Math.floor(budget / 50));
+  const loadHosts: ReadonlySet<string> = new NativeSet((host.addressHosts ?? []).map((h) => String(h).toLowerCase()));
 
   const records = new WeakSet<object>();
   const errorRecords = new WeakSet<object>();
@@ -1318,7 +1336,7 @@ export const createRuntime: CreateRuntime = (host: RuntimeHost): Runtime => {
   }
 
   function addr(text: unknown, kind: unknown): Url {
-    if (typeof text !== "string" || (kind !== "link" && kind !== "load") || !addressAllowed(text, kind)) fail("This address is not allowed here.");
+    if (typeof text !== "string" || (kind !== "link" && kind !== "load") || !addressAllowed(text, kind, loadHosts)) fail("This address is not allowed here.");
     return url(text);
   }
 
@@ -1445,7 +1463,7 @@ export const createRuntime: CreateRuntime = (host: RuntimeHost): Runtime => {
           case "load": {
             const info = typeof v === "object" ? urls.get(v as object) : undefined;
             if (!info) fail(`${name} takes a Url: an address written out in the source or handed to the plugin. A plugin can't build one (L7).`);
-            if (!addressAllowed(info.address, kind)) fail(`${name} can't hold that address.`);
+            if (!addressAllowed(info.address, kind, loadHosts)) fail(kind === "load" ? `${name} can't load that address: an outside address a plugin loads must be on one of the app's address hosts.` : `${name} can't hold that address.`);
             put(name, info.address);
             break;
           }
@@ -1521,7 +1539,7 @@ export const createRuntime: CreateRuntime = (host: RuntimeHost): Runtime => {
     if (typeof v === "object" && v !== null && urls.has(v)) {
       if (!STYLE_URL_PROPS.has(prop)) fail(`${prop} can't hold a Url.`);
       const address = urls.get(v)!.address;
-      if (!addressAllowed(address, "load")) fail(`${prop} can't load that address.`);
+      if (!addressAllowed(address, "load", loadHosts)) fail(`${prop} can't load that address: an outside address a plugin loads must be on one of the app's address hosts.`);
       return `url(${cssString(address)})`;
     }
     if (typeof v !== "string") return fail(`${prop} takes a string, a number or a Url, not ${describe(v)}.`);

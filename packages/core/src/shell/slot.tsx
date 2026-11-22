@@ -123,7 +123,7 @@ export function SlotView(props: { path: string; def: SlotDef; context: Record<st
       const early: [string, string][] = [];
       let styles: ScopedStyles | undefined;
       const insertStyle = (className: string, cssText: string) => (styles ? styles.insert(className, cssText) : early.push([className, cssText]));
-      rt = createRuntime({ createElement, Fragment: React.Fragment, modules, budget: internals.budget, onError: stop, insertStyle });
+      rt = createRuntime({ createElement, Fragment: React.Fragment, modules, budget: internals.budget, addressHosts: internals.app.addressHosts ?? [], onError: stop, insertStyle });
       styles = new ScopedStyles(scopeClass, { rt, allowed });
       for (const [className, cssText] of early) styles.insert(className, cssText);
       const broker = createBroker({ load, app: internals.app, rt, request: internals.session.request, signal });

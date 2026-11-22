@@ -6,7 +6,7 @@ import { createBroker } from "../src/plugin-host/broker.js";
 import { createEmit } from "../src/plugin-host/emit.js";
 import { buildHostModules } from "../src/plugin-host/host-modules.js";
 import { ThixoRefused } from "../src/plugin-host/refused.js";
-import { createServices, safeAppPath, safeFileName, safeMimeType, type ShellServiceHost } from "../src/plugin-host/services.js";
+import { createServices, safeAppPath, safeFileName, safeMimeType, sourceLine, type ShellServiceHost } from "../src/plugin-host/services.js";
 import { ScopedStyles, sanitizeStyle, scopeClassFor } from "../src/plugin-host/styles.js";
 import { PLUGIN_API_MODULES } from "../src/plugin-api/index.js";
 import { Session } from "../src/shell/session.js";
@@ -35,9 +35,9 @@ function serviceHost() {
 
 test("shell services are refused unless the manifest lists them (S8)", async () => {
   const { calls, host } = serviceHost();
-  const services = createServices({ manifest: manifest({ slot: "main", shellServices: ["toast"] }), host, pluginName: "P", scopeClass: "s", signal: new AbortController().signal });
+  const services = createServices({ manifest: manifest({ slot: "main", shellServices: ["toast"] }), host, pluginName: "P", author: "ana", scopeClass: "s", signal: new AbortController().signal });
   services.toast("hi", { tone: "success" });
-  assert.deepEqual(calls, [{ name: "toast", args: ["hi", "success"] }]);
+  assert.deepEqual(calls, [{ name: "toast", args: ["hi", "success", { pluginName: "P", author: "ana" }] }]);
   for (const call of [() => services.navigate("/todos"), () => services.openModal(null), () => services.download("a.txt", "x")]) {
     assert.throws(call, (error: unknown) => error instanceof ThixoRefused && /not in the plugin version's manifest/.test(error.reason));
   }
@@ -55,7 +55,7 @@ test("navigate goes only to a path inside the app", () => {
   assert.throws(() => safeAppPath(42, origin), /must be a string/);
 
   const { calls, host } = serviceHost();
-  const services = createServices({ manifest: manifest({ slot: "main", shellServices: ["navigate"] }), host, pluginName: "P", scopeClass: "s", signal: new AbortController().signal });
+  const services = createServices({ manifest: manifest({ slot: "main", shellServices: ["navigate"] }), host, pluginName: "P", author: "ana", scopeClass: "s", signal: new AbortController().signal });
   assert.throws(() => services.navigate("https://evil.test/"), /navigate refused/);
   services.navigate("/todos/1");
   assert.deepEqual(calls, [{ name: "navigate", args: ["/todos/1"] }]);
@@ -75,7 +75,7 @@ test("download makes a safe name and type; modals close when the plugin stops", 
 
   const controller = new AbortController();
   const { calls, host } = serviceHost();
-  const services = createServices({ manifest: manifest({ slot: "main", shellServices: ["download", "openModal"] }), host, pluginName: "P", scopeClass: "s", signal: controller.signal });
+  const services = createServices({ manifest: manifest({ slot: "main", shellServices: ["download", "openModal"] }), host, pluginName: "P", author: "ana", scopeClass: "s", signal: controller.signal });
   services.download("../report.html", "<script>", "text/html");
   assert.deepEqual(calls[0], { name: "download", args: [{ name: "report.html", content: "<script>", mimeType: "text/plain;charset=utf-8" }] });
   services.openModal("content", { title: "T" });
@@ -181,4 +181,17 @@ test("the token is unreachable from every value handed to a plugin (P5)", async 
   assert.equal(objects.has(session.request), false, "the authorized request is reachable");
   assert.ok(results.some((x) => x instanceof ThixoRefused), "a refusal was among the values walked");
   session.end();
+});
+
+test("a plugin's dialog and notices carry which plugin sent them, apart from what the plugin chose (redteam-social round 2)", () => {
+  const { calls, host } = serviceHost();
+  const services = createServices({ manifest: manifest({ slot: "main", shellServices: ["openModal", "toast"] }), host, pluginName: "Reminder", author: "ana", scopeClass: "s", signal: new AbortController().signal });
+  services.openModal("form", { title: "Session expired" });
+  const [, options] = calls[0].args as [unknown, { title: string; source: { pluginName: string; author: string } }];
+  assert.equal(options.title, "Session expired");
+  assert.deepEqual(options.source, { pluginName: "Reminder", author: "ana" });
+  assert.equal(sourceLine(options.source), "From the plugin “Reminder”, by ana");
+  assert.equal(sourceLine({ pluginName: "Due dates", author: "implementor" }), "From the plugin “Due dates”, one of this app's own");
+  services.toast("Sign in again", {});
+  assert.deepEqual(calls[1].args[2], { pluginName: "Reminder", author: "ana" });
 });

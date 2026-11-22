@@ -277,6 +277,9 @@ export interface AppInfo {
   records: { name: string; exportName: string; read: string[]; fields: Record<string, SchemaJson> }[];
   slots: SlotDef[];
   libraries: string[];
+  /** The config's `addressHosts`. The shell hands them to each plugin's runtime, which refuses to load an outside
+   * address on any other host, even a `Url` the app handed in (L4, L7). */
+  addressHosts: string[];
 }
 
 export interface TokenReply {

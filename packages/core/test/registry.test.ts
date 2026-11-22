@@ -155,7 +155,21 @@ test("the summary is plain sentences from the manifest and the scopes' descripti
     "If you can, sees who a todo is assigned to",
     "Uses: clipboard",
     "Names outside addresses: cdn.example.com, example.org",
+    "Can choose among 2 addresses on cdn.example.com: which one it shows tells cdn.example.com something about what it read",
   ]);
+});
+
+test("the summary flags a plugin that chooses among fixed addresses on one host (redteam-exfil round 2)", async () => {
+  const w = world();
+  const one = await submitOk(w, "ana", { name: "One", manifest: manifest({ requiredEndpoints: ["listTodos"], addresses: ["https://cdn.example.com/logo.png"] }) });
+  assert.ok(!one.summary.some((line: string) => line.startsWith("Can choose among")), "one address is not a choice between addresses");
+  const beacon = await submitOk(w, "ana", {
+    name: "Beacon",
+    manifest: manifest({ requiredEndpoints: ["listTodos"], addresses: ["https://cdn.example.com/beacon/one.png", "https://cdn.example.com/beacon/zero.png"] }),
+  });
+  assert.ok(beacon.summary.includes("Can choose among 2 addresses on cdn.example.com: which one it shows tells cdn.example.com something about what it read"));
+  const found = (await w.thixo.services.registry.search({ user: w.users.ana, q: "beacon" }))[0];
+  assert.ok(found.summary.some((line: string) => line.startsWith("Can choose among 2 addresses")), "the registry shows it too");
 });
 
 test("fork: a new personal plugin that points at its parent version and reuses its stored code (G4, D9)", async () => {

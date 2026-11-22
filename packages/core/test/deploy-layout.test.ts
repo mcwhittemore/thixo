@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { DeployError, readPluginId, withPluginId, withoutPluginId } from "../src/server/index.js";
 import { call } from "./helpers/client.js";
-import { manifest, pluginFiles, submitOk, world, type World } from "./helpers/registry-doubles.js";
+import { USERS, manifest, pluginFiles, submitOk, world, type World } from "./helpers/registry-doubles.js";
 
 const detail = manifest({ requiredEndpoints: ["listTodos"], annotations: { todo: [{ name: "dueOn", type: "date" }] } });
 const row = manifest({ slot: "todo-row" });
@@ -204,4 +204,40 @@ test("layout routes", async () => {
   assert.equal((await call(w.thixo, "PUT", `/_thixo/layout/${encodeURIComponent("main/todo-row")}`, { token, body: { plugin: mine.plugin.id } })).status, 400);
   const del = await call(w.thixo, "DELETE", `/_thixo/layout/${encodeURIComponent("main/todo-row")}`, { token });
   assert.equal(del.body.resolved["main/todo-row"].plugin, "plg_faces");
+});
+
+test("a plugin others see can't take the name of a default or of another shared plugin (redteam-social round 2)", async () => {
+  const w = world({ users: { ...USERS, dee: { id: "dee", scopes: ["todos.read", "thixo.data.read", "thixo.data.write", "thixo.plugins.author", "thixo.plugins.share"] } } });
+  await w.thixo.services.deploy({ plugins: folders(), layout, deployment: "sha-1" });
+  const registry = w.thixo.services.registry;
+  const refusal = async (promise: Promise<unknown>) => {
+    try {
+      await promise;
+    } catch (error: any) {
+      return { status: error.status, code: error.code, message: String(error.message) };
+    }
+    throw new Error("expected a refusal");
+  };
+
+  // A personal plugin may be called anything: only its author sees it.
+  for (const name of ["Due dates", "due-dates", "DUE  DATES.", "Ｄｕｅ ｄａｔｅｓ"]) {
+    const spoof = await submitOk(w, "ana", { name, description: "Give a todo a due date and see a warning when it is close.", manifest: detail, note: name });
+    const no = await refusal(registry.share({ user: w.users.ana, plugin: spoof.plugin.id }));
+    assert.deepEqual([no.status, no.code], [409, "name_taken"], name);
+    assert.match(no.message, /already the name of a default plugin/);
+    assert.equal((await w.adapters.data.getPlugin(spoof.plugin.id))?.visibility, "personal");
+  }
+
+  // Renamed, it shares; a later version can't take the name back.
+  const own = await submitOk(w, "ana", { name: "Due dates", manifest: detail, note: "own" });
+  await submitOk(w, "ana", { name: "Ana's due dates", manifest: detail, note: "renamed" }, own.plugin.id);
+  assert.equal((await registry.share({ user: w.users.ana, plugin: own.plugin.id })).visibility, "shared");
+  const back = await registry.submit({ user: w.users.ana, files: pluginFiles({ name: "Due Dates", manifest: detail, note: "back" }), plugin: own.plugin.id });
+  assert.equal(back.ok, false);
+  if (!back.ok) assert.deepEqual(back.errors.map((e) => e.code), ["registry/name-taken"]);
+  assert.equal((await w.adapters.data.getPlugin(own.plugin.id))?.name, "Ana's due dates");
+
+  // Nor can someone else share a plugin under the name ana's shared one has.
+  const copy = await submitOk(w, "dee", { name: "Ana’s due dates", manifest: detail, note: "dee" });
+  assert.equal((await refusal(registry.share({ user: w.users.dee, plugin: copy.plugin.id }))).code, "name_taken");
 });

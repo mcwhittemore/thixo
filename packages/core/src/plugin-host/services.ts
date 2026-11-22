@@ -9,11 +9,26 @@ export interface ShellServiceHost {
   /** The app's origin, such as `https://app.example.com`. */
   origin: string;
   navigate(path: string): void;
-  /** Shows `content` in a shell-owned dialog. Returns what closes it. */
-  openModal(content: unknown, options: { title?: string; pluginName: string; scopeClass: string }): () => void;
+  /** Shows `content` in a shell-owned dialog. Returns what closes it. The dialog always says which plugin drew it,
+   * from `source`, where the plugin's `title` and content can't reach (S8, P8). */
+  openModal(content: unknown, options: { title?: string; pluginName: string; scopeClass: string; source: PluginSource }): () => void;
   copyToClipboard(text: string): Promise<void>;
   download(file: { name: string; content: string; mimeType: string }): void;
-  toast(message: string, tone: Tone): void;
+  /** A notice. `source` says which plugin sent it; the shell shows that beside the message. */
+  toast(message: string, tone: Tone, source?: PluginSource): void;
+}
+
+/** Which plugin a shell surface is showing content from, for the line the plugin can't change. */
+export interface PluginSource {
+  pluginName: string;
+  author: string;
+}
+
+/** The attribution line a shell surface shows under plugin content: "From the plugin “Reminder”, by ana". The
+ * implementor's own plugins say so instead of naming a user. */
+export function sourceLine(source: PluginSource): string {
+  const name = source.pluginName.replace(/[\u0000-\u001f\u007f]/g, "").slice(0, 80);
+  return `From the plugin “${name}”, ${source.author === "implementor" ? "one of this app's own" : `by ${source.author}`}`;
 }
 
 const CONTROL = /[\u0000-\u001f\u007f]/;
@@ -60,6 +75,8 @@ export interface ServiceOptions {
   manifest: Manifest;
   host: ShellServiceHost;
   pluginName: string;
+  /** The plugin's author, for the attribution line on every dialog and notice. */
+  author: string;
   scopeClass: string;
   signal: AbortSignal;
 }
@@ -68,6 +85,7 @@ export interface ServiceOptions {
  * refuses once the plugin has stopped (P7). */
 export function createServices(options: ServiceOptions) {
   const { manifest, host, pluginName, scopeClass, signal } = options;
+  const source: PluginSource = { pluginName, author: options.author };
   const listed = new Set(manifest.shellServices);
   const check = (name: (typeof SERVICE_NAMES)[number]) => {
     if (signal.aborted) throw new ThixoRefused(name, "the plugin has stopped");
@@ -86,7 +104,7 @@ export function createServices(options: ServiceOptions) {
     openModal(content: unknown, options?: { title?: unknown }): { close(): void } {
       check("openModal");
       const title = typeof options?.title === "string" ? options.title.slice(0, 200) : undefined;
-      const closeModal = host.openModal(content, { title, pluginName, scopeClass });
+      const closeModal = host.openModal(content, { title, pluginName, scopeClass, source });
       const close = () => {
         if (closers.delete(close)) closeModal();
       };
@@ -106,7 +124,7 @@ export function createServices(options: ServiceOptions) {
     toast(message: unknown, options?: { tone?: unknown }): void {
       check("toast");
       const tone: Tone = options?.tone === "success" || options?.tone === "warning" || options?.tone === "danger" ? options.tone : "info";
-      host.toast(String(message).slice(0, 500), tone);
+      host.toast(String(message).slice(0, 500), tone, source);
     },
   };
 }

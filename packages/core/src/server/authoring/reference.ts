@@ -45,7 +45,9 @@ of two things:
 - Written out in the source: <img src="https://example.com/logo.png">. It is fixed at build and must be on an allowed host.
 - Handed to the plugin from outside it (an avatar address an endpoint returned, a route from the shell). It has the type
   Url. The plugin passes it along and can't look inside it, build one, join one from parts or add to one.
-No string operation produces a Url. A field that holds an address is declared t.url(), and a plugin can write only a Url to
+An image or a CSS url() loads when the plugin renders, so a Url there, written out or handed in, must be a path on the
+app, a data: image or font, or on one of the app's load hosts; any other stops the plugin. A link waits for a click and may
+be any handed-in http or https Url. No string operation produces a Url. A field that holds an address is declared t.url(), and a plugin can write only a Url to
 it, never a string. The manifest lists every outside address the source names.`;
 
 const EXAMPLE = `## A worked example
