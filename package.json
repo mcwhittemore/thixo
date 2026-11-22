@@ -12,7 +12,8 @@
   "scripts": {
     "build": "tsc -b packages/thx packages/core packages/thixo-sql packages/thixo-node packages/thixo-anthropic packages/cli",
     "test": "npm run test -w thixo-thx -w thixo -w thixo-sql -w thixo-node -w thixo-anthropic -w thixo-cli",
-    "typecheck": "tsc -b packages/thx packages/core packages/thixo-sql packages/thixo-node packages/thixo-anthropic packages/cli && tsc -p packages/core/test"
+    "typecheck": "tsc -b packages/thx packages/core packages/thixo-sql packages/thixo-node packages/thixo-anthropic packages/cli && tsc -p packages/core/test",
+    "e2e": "node --test --test-concurrency=1 \"tests/e2e/*.e2e.mjs\""
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
