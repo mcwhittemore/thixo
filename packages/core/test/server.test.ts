@@ -82,10 +82,14 @@ test("GET /_thixo/app describes the app, with Thixo's scopes added", async () =>
   const { status, body } = await call(thixo, "GET", "/_thixo/app");
   assert.equal(status, 200);
   assert.ok("notes.read" in body.scopes && "thixo.data.admin" in body.scopes);
-  assert.deepEqual(body.endpoints.find((e: { name: string }) => e.name === "addNote"), {
-    name: "addNote", method: "POST", path: "/notes", scopes: ["notes.read", "notes.write"],
-  });
+  const addNote = body.endpoints.find((e: { name: string }) => e.name === "addNote");
+  assert.deepEqual(
+    { name: addNote.name, method: addNote.method, path: addNote.path, scopes: addNote.scopes },
+    { name: "addNote", method: "POST", path: "/notes", scopes: ["notes.read", "notes.write"] },
+  );
+  assert.equal(addNote.input.kind, "object", "the broker validates a plugin's input against it");
   assert.equal(body.records[0].exportName, "Note");
+  assert.ok(body.records[0].fields, "the broker resolves record schemas with it");
 });
 
 test("/api: 401 without a token or with a bad one", async () => {

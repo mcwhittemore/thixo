@@ -169,7 +169,8 @@ export function SlotView(props: { path: string; def: SlotDef; context: Record<st
       </div>
     );
   }
-  return <Filled path={props.path} def={def} context={props.context} running={state.running} records={records(internals)} />;
+  const { load } = state.running;
+  return <Filled key={`${load.plugin.id}@${load.version}`} path={props.path} def={def} context={props.context} running={state.running} records={records(internals)} />;
 }
 
 function Filled(props: { path: string; def: SlotDef; context: Record<string, unknown>; running: Running; records: RecordFields }) {
