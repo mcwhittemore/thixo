@@ -143,7 +143,7 @@ test("changes in plugins/ redeploy, api/ and the config rebuild the server, app/
 test("new plugin writes plugins/<name>/plugin.thx with a fresh id and refuses a taken name", () => {
   const root = tmp();
   put(root, "thixo.config.ts");
-  put(root, "app/slots.ts", "export const main = 1;");
+  put(root, "app/slots.ts", 'export const main = 1;\nexport const todoDetail = slot.panel({ name: "todo-detail" });');
   const io = testIo(root);
   newPlugin({ name: "due-dates", slot: "main", dir: root }, io);
   const text = readPluginFolder(join(root, "plugins/due-dates"))["plugin.thx"];
@@ -153,9 +153,11 @@ test("new plugin writes plugins/<name>/plugin.thx with a fresh id and refuses a 
   assert.deepEqual(io.stderr, []);
   assert.throws(() => newPlugin({ name: "due-dates", slot: "main", dir: root }, io), /already exists/);
   assert.throws(() => newPlugin({ name: "Due Dates", slot: "main", dir: root }, io), /kebab-case/);
-  assert.throws(() => newPlugin({ name: "x", slot: "not a slot", dir: root }, io), /slot export name/);
+  assert.throws(() => newPlugin({ name: "x", slot: "not a slot", dir: root }, io), /is not a slot in app\/slots.ts/);
   newPlugin({ name: "y", slot: "ghost", dir: root }, io);
-  assert.match(io.stderr[0], /does not export ghost/);
+  assert.match(io.stderr[0], /has no slot ghost/);
+  newPlugin({ name: "z", slot: "todo-detail", dir: root }, io);
+  assert.match(readPluginFolder(join(root, "plugins/z"))["plugin.thx"], /import \{ todoDetail \} from "@app\/slots";/);
   assert.notEqual(pluginId(), pluginId());
   assert.match(pluginTemplate({ name: "a", slot: "s", id: "plg_1" }), /definePlugin\(\n {2}s,/);
 });

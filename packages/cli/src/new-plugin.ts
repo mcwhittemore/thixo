@@ -39,26 +39,36 @@ export default definePlugin(
 `;
 }
 
-/** `thixo new plugin <name> --slot <export name>`: `plugins/<name>/plugin.thx` with a fresh id. */
+/** The export name in app/slots.ts of a slot given by its name (`todo-detail`) or its export name (`todoDetail`). */
+export function slotExport(slotsText: string, slot: string): string | null {
+  const escaped = slot.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const byName = new RegExp(`export\\s+const\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*slot\\.\\w+\\(\\s*\\{\\s*name:\\s*["']${escaped}["']`).exec(slotsText);
+  if (byName) return byName[1];
+  if (/^[A-Za-z_$][\w$]*$/.test(slot) && new RegExp(`export\\s+(const|let|var)\\s+${escaped}\\b|export\\s*\\{[^}]*\\b${escaped}\\b`).test(slotsText)) return slot;
+  return null;
+}
+
+/** `thixo new plugin <name> --slot <slot>`: `plugins/<name>/plugin.thx` with a fresh id. The slot is its name, such
+ * as todo-detail, or its export name in app/slots.ts, such as todoDetail. */
 export function newPlugin(options: { name: string; slot: string; dir: string }, io: Io): string {
   if (!/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/.test(options.name)) throw new CliError(`"${options.name}" is not a plugin name. Use kebab-case, such as due-dates.`);
-  if (!/^[A-Za-z_$][\w$]*$/.test(options.slot)) throw new CliError(`"${options.slot}" is not a slot export name. It is the name exported from app/slots.ts, such as main.`);
   const paths = openProject(options.dir);
   const folder = join(paths.pluginsDir, options.name);
   if (existsSync(folder)) throw new CliError(`plugins/${options.name} already exists.`);
 
   const slotsFile = findSlotsFile(paths);
+  let exportName = /^[A-Za-z_$][\w$]*$/.test(options.slot) ? options.slot : null;
   if (slotsFile) {
-    const text = readFileSync(slotsFile, "utf8");
-    if (!new RegExp(`export\\s+(const|let|var)\\s+${options.slot.replace(/\$/g, "\\$")}\\b|export\\s*\\{[^}]*\\b${options.slot.replace(/\$/g, "\\$")}\\b`).test(text)) {
-      io.err(`warning: ${slotsFile.slice(paths.root.length + 1)} does not export ${options.slot}. The plugin will not compile until it does.`);
-    }
+    const found = slotExport(readFileSync(slotsFile, "utf8"), options.slot);
+    if (found) exportName = found;
+    else if (exportName) io.err(`warning: ${slotsFile.slice(paths.root.length + 1)} has no slot ${options.slot}. The plugin will not compile until it does.`);
   }
+  if (!exportName) throw new CliError(`"${options.slot}" is not a slot in app/slots.ts. Give its name, such as todo-detail, or its export name, such as todoDetail.`);
 
   mkdirSync(folder, { recursive: true });
   const file = join(folder, "plugin.thx");
-  writeFileSync(file, pluginTemplate({ name: options.name, slot: options.slot, id: pluginId() }));
+  writeFileSync(file, pluginTemplate({ name: options.name, slot: exportName, id: pluginId() }));
   io.out(`Created plugins/${options.name}/plugin.thx`);
-  io.out(`Add it to the layout in thixo.config.ts to make it the default for ${options.slot}: { ${options.slot}: ${JSON.stringify(options.name)} }`);
+  io.out(`Add it to the layout in thixo.config.ts to make it a default: { "<slot path>": ${JSON.stringify(options.name)} }`);
   return file;
 }

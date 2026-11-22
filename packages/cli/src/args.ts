@@ -66,10 +66,10 @@ Options
   --out <dir>        Write plugin.js and manifest.json there
   --json             Print one machine-readable result
   --project <dir>    The app to compile against`,
-  "new-plugin": `thixo new plugin <name> --slot <slotExportName> [dir]
+  "new-plugin": `thixo new plugin <name> --slot <slot> [dir]
 
-Creates plugins/<name>/plugin.thx with a fresh id and a minimal component. <name> is kebab-case. The slot is the
-export name in app/slots.ts, such as main.`,
+Creates plugins/<name>/plugin.thx with a fresh id and a minimal component. <name> is kebab-case. The slot is its
+name, such as todo-detail, or its export name in app/slots.ts, such as todoDetail.`,
   agent: `thixo agent <tool> --as <user> [options]
 
 Calls one authoring tool on the running \`thixo dev\` as <user>. Sends POST /_thixo/authoring/tool with
@@ -161,7 +161,7 @@ export function parseCommand(argv: string[], env: NodeJS.ProcessEnv = process.en
       if (wantsHelp) return { name: "help", topic: "new-plugin" };
       const { values, positionals } = parse("new plugin", more, { slot: { type: "string" } });
       if (!positionals[0]) throw new CliError("thixo new plugin needs a name: `thixo new plugin <name> --slot <slot>`.");
-      if (!values.slot) throw new CliError("thixo new plugin needs --slot <slotExportName>, the slot the plugin fills.");
+      if (!values.slot) throw new CliError("thixo new plugin needs --slot <slot>, the slot the plugin fills.");
       if (positionals.length > 2) throw new CliError("thixo new plugin takes a name and, optionally, the app folder.");
       return { name: "new-plugin", pluginName: positionals[0], slot: values.slot, dir: positionals[1] ?? "." };
     }
