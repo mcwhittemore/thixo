@@ -6,6 +6,7 @@ import { optionalScopes, requiredScopes } from "../registry/scopes.js";
 import { summarise } from "../registry/summary.js";
 import { services } from "../routes/registry.js";
 import { describeApp } from "./reference.js";
+import { resolveSlotPath } from "../../slots/paths.js";
 import { UNTRUSTED_NOTICE, untrusted } from "./untrusted.js";
 
 const AUTHOR_SCOPE = "thixo.plugins.author";
@@ -52,7 +53,7 @@ export const TOOL_DEFINITIONS: AgentTool[] = [
   {
     name: "submit",
     description:
-      "Build and store a plugin. Without `plugin`, it is a new personal plugin. With `plugin` (an id the user authored), it is a new version of it. Returns the summary, the scopes and what changed in the plugin's data.",
+      "Build and store a plugin. Without `plugin`, it is a new personal plugin with a new id. With `plugin` (an id the user authored), it is a new version of that plugin: use this to change the user's own plugin, rather than fork. Returns the id, the version, the summary, the scopes and what changed in the plugin's data.",
     input: {
       type: "object",
       properties: {
@@ -65,7 +66,7 @@ export const TOOL_DEFINITIONS: AgentTool[] = [
   {
     name: "fork",
     description:
-      "Copy a plugin version into a new personal plugin the user authors. It starts with the same source. Set empty to leave the parent's data behind.",
+      "Copy a plugin version into a new personal plugin the user authors, with a new id. It starts with the same source. Fork another author's plugin to change it; to change the user's own plugin, submit a new version of it instead. Set empty to leave the parent's data behind.",
     input: {
       type: "object",
       properties: { plugin: { type: "string" }, version: { type: "integer" }, empty: { type: "boolean" } },
@@ -74,7 +75,8 @@ export const TOOL_DEFINITIONS: AgentTool[] = [
   },
   {
     name: "use",
-    description: "Put a plugin version in the user's layout, in a slot it fills.",
+    description:
+      "Put a plugin version in the user's layout, in a slot it fills. Name the slot by its path from describe_app, such as main/todo-row for a child slot; a bare child name that sits in one place is turned into its path, and a slot that does not exist is refused. A slot holds one plugin, so this replaces what was there.",
     input: {
       type: "object",
       properties: { plugin: { type: "string" }, version: { type: "integer" }, slot: { type: "string", description: "The slot path, such as main/todo-row." } },
@@ -229,7 +231,11 @@ export function createAuthoringTools(ctx: ServerContext): AuthoringTools {
     async fork(input, user) {
       const empty = input.empty;
       if (empty !== undefined && typeof empty !== "boolean") bad("empty must be true or false.");
-      const reply = await registry.fork({ user, ref: { plugin: str(input, "plugin", true), number: whole(input, "version", true) }, empty });
+      const parentId = str(input, "plugin", true);
+      const number = whole(input, "version", true);
+      const parent = await registry.getPlugin({ user, plugin: parentId });
+      const reply = await registry.fork({ user, ref: { plugin: parentId, number }, empty });
+      const own = parent.plugin.author === user.id;
       return {
         ok: true,
         plugin: reply.plugin.id,
@@ -240,16 +246,31 @@ export function createAuthoringTools(ctx: ServerContext): AuthoringTools {
         summary: reply.summary,
         requiredScopes: requiredScopes(ctx, reply.manifest),
         optionalScopes: optionalScopes(ctx, reply.manifest),
-        next: "Use read_plugin to see its source, change it, check it, then submit with plugin set to this id.",
+        next: own
+          ? `This is a second plugin, a copy of the user's own ${parentId}, which stays as it was. To change ${parentId} itself, submit with plugin set to ${parentId}. To go on with the copy, change it, check it, then submit with plugin set to ${reply.plugin.id}, and use it to put it in the layout.`
+          : `Use read_plugin to see its source, change it, check it, then submit with plugin set to ${reply.plugin.id}, and use it to put it in the layout.`,
       };
     },
 
     async use(input, user) {
-      const slot = str(input, "slot", true);
+      const asked = str(input, "slot", true);
       const plugin = str(input, "plugin", true);
       const number = whole(input, "version", true);
+      const where = resolveSlotPath(ctx.app.slots, asked);
+      if (!where.ok) throw new HttpError(400, where.message, { code: "unknown_slot" });
+      const slot = where.path;
+      const before = (await registry.layout.get(user)).resolved[slot];
       const layout = await registry.layout.set(user, { slot, plugin, number });
-      return { ok: true, slot, plugin, version: number, resolved: layout.resolved[slot] ?? null };
+      const replaced = before && before.plugin !== plugin ? await registry.getPlugin({ user, plugin: before.plugin }).catch(() => null) : null;
+      return {
+        ok: true,
+        slot,
+        plugin,
+        version: number,
+        resolved: layout.resolved[slot] ?? null,
+        ...(replaced ? { replaced: untrusted("the plugin it replaced in that slot", `${replaced.plugin.name} (${replaced.plugin.id}@${before!.number})`) } : {}),
+        note: `It now fills ${slot} for this user. A slot holds one plugin${replaced ? ", so it replaced the one that was there; tell the user" : ""}.`,
+      };
     },
   };
 

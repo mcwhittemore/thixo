@@ -8,7 +8,7 @@ import { classifyChange } from "../src/changes.js";
 import { clientEntry, indexHtml, serverEntry } from "../src/entries.js";
 import { CliError, formatThxError } from "../src/errors.js";
 import { contentSecurityPolicy } from "../src/handler.js";
-import { newPlugin, pluginId, pluginTemplate } from "../src/new-plugin.js";
+import { layoutHint, newPlugin, pluginId, pluginTemplate } from "../src/new-plugin.js";
 import { compileFolder, readPluginFolder, readPlugins, reportOutcome, summarizeManifest } from "../src/plugins.js";
 import { findProjectRoot, openProject, projectPaths } from "../src/project.js";
 import { FAKE_ERROR, fakeThx, testIo } from "./support/helpers.js";
@@ -156,7 +156,8 @@ test("new plugin writes plugins/<name>/plugin.thx with a fresh id and refuses a 
   const io = testIo(root);
   newPlugin({ name: "due-dates", slot: "main", dir: root }, io);
   const text = readPluginFolder(join(root, "plugins/due-dates"))["plugin.thx"];
-  assert.match(text, /id: "plg_[A-Za-z0-9]{12}"/);
+  assert.match(text, /id: "plg_[0-9a-f]{18}"/, "the same form create-thixo-app gives");
+  assert.match(io.stdout.join("\n"), /"<the slot's path>": "due-dates"/, "without the app loaded, it says what goes there");
   assert.match(text, /import \{ main \} from "@app\/slots";/);
   assert.match(text, /function DueDates\(\)/);
   assert.deepEqual(io.stderr, []);
@@ -169,6 +170,21 @@ test("new plugin writes plugins/<name>/plugin.thx with a fresh id and refuses a 
   assert.match(readPluginFolder(join(root, "plugins/z"))["plugin.thx"], /import \{ todoDetail \} from "@app\/slots";/);
   assert.notEqual(pluginId(), pluginId());
   assert.match(pluginTemplate({ name: "a", slot: "s", id: "plg_1" }), /definePlugin\(\n {2}s,/);
+});
+
+test("new plugin prints the layout line with the slot's real path when the app loads", () => {
+  const app = {
+    slots: [
+      { name: "main", exportName: "main", children: ["todo-row"] },
+      { name: "todo-row", exportName: "todoRow", children: [] },
+      { name: "loose", exportName: "loose", children: [] },
+    ],
+    paths: ["main", "main/todo-row", "loose"],
+  };
+  assert.equal(layoutHint("stars", "todoRow", app), 'Add it to the layout in thixo.config.ts to make it a default: "main/todo-row": "stars"');
+  assert.equal(layoutHint("home", "main", app), 'Add it to the layout in thixo.config.ts to make it a default: "main": "home"');
+  assert.match(layoutHint("x", "ghost", app), /"<the slot's path>": "x"/);
+  assert.match(layoutHint("x", "loose", { ...app, paths: ["main", "main/todo-row"] }), /not placed in any other slot/);
 });
 
 const agent = (over: Partial<AgentOptions>): AgentOptions => ({ command: "describe", as: "ana", files: [], positionals: [], raw: false, ...over });
@@ -188,6 +204,9 @@ test("agent requests: body is { tool, as, input }, with the shortcut mapped to i
   assert.equal(submit.tool, "submit");
   assert.deepEqual(submit.input, { files: { "lib/a.thx": "A", "plugin.thx": "P", "more.thx": "E" }, plugin: "plg_a" });
   assert.deepEqual(buildAgentRequest(agent({ command: "custom_tool", json: '{"x":1}' }), dir), { tool: "custom_tool", as: "ana", input: { x: 1 } });
+  // A tool's own name takes the shortcut's arguments, so `agent read_plugin plg_a@3` works as `agent read` does.
+  assert.deepEqual(buildAgentRequest(agent({ command: "read_plugin", positionals: ["plg_a@3"] }), dir), { tool: "read_plugin", as: "ana", input: { plugin: "plg_a", version: 3 } });
+  assert.deepEqual(buildAgentRequest(agent({ command: "search_registry", positionals: ["due"] }), dir).input, { query: "due" });
 });
 
 test("agent requests: bad input says what is wrong", () => {

@@ -328,8 +328,8 @@ export class Emitter {
     return this.error(
       id,
       "thx/no-global",
-      `\`${name}\` does not exist in the language. A plugin can name only what it imports, what it declares and the built-ins (${[...BUILTIN_GLOBALS].join(", ")}).`,
-      hints[name] ?? "Import it from a module the app provides, or declare it.",
+      `\`${name}\` does not exist in the language. A plugin can name only what it imports, what it declares and the language's built-ins.`,
+      hints[name] ?? `Import it from a module the app provides, or declare it. The built-ins are ${[...BUILTIN_GLOBALS].join(", ")}.`,
     );
   }
 

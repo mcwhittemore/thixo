@@ -24,6 +24,10 @@ export interface ServerApi {
   createThixo(app: AppDefinition, config: ThixoConfig): Thixo;
   collectApp(modules: Record<string, unknown>[], config: Pick<ThixoConfig, "libraries">): AppDefinition;
   buildCompileEnv(app: AppDefinition, config: ThixoConfig): CompileEnv;
+  /** Every slot path a layout can name. Optional so a fake server can leave it out. */
+  slotPaths?(slots: AppDefinition["slots"]): string[];
+  /** What the registry tells a user about a manifest: its summary and scopes. Optional, as above. */
+  describeManifest?(app: AppDefinition, manifest: import("thixo-thx/contract").Manifest): { summary: string[]; requiredScopes: string[]; optionalScopes: string[] };
 }
 
 /** The three packages the CLI calls into. Each is loaded when first needed, so a command that does not need one

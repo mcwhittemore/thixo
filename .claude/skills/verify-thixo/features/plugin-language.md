@@ -6,7 +6,7 @@ A plugin author (the authoring agent or the implementor) writes a folder of `.th
 
 - `thx-compile` compiles a plugin folder (several files, relative imports) to one `export default function (rt) { ... }` module.
 - `thx-manifest` derives slot, required and optional endpoints, annotations, data schema and its hash, shell services, outside addresses and libraries from the source alone.
-- `thx-errors` refuses anything outside the language with a `thx/...` code, a position, a sentence and, where there is one answer, a hint.
+- `thx-errors` refuses anything outside the language with a `thx/...` code, a position, a sentence and, where there is one answer, a hint. Two common ones: `thx/no-global` for a name the plugin neither imports nor declares (such as `window`), with a short hint for the well-known ones and the list of built-ins only when there is no better hint; and `thx/type` for a type error, such as a misspelled field, carrying TypeScript's own `Did you mean '<name>'?`.
 - `thx-verify` re-parses emitted code and refuses any module that names something it did not declare or touches anything but `rt.<member>`.
 - `thx-run` runs compiled code against a host: renders, calls the SDK with plain data, gets plain data back in handlers.
 - `thx-wall` keeps globals, constructors, prototypes, raw elements, built addresses and outside styles out, at build and at run time.
@@ -28,7 +28,7 @@ Preconditions:
 - `npm run build` in `packages/thx` exits 0.
 - The fixtures `packages/thx/test/fixtures/todo-list` and `packages/thx/test/fixtures/due-dates` exist (the examples/todo plugins rewritten as thx).
 
-- **Compile the example's plugins against the real app.** Run `npx thixo compile examples/todo/plugins/due-dates`, `…/todo-list` and `…/done-badge`. Each exits 0 with `Compiled <folder> (<name>)` and a summary; due-dates says `Annotates todo with dueOn (date).`. A plugin with `window` fails `thixo agent check` with `plugin.thx:<line>:<col>` (see `authoring.md`).
+- **Compile the example's plugins against the real app.** Run `npx thixo compile examples/todo/plugins/due-dates`, `…/todo-list` and `…/done-badge`. Each exits 0 with `Compiled <folder> (<name>)` and a summary; due-dates says `Annotates todo with dueOn (date).`. A plugin with `window` fails `thixo agent check` with `plugin.thx:<line>:<col> thx/no-global \`window\` does not exist in the language. A plugin can name only what it imports, what it declares and the language's built-ins.` and the hint `A plugin reaches the app only through what it imports from the SDK.`, exit `1` (see `authoring.md`). A misspelled field, such as `todo.data.titel`, fails with `thx/type` and `Did you mean 'title'?`.
 - **Run them in a browser.** The `todo-basics` journey in `todo-app.md` runs all three compiled plugins in the real runtime inside the shell, with `css()` rules scoped by the shell.
 - **Compile the due-dates fixture.** Run `node --import tsx packages/thx/scripts/thxc.ts packages/thx/test/fixtures/due-dates`. Exit 0; JSON has `"ok": true`, `"verified": true`, `manifest.slot` `"todo-detail"`, `requiredEndpoints` `["getTodo"]`, `annotates` `["todo"]`, `data.stores.prefs` `[{"name":"warnDaysBefore","type":"number"}]`, `data.annotations.todo` `[{"name":"dueOn","type":"date"}]`.
 - **Compile the todo list.** Run `node --import tsx packages/thx/scripts/thxc.ts packages/thx/test/fixtures/todo-list`. Exit 0; `requiredEndpoints` `["createTodo","listTodos","updateTodo"]`, `optionalEndpoints` `["deleteTodo","listAssignees"]`, data empty. These match the tables in `examples/todo/readme.md`.
@@ -45,5 +45,7 @@ Preconditions:
 - `scripts/thxc.ts` compiles against the test fixture env (test-double module declarations) unless given `--env <file.json>`. `thixo compile` uses the real `thixo/*` declarations core writes.
 - A `.thx` source passed on the command line must be a folder with a `plugin.thx`; a single file is refused with `thx/file`.
 - The package's runtime tests use a fake host (plain-object `createElement`, flat-array hooks). The browser steps use React and the shell's plugin host.
+- A `DateInput` value is a calendar day held as midnight UTC (`2026-12-24T00:00:00.000Z`), so a user in any time zone reads the same day back. `journeys/due-date-day.mjs` proves it: run it with `SET=1` under `TZ=America/Los_Angeles`, then again under `TZ=Asia/Tokyo`; both print `it reads 2026-12-24`.
+- A `Checkbox` without `label` is named `Done` for a screen reader. Give any other checkbox a label. Every component's props are in `thixo agent describe`, under `### thixo/ui`.
 - Budget tests set `budget: 20000`; the default is 5,000,000. A stopped runtime stays stopped: create a new one to run the plugin again.
 - Plugin promises that the runtime stops are marked handled; any other plugin rejection still shows as unhandled, which `node --test` counts as a failure.

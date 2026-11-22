@@ -174,7 +174,8 @@ test("thixo compile and thixo new plugin work on the app", () => {
 
 test("the agent describes the app, checks, submits and uses a new plugin as ana", () => {
   const reference = agent(["describe", "--as", "ana"]);
-  assert.match(reference, /todo-detail \(export todoDetail, panel\)/);
+  assert.match(reference, /todo-detail \(export todoDetail, panel; path todo-detail\)/);
+  assert.match(reference, /todo-row \(export todoRow, widget; path main\/todo-row\)/);
   assert.match(reference, /### @app\/sdk/);
 
   assert.match(agent(["check", "--as", "ana", "--dir", pluginDir]), /"ok": true/);
@@ -192,6 +193,7 @@ test("the agent describes the app, checks, submits and uses a new plugin as ana"
   const refused = thixo(["agent", "check", "--as", "ana", "--dir", broken, "--project", dir]);
   rmSync(broken, { recursive: true });
   assert.match(refused.stdout + refused.stderr, /plugin\.thx:\d+:\d+/);
+  assert.equal(refused.code, 1, "a failed check exits 1, so a script can tell");
 });
 
 test("ana sees her personal plugin in the detail panel; ben still sees the default", async () => {
@@ -225,6 +227,8 @@ test("ana shares it in the plugin browser; ben uses it, forks it and promotes it
 
   await shared.getByRole("button", { name: "Fork Todo summary" }).click();
   await pluginBrowser(ben).getByRole("status").getByText("Forked Todo summary").waitFor();
+  // The status names the copy's id and says it is not in the layout yet (verify-plugins-todo).
+  assert.match(await pluginBrowser(ben).getByRole("status").innerText(), /as plg_[0-9a-zA-Z_]+\. The copy is yours and is not in your layout yet: Use it/);
   const fork = pluginBrowser(ben).getByRole("listitem", { name: "Todo summary" }).filter({ hasText: "personal · by ben" });
   await fork.waitFor();
 
@@ -234,6 +238,8 @@ test("ana shares it in the plugin browser; ben uses it, forks it and promotes it
   assert.equal(reply.status(), 200);
   const { folder } = await reply.json();
   assert.equal(folder, "todo-summary");
+  // The status says what was written and what makes it a default (verify-defaults-crm).
+  await pluginBrowser(ben).getByRole("status").getByText('wrote plugins/todo-summary/ for the implementor. It becomes a default when they name "todo-summary" in layout in thixo.config.ts').waitFor();
   const written = readFileSync(join(dir, "plugins", folder, "plugin.thx"), "utf8");
   assert.match(written, new RegExp(`id: "${summaryId}"`));
   await ben.context().close();

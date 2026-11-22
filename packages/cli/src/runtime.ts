@@ -65,6 +65,15 @@ export async function deployPlugins(app: RunningApp, paths: ProjectPaths, deps: 
   for (const outcome of failed) for (const line of reportOutcome(outcome)) io.err(line);
   if (failed.length && options.strict) throw new CliError(`${failed.length} plugin${failed.length === 1 ? "" : "s"} failed to compile. Run \`thixo build\` and fix them.`);
 
+  // A folder the layout names but that did not compile would make the deploy refuse it as missing, which reads like
+  // a config error. Say what happened instead, and keep the last release.
+  const named = new Set(Object.values(app.config.layout));
+  const blocking = failed.filter((o) => named.has(o.name)).map((o) => `plugins/${o.name}`);
+  if (blocking.length && !options.strict) {
+    io.err(`  not deployed: the layout names ${blocking.join(", ")}, which did not compile (see above). The app keeps the last release until ${blocking.length === 1 ? "it compiles" : "they compile"}.`);
+    return { release: null, failed: failed.map((o) => o.name) };
+  }
+
   const passing = Object.fromEntries(outcomes.filter((o) => o.result.ok).map((o) => [o.name, plugins[o.name]]));
   const buildHash = options.buildHash ?? hashOf(outcomes.map((o) => (o.result.ok ? o.result.sourceHash : `failed:${o.name}`)));
   const input: DeployInput & { deployment: string } = { plugins: passing, layout: app.config.layout, deployment: deploymentId(paths.root, buildHash) };

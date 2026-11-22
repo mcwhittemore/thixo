@@ -312,6 +312,9 @@ export interface PluginSummary {
   requiredScopes: string[];
   optionalScopes: string[];
   isDefault: boolean;
+  /** The version the newest release serves, for a default plugin the layout names. It can be older than `latest`
+   * after a rollback. */
+  defaultVersion?: number;
 }
 
 export interface LayoutReply {

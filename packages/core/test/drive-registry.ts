@@ -42,9 +42,9 @@ say(`plugin route: ${js.status} ${js.headers.get("content-type")} ${js.headers.g
 const promoted = await call(w.thixo, "POST", `/_thixo/registry/plugins/${v1.plugin.id}/promote`, { token: boss, body: {} });
 show("boss promotes", promoted);
 const folder = Object.fromEntries(Object.entries(w.adapters.code.changes[0].files).map(([p, t]) => [p.replace(/^plugins\/[^/]+\//, ""), t]));
-const release = await w.thixo.services.deploy({ plugins: { [promoted.body.folder]: folder }, layout: { "main/todo-detail": promoted.body.folder }, deployment: "merge-1" });
+const release = await w.thixo.services.deploy({ plugins: { [promoted.body.folder]: folder }, layout: { "todo-detail": promoted.body.folder }, deployment: "merge-1" });
 say(`deploy after the change merges: ${JSON.stringify(release.layout)}`);
-const again = await w.thixo.services.deploy({ plugins: { [promoted.body.folder]: folder }, layout: { "main/todo-detail": promoted.body.folder }, deployment: "merge-1" });
+const again = await w.thixo.services.deploy({ plugins: { [promoted.body.folder]: folder }, layout: { "todo-detail": promoted.body.folder }, deployment: "merge-1" });
 say(`deploy again: ${again.id === release.id ? "same release" : "new release"}, versions: ${(await w.adapters.data.listVersions(v1.plugin.id)).length}`);
 const layout = await call(w.thixo, "GET", "/_thixo/layout", { token: ben });
 say(`ben's layout: ${JSON.stringify(layout.body.resolved)}`);

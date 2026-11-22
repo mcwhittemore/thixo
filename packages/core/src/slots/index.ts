@@ -80,3 +80,4 @@ export const slot = {
   widget: make("widget"),
   custom: make("custom"),
 };
+export { slotPaths, resolveSlotPath, type SlotTree, type SlotPathLookup } from "./paths.js";

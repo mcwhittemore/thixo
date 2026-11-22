@@ -18,7 +18,7 @@ const model = scriptedModel([
   { toolCalls: [{ name: "submit", input: { files: fixed } }] },
   (turn) => {
     const { plugin, version } = JSON.parse((turn.messages.at(-1) as { output: string }).output);
-    return { toolCalls: [{ name: "use", input: { plugin, version, slot: "main/todo-detail" } }] };
+    return { toolCalls: [{ name: "use", input: { plugin, version, slot: "todo-detail" } }] };
   },
   "Due dates puts a due date on each todo. It reads todos and keeps its own data.",
 ]);

@@ -117,7 +117,7 @@ test("search shows shared and default plugins and the user's own, and only those
   assert.deepEqual(await names("ana", "flag urgent"), ["Priority flags"]);
   assert.deepEqual(await names("ana", "nothing like it"), []);
   assert.deepEqual(await names("ana", "", "todo-row"), ["Assignee faces"]);
-  assert.deepEqual(await names("ana", "", "main/todo-detail"), ["Due dates", "Priority flags"]);
+  assert.deepEqual(await names("ana", "", "todo-detail"), ["Due dates", "Priority flags"]);
   assert.equal(mine.plugin.visibility, "personal");
 });
 

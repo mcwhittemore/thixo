@@ -1,20 +1,20 @@
 #!/usr/bin/env node
 // Is this run's instance worth driving? Read-only.
-//   node .claude/skills/verify-thixo/bin/doctor.mjs [--run <id>]
+//   node .claude/skills/verify-thixo/bin/doctor.mjs [--run <id>] [--as <user>]
 // Exits 0 and prints "healthy" with the checks, or exits 1 naming the first check that failed.
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { alive, args, fail, readState, ROOT } from "./common.mjs";
 
-const run = args().run ?? "default";
+const a = args();
+const run = a.run ?? "default";
 const state = readState(run);
 if (!state?.pid) fail(`no instance for run "${run}". Start one with launch.mjs --run ${run}.`);
 
-// The user each example's own login accepts (examples/todo: ana; examples/crm: rita, a sales rep).
-const SIGN_IN_AS = { todo: "ana", crm: "rita" };
-const user = SIGN_IN_AS[state.example];
-if (!user) fail(`no sign-in user known for example "${state.example}" (run ${run}). Add it to SIGN_IN_AS in doctor.mjs.`);
+// The user to sign in as: --as, else the one launch recorded (ana for todo and a created app, rita for crm).
+const user = a.as && a.as !== true ? a.as : (state.signInAs ?? { todo: "ana", crm: "rita" }[state.example]);
+if (!user) fail(`no sign-in user known for "${state.example}" (run ${run}). Pass --as <user>, one the app's login accepts.`);
 
 const checks = [];
 const check = (name, ok, detail) => {

@@ -3,6 +3,7 @@ import type { ServerContext } from "../context.js";
 import { versionOf, visiblePlugin } from "./access.js";
 import { fail, missingScopes } from "./errors.js";
 import { requiredScopes } from "./scopes.js";
+import { resolveSlotPath } from "../../slots/paths.js";
 import type { LayoutServices } from "./types.js";
 
 /** S9: the newest release is the default, and what a user changed sits over it. A slot they never changed follows
@@ -19,7 +20,10 @@ export function createLayoutServices(ctx: ServerContext): LayoutServices {
   return {
     get,
 
-    async set(user, { slot, plugin: id, number }) {
+    async set(user, { slot: asked, plugin: id, number }) {
+      const where = resolveSlotPath(ctx.app.slots, asked);
+      if (!where.ok) fail(ctx, 400, where.message, "unknown_slot");
+      const slot = where.path;
       const plugin = await visiblePlugin(ctx, user, id);
       const version = await versionOf(ctx, { plugin: id, number });
       missingScopes(ctx, user, requiredScopes(ctx, version.manifest), `Using ${plugin.name}`);
@@ -31,7 +35,9 @@ export function createLayoutServices(ctx: ServerContext): LayoutServices {
       return get(user);
     },
 
-    async reset(user, slot) {
+    async reset(user, asked) {
+      const where = resolveSlotPath(ctx.app.slots, asked);
+      const slot = where.ok ? where.path : asked;
       await data.setLayoutSlot(user.id, slot, null);
       return get(user);
     },

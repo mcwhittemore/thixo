@@ -5,8 +5,27 @@ import { CliError } from "./errors.js";
 import type { Io } from "./io.js";
 import { findSlotsFile, openProject } from "./project.js";
 
+/** A fresh plugin id: `plg_` and 18 random hex characters, as create-thixo-app makes them. */
 export function pluginId(): string {
-  return `plg_${randomBytes(9).toString("base64url").replace(/[-_]/g, "x")}`;
+  return `plg_${randomBytes(9).toString("hex")}`;
+}
+
+/** What `new plugin` knows of the app when its definitions load: each slot, and every path a layout can name. */
+export interface AppSlots {
+  slots: { name: string; exportName: string; children: string[] }[];
+  paths: string[];
+}
+
+/** The layout line to print: the slot's real path, or each of them, so the line can be pasted as it is. */
+export function layoutHint(folder: string, slot: string, app?: AppSlots): string {
+  const def = app?.slots.find((s) => s.exportName === slot || s.name === slot);
+  if (!app || !def) return `Add it to the layout in thixo.config.ts to make it a default: { "<the slot's path>": ${JSON.stringify(folder)} }`;
+  const at = app.paths.filter((p) => p === def.name || p.endsWith(`/${def.name}`));
+  if (!at.length) return `The slot ${def.name} is not placed in any other slot yet, so no layout can name it. Add it to a parent slot's children in app/slots.ts.`;
+  const entries = at.map((p) => `${JSON.stringify(p)}: ${JSON.stringify(folder)}`);
+  return at.length === 1
+    ? `Add it to the layout in thixo.config.ts to make it a default: ${entries[0]}`
+    : `Add it to the layout in thixo.config.ts to make it a default, at one or more of: ${entries.join(", ")}`;
 }
 
 const sentence = (name: string) => {
@@ -50,7 +69,7 @@ export function slotExport(slotsText: string, slot: string): string | null {
 
 /** `thixo new plugin <name> --slot <slot>`: `plugins/<name>/plugin.thx` with a fresh id. The slot is its name, such
  * as todo-detail, or its export name in app/slots.ts, such as todoDetail. */
-export function newPlugin(options: { name: string; slot: string; dir: string }, io: Io): string {
+export function newPlugin(options: { name: string; slot: string; dir: string }, io: Io, app?: AppSlots): string {
   if (!/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/.test(options.name)) throw new CliError(`"${options.name}" is not a plugin name. Use kebab-case, such as due-dates.`);
   const paths = openProject(options.dir);
   const folder = join(paths.pluginsDir, options.name);
@@ -69,6 +88,6 @@ export function newPlugin(options: { name: string; slot: string; dir: string }, 
   const file = join(folder, "plugin.thx");
   writeFileSync(file, pluginTemplate({ name: options.name, slot: exportName, id: pluginId() }));
   io.out(`Created plugins/${options.name}/plugin.thx`);
-  io.out(`Add it to the layout in thixo.config.ts to make it a default: { "<slot path>": ${JSON.stringify(options.name)} }`);
+  io.out(layoutHint(options.name, exportName, app));
   return file;
 }

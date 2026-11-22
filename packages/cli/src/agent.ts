@@ -60,8 +60,12 @@ function parseFileFlag(flag: string, cwd: string): [string, string] {
   }
 }
 
+/** A tool's own name typed as the command, such as `read_plugin`, takes the short command's arguments. */
+const SHORT_FOR: Record<string, string> = Object.fromEntries(Object.entries(TOOL_NAMES).map(([short, tool]) => [tool, short]));
+
 /** Turns the command line into the request body: `{ tool, as, input }`. */
-export function buildAgentRequest(options: AgentOptions, cwd: string): AgentRequest {
+export function buildAgentRequest(given: AgentOptions, cwd: string): AgentRequest {
+  const options = { ...given, command: SHORT_FOR[given.command] ?? given.command };
   let input: Record<string, unknown> = {};
   if (options.json !== undefined) {
     try {
@@ -203,5 +207,7 @@ export async function runAgent(options: AgentOptions, io: Io, fetchImpl: Fetch =
     return 1;
   }
   io.out(options.raw ? (typeof body === "string" ? body : JSON.stringify(body, null, 2)) : formatAgentResult(body));
+  // A build that fails is a normal reply from the tool (ok: false), but a script reads the exit code: 1, as for a refusal.
+  if (body && typeof body === "object" && (body as { ok?: unknown }).ok === false) return 1;
   return 0;
 }

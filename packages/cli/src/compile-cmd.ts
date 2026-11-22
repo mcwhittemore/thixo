@@ -56,7 +56,10 @@ export async function runCompile(options: CompileOptions, io: Io, deps: Deps): P
   }
 
   const verified = thx.verifyOutput(result.code);
-  const summary = summarizeManifest(result.manifest);
+  const server = await deps.server();
+  const told = server.describeManifest?.(loaded.app, result.manifest);
+  const details = summarizeManifest(result.manifest);
+  const summary = told?.summary ?? details;
   const size = Buffer.byteLength(result.code);
   if (!verified.ok) {
     const errors = verified.errors.map((message) => ({ file: "(output)", line: 0, column: 0, code: "thx/output-rejected", message }));
@@ -73,14 +76,23 @@ export async function runCompile(options: CompileOptions, io: Io, deps: Deps): P
   }
 
   if (options.json) {
-    io.out(JSON.stringify({ ok: true, meta: result.meta, manifest: result.manifest, summary, size, sourceHash: result.sourceHash, ...(options.out ? { out: resolve(io.cwd, options.out) } : {}) }, null, 2));
+    io.out(JSON.stringify({ ok: true, meta: result.meta, manifest: result.manifest, summary, ...(told ? { details, requiredScopes: told.requiredScopes, optionalScopes: told.optionalScopes } : {}), size, sourceHash: result.sourceHash, ...(options.out ? { out: resolve(io.cwd, options.out) } : {}) }, null, 2));
     return 0;
   }
   io.out(`Compiled ${label}${result.meta.name ? ` (${result.meta.name})` : ""}`);
   io.out("");
-  io.out("Summary");
+  io.out(told ? "Summary (what the plugin browser and `thixo agent check` say)" : "Summary");
   for (const line of summary) io.out(`  ${line}`);
   io.out("");
+  if (told) {
+    io.out("Scopes");
+    io.out(`  needs: ${told.requiredScopes.join(", ") || "nothing"}`);
+    if (told.optionalScopes.length) io.out(`  uses if the user holds them: ${told.optionalScopes.join(", ")}`);
+    io.out("");
+    io.out("Details");
+    for (const line of details) io.out(`  ${line}`);
+    io.out("");
+  }
   io.out("Manifest");
   for (const line of JSON.stringify(result.manifest, null, 2).split("\n")) io.out(`  ${line}`);
   io.out("");

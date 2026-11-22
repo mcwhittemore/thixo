@@ -1,21 +1,11 @@
 import * as React from "react";
 import type { AppInfo, PluginSummary, PluginVersionRef, User } from "../contract.js";
+import { slotPaths as pathsOf } from "../slots/paths.js";
 import { useShellInternals } from "./shell.js";
 
 /** Every slot path a layout can name: the top-level slots, and each child slot under its parent (S13). */
 export function slotPaths(app: AppInfo): string[] {
-  const byName = new Map(app.slots.map((s) => [s.name, s]));
-  const children = new Set(app.slots.flatMap((s) => s.children));
-  const out: string[] = [];
-  const walk = (name: string, prefix: string, seen: Set<string>) => {
-    const slot = byName.get(name);
-    if (!slot || seen.has(name)) return;
-    const path = prefix ? `${prefix}/${name}` : name;
-    out.push(path);
-    for (const child of slot.children) walk(child, path, new Set([...seen, name]));
-  };
-  for (const slot of app.slots) if (!children.has(slot.name)) walk(slot.name, "", new Set());
-  return out;
+  return pathsOf(app.slots);
 }
 
 const lastSegment = (path: string) => path.slice(path.lastIndexOf("/") + 1);
@@ -24,7 +14,23 @@ interface Action {
   label: string;
   disabled?: string;
   run: () => Promise<unknown>;
-  done: string;
+  /** What the status says after: text, or text made from the reply. */
+  done: string | ((reply: unknown) => string);
+}
+
+/** Thixo's own scopes in words, beside the name, so a user reading a plugin's scopes knows what they mean. */
+const THIXO_SCOPE_WORDS: Record<string, string> = {
+  "thixo.data.read": "read the plugin's own saved data",
+  "thixo.data.write": "save the plugin's own data",
+  "thixo.data.admin": "remove a field of plugin data",
+  "thixo.plugins.author": "write plugins",
+  "thixo.plugins.share": "share plugins",
+  "thixo.plugins.promote": "promote plugins",
+};
+
+export function scopeLabel(scope: string): string {
+  const words = THIXO_SCOPE_WORDS[scope];
+  return words ? `${scope} (${words})` : scope;
 }
 
 /** Why a user can't take each action on a plugin, or undefined when they can. Buttons are disabled with the reason. */
@@ -123,8 +129,8 @@ export function PluginBrowser() {
     setBusy(true);
     setMessage(undefined);
     try {
-      await action.run();
-      setMessage({ text: action.done });
+      const reply = await action.run();
+      setMessage({ text: typeof action.done === "string" ? action.done : action.done(reply) });
       await internals!.refreshLayout();
       await search(query, slotFilter);
     } catch (error) {
@@ -205,7 +211,9 @@ export function PluginBrowser() {
                   s.plugin.author !== user.id && <span className="thixo-badge thixo-tone-warning thixo-badge-default">From {s.plugin.author}</span>
                 )}
                 <span className="thixo-muted">
-                  v{s.latest} · fills {s.manifest.slot} · {s.isDefault ? "default" : s.plugin.visibility} · by {s.plugin.author}
+                  v{s.latest}
+                  {s.isDefault && s.defaultVersion !== undefined && s.defaultVersion !== s.latest ? ` (the default is v${s.defaultVersion})` : ""} · fills{" "}
+                  {s.manifest.slot} · {s.isDefault ? "default" : s.plugin.visibility} · by {s.plugin.author} · id {s.plugin.id}
                 </span>
               </div>
               <p className="thixo-muted">{s.plugin.description}</p>
@@ -215,8 +223,8 @@ export function PluginBrowser() {
                 ))}
               </ul>
               <div className="thixo-muted" aria-label={`Scopes of ${s.plugin.name}`}>
-                Needs: {s.requiredScopes.join(", ") || "nothing"}
-                {s.optionalScopes.length > 0 && <> · Uses if you have them: {s.optionalScopes.join(", ")}</>}
+                Needs: {s.requiredScopes.map(scopeLabel).join(", ") || "nothing"}
+                {s.optionalScopes.length > 0 && <> · Uses if you have them: {s.optionalScopes.map(scopeLabel).join(", ")}</>}
               </div>
               <div className="thixo-row">
                 <ActionButton
@@ -231,7 +239,16 @@ export function PluginBrowser() {
                   label="Fork"
                   name={`Fork ${s.plugin.name}`}
                   disabled={busy ? "Busy" : why.fork}
-                  onClick={() => act({ label: "Fork", run: () => internals.client.fork(s.plugin.id, s.latest), done: `Forked ${s.plugin.name}` })}
+                  onClick={() =>
+                    act({
+                      label: "Fork",
+                      run: () => internals.client.fork(s.plugin.id, s.latest),
+                      done: (reply) => {
+                        const id = (reply as { plugin?: { id?: string } } | undefined)?.plugin?.id;
+                        return `Forked ${s.plugin.name}${id ? ` as ${id}` : ""}. The copy is yours and is not in your layout yet: Use it below to show it, and change it with Ask for a plugin${id ? ` or \`thixo agent submit --plugin ${id}\`` : ""}.`;
+                      },
+                    })
+                  }
                 />
                 <ActionButton
                   label="Share"
@@ -243,7 +260,16 @@ export function PluginBrowser() {
                   label="Promote"
                   name={`Promote ${s.plugin.name}`}
                   disabled={busy ? "Busy" : why.promote}
-                  onClick={() => act({ label: "Promote", run: () => internals.client.promote(s.plugin.id), done: `Asked to promote ${s.plugin.name}` })}
+                  onClick={() =>
+                    act({
+                      label: "Promote",
+                      run: () => internals.client.promote(s.plugin.id),
+                      done: (reply) => {
+                        const folder = (reply as { folder?: string } | undefined)?.folder;
+                        return `Asked to promote ${s.plugin.name}${folder ? `: wrote plugins/${folder}/ for the implementor. It becomes a default when they name "${folder}" in layout in thixo.config.ts and deploy` : ""}.`;
+                      },
+                    })
+                  }
                 />
               </div>
             </article>

@@ -51,7 +51,7 @@ test("a conversation searches, checks a broken plugin, fixes it, submits and use
       const submitted = JSON.parse(lastTool(turn).output);
       assert.equal(submitted.ok, true);
       assert.deepEqual(submitted.requiredScopes, ["thixo.data.read", "thixo.data.write", "todos.read"]);
-      return { toolCalls: [{ name: "use", input: { plugin: submitted.plugin, version: submitted.version, slot: "main/todo-detail" } }] };
+      return { toolCalls: [{ name: "use", input: { plugin: submitted.plugin, version: submitted.version, slot: "todo-detail" } }] };
     },
     "I made Due dates. It reads todos and keeps a due date on each one, so it uses todos.read and your plugin data.",
   ]);
@@ -70,7 +70,7 @@ test("a conversation searches, checks a broken plugin, fixes it, submits and use
   assert.equal(plugins.length, 1);
   assert.equal(plugins[0].visibility, "personal");
   const layout = await w.adapters.data.getLayoutChanges("ana");
-  assert.deepEqual(layout["main/todo-detail"], { plugin: plugins[0].id, number: 1 });
+  assert.deepEqual(layout["todo-detail"], { plugin: plugins[0].id, number: 1 });
   assert.equal(model.turns.length, 7);
   assert.match(model.turns[0].system, /Search the registry first/i);
   assert.deepEqual(model.turns[0].tools.map((t) => t.name), ["search_registry", "read_plugin", "describe_app", "check", "submit", "fork", "use"]);
@@ -230,6 +230,37 @@ test("the tool route runs the same tools as one user, with that user's scopes", 
 
   const asImplementor = await tool(IMPLEMENTOR, "submit", { files: pluginFiles({ manifest: manifest({ requiredEndpoints: ["listTodos"] }), name: "Plain" }) });
   assert.equal(asImplementor.body.ok, true);
+});
+
+test("use names a child slot by its path: a bare child name is turned into it, and a slot that does not exist is refused (verify-chat)", async () => {
+  const w = authoringWorld({ agentKey: "k" });
+  const tool = async (name: string, input: unknown) => {
+    const response = await w.thixo.fetch(
+      new Request(`${ORIGIN}/_thixo/authoring/tool`, { method: "POST", headers: { "content-type": "application/json", "x-thixo-agent-key": "k" }, body: JSON.stringify({ tool: name, as: "ana", input }) }),
+    );
+    return { status: response.status, body: (await response.json()) as any };
+  };
+  const star = await tool("submit", { files: pluginFiles({ manifest: manifest({ slot: "todo-row", requiredEndpoints: ["listTodos"] }), name: "Important star" }) });
+  assert.equal(star.body.ok, true);
+
+  const used = await tool("use", { plugin: star.body.plugin, version: 1, slot: "todo-row" });
+  assert.equal(used.status, 200);
+  assert.equal(used.body.slot, "main/todo-row", "the reply names the path it stored");
+  assert.deepEqual(used.body.resolved, { plugin: star.body.plugin, number: 1 });
+  assert.match(used.body.note, /A slot holds one plugin/);
+  assert.deepEqual(Object.keys(await w.adapters.data.getLayoutChanges("ana")), ["main/todo-row"], "no key that no slot reads");
+
+  const nowhere = await tool("use", { plugin: star.body.plugin, version: 1, slot: "sidebar/todo-row" });
+  assert.equal(nowhere.status, 400);
+  assert.equal(nowhere.body.error.code, "unknown_slot");
+  assert.match(nowhere.body.error.message, /The slot paths are: main, main\/todo-row, todo-detail/);
+
+  const described = await tool("describe_app", {});
+  assert.match(described.body.reference, /- todo-row \(export todoRow, widget; path main\/todo-row\)/);
+
+  // Changing your own plugin is a new version of it: the fork tool says so when it is used on one.
+  const forked = await tool("fork", { plugin: star.body.plugin, version: 1 });
+  assert.match(forked.body.next, new RegExp(`To change ${star.body.plugin} itself, submit with plugin set to ${star.body.plugin}`));
 });
 
 test("the chat route needs thixo.plugins.author, a token, and a model", async () => {

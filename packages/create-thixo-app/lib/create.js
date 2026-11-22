@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { access, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -49,12 +49,55 @@ async function ensureFreeFolder(dir, name) {
   if ((await readdir(dir)).length > 0) throw new UsageError(`${name} already exists and is not empty. Pick another name or an empty folder.`);
 }
 
-/** Copies the template into `<cwd>/<name>`, names the app and gives each default plugin a fresh id. */
-export async function createApp({ name, cwd = process.cwd(), template = DEFAULT_TEMPLATE, random } = {}) {
+/** Where each package the app depends on sits in a Thixo checkout. React comes from the checkout too, so the app and
+ * the shell share one copy of it. */
+export const CHECKOUT_PACKAGES = {
+  thixo: "packages/core",
+  "thixo-cli": "packages/cli",
+  "thixo-node": "packages/thixo-node",
+  react: "node_modules/react",
+  "react-dom": "node_modules/react-dom",
+};
+
+async function readName(file) {
+  try {
+    return JSON.parse(await readFile(file, "utf8")).name;
+  } catch {
+    return undefined;
+  }
+}
+
+/** The Thixo checkout this create-thixo-app runs from (`<root>/packages/create-thixo-app`), when it has the packages
+ * and its `npm install` has run. Null when it came from npm. */
+export async function findCheckout(template = DEFAULT_TEMPLATE) {
+  const root = resolve(template, "../../..");
+  if ((await readName(join(root, "packages/core/package.json"))) !== "thixo") return null;
+  for (const [name, path] of Object.entries(CHECKOUT_PACKAGES)) {
+    if ((await readName(join(root, path, "package.json"))) !== name) return null;
+  }
+  return root;
+}
+
+/** Whether the checkout's packages are built: `thixo dev` needs each one's dist/. */
+export async function checkoutBuilt(root) {
+  try {
+    for (const path of ["packages/core", "packages/cli", "packages/thixo-node"]) await access(join(root, path, "dist"));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Copies the template into `<cwd>/<name>`, names the app and gives each default plugin a fresh id. With
+ * `checkout`, a Thixo checkout's folder, package.json links the Thixo packages and React from it with `file:`, so
+ * `npm install` works before they are on npm. Left out, the checkout create-thixo-app runs from is used, if any;
+ * null pins the npm versions. */
+export async function createApp({ name, cwd = process.cwd(), template = DEFAULT_TEMPLATE, random, checkout } = {}) {
   checkName(name);
   const dir = resolve(cwd, name);
   await ensureFreeFolder(dir, name);
 
+  const linked = checkout === undefined ? await findCheckout(template) : checkout;
   const files = await listFiles(template);
   const pluginIds = [];
   const written = [];
@@ -62,6 +105,11 @@ export async function createApp({ name, cwd = process.cwd(), template = DEFAULT_
   for (const file of files) {
     let text = await readFile(join(template, file), "utf8");
     text = text.split(APP_NAME_TOKEN).join(name);
+    if (file === "package.json" && linked) {
+      const pkg = JSON.parse(text);
+      for (const [dep, path] of Object.entries(CHECKOUT_PACKAGES)) pkg.dependencies[dep] = `file:${join(linked, path)}`;
+      text = `${JSON.stringify(pkg, null, 2)}\n`;
+    }
     if (PLUGIN_FILE_PATTERN.test(file)) {
       text = text.replace(PLUGIN_ID_PATTERN, () => {
         const id = freshPluginId(random);
@@ -75,5 +123,5 @@ export async function createApp({ name, cwd = process.cwd(), template = DEFAULT_
     written.push(RENAMED[file] ?? file);
   }
 
-  return { dir, name, files: written, pluginIds };
+  return { dir, name, files: written, pluginIds, checkout: linked ?? null };
 }

@@ -70,8 +70,9 @@ export interface NumberInputProps {
 export const NumberInput: Component<NumberInputProps>;
 
 export interface DateInputProps {
+  /** A calendar day, held as midnight UTC, so it reads back as the same day in every time zone. */
   value: Date | undefined;
-  /** undefined when the user clears the field. */
+  /** Midnight UTC of the day picked; undefined when the user clears the field. */
   onChange: (value: Date | undefined) => void;
   label?: string;
   disabled?: boolean;
@@ -82,6 +83,8 @@ export const DateInput: Component<DateInputProps>;
 export interface CheckboxProps {
   checked: boolean;
   onChange: (checked: boolean) => void;
+  /** The checkbox's name for a screen reader and a test. Without one it is called "Done", so give a label to any
+   * checkbox that means something else, such as label="Favorite". */
   label?: string;
   disabled?: boolean;
 }

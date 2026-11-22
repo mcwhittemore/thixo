@@ -13,10 +13,17 @@ export const THIXO = join(ROOT, "packages/cli/bin/thixo.js");
 /** A copy of `examples/<name>` outside the repo, without its `.thixo/` state. Its node_modules is a link to the
  * repo's, so `thixo`, `thixo-node` and React resolve to the workspace packages. */
 export function copyExample(name = "todo", base = process.env.THIXO_E2E_TMP ?? tmpdir()) {
-  const dir = mkdtempSync(join(base, `thixo-${name}-`));
-  cpSync(join(ROOT, "examples", name), dir, {
+  return copyApp(join(ROOT, "examples", name), name, base);
+}
+
+/** A copy of any app folder (an example, or one create-thixo-app made), as `copyExample` makes one. The folder's
+ * name always starts `thixo-<label>-`: `removeCopy` deletes only such a folder. */
+export function copyApp(source, label = "app", base = process.env.THIXO_E2E_TMP ?? tmpdir()) {
+  if (!existsSync(join(source, "thixo.config.ts"))) throw new Error(`${source} is not a Thixo app: it has no thixo.config.ts.`);
+  const dir = mkdtempSync(join(base, `thixo-${label.replace(/[^\w-]/g, "-")}-`));
+  cpSync(source, dir, {
     recursive: true,
-    filter: (src) => !/[/\\](\.thixo|node_modules)([/\\]|$)/.test(src.slice(join(ROOT, "examples", name).length)),
+    filter: (src) => !/[/\\](\.thixo|node_modules)([/\\]|$)/.test(src.slice(source.length)),
   });
   symlinkSync(join(ROOT, "node_modules"), join(dir, "node_modules"), "dir");
   return dir;
@@ -83,6 +90,10 @@ export function readState(file) {
   return existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : null;
 }
 
+/** Deletes a copy `copyApp` made. A folder whose name has no `thixo-` is left alone and false comes back, so a
+ * hand-written state.json can't point the cleanup at a real folder. */
 export function removeCopy(dir) {
-  if (dir && dir.includes("thixo-")) rmSync(dir, { recursive: true, force: true });
+  if (!dir || !dir.includes("thixo-")) return false;
+  rmSync(dir, { recursive: true, force: true });
+  return true;
 }

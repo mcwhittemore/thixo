@@ -4,6 +4,7 @@ import type { ServerContext } from "./context.js";
 import { storeCompiled, storeSource } from "./registry/code-store.js";
 import { newId } from "./registry/hash.js";
 import { withoutPluginId } from "./registry/plugin-source.js";
+import { resolveSlotPath, slotPaths } from "../slots/paths.js";
 
 /** What a deploy takes: each default plugin's folder name and files, the layout from the config, and the
  * implementor's name for this deploy, such as a commit sha. */
@@ -89,8 +90,15 @@ export async function deploy(ctx: ServerContext, input: DeployInput): Promise<De
   }
 
   const byFolder = new Map(built.map((b) => [b.folder, b]));
+  const paths = slotPaths(ctx.app.slots);
   for (const [slot, folder] of Object.entries(input.layout)) {
     const b = byFolder.get(folder);
+    if (!paths.includes(slot)) {
+      const where = resolveSlotPath(ctx.app.slots, slot);
+      const hint = where.ok ? `Write "${where.path}": a child slot's path has its parent in front.` : `The slot paths are: ${paths.join(", ") || "(none)"}.`;
+      problems.push({ folder, errors: [problem(`The layout names the slot "${slot}", which no part of the app shows.`, "deploy/unknown-slot", hint)] });
+      continue;
+    }
     const name = slot.split("/").filter(Boolean).pop();
     if (!Object.hasOwn(input.plugins, folder)) problems.push({ folder, errors: [problem(`The layout puts "${folder}" in "${slot}", but there is no plugins/${folder}.`, "deploy/unknown-folder")] });
     else if (b && b.manifest.slot !== name) {
