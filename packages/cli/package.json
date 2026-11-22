@@ -3,11 +3,21 @@
   "version": "0.0.1",
   "description": "The thixo command: dev, build, start, compile, new, agent.",
   "type": "module",
-  "files": ["dist"],
+  "files": [
+    "bin",
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -b",
     "test": "node --import tsx --test \"test/**/*.test.ts\""
   },
-  "bin": { "thixo": "./bin/thixo.js" },
-  "dependencies": { "thixo": "0.0.1", "thixo-thx": "0.0.1", "thixo-node": "0.0.1", "thixo-sql": "0.0.1", "esbuild": "^0.28.2" }
+  "bin": {
+    "thixo": "./bin/thixo.js"
+  },
+  "dependencies": {
+    "thixo": "0.0.1",
+    "thixo-thx": "0.0.1",
+    "thixo-node": "0.0.1",
+    "esbuild": "^0.28.2"
+  }
 }
