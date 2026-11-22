@@ -33,6 +33,8 @@ Each feature file starts with an H1 title and one paragraph describing the user-
 ## Features
 
 - [The todo app](./todo-app.md): the list, child-slot badges, add, tick, due dates kept across reloads, delete by scope, a refused plugin. Browser.
+- [The CRM app](./crm-app.md): the CRM example's routes, deals pipeline, finance gating, notes, lead score and dashboard widgets as a rep. Browser.
+- [Starting a new app with create-thixo-app](./create-app.md): the template copy, fresh plugin ids, refusals and the next steps. Terminal and curl.
 - [The shell, slots and plugin host](./shell-and-plugins.md): slot loading and boxes, plugin code by address, refusals in a slot, the plugin browser, query refresh across plugins. Browser.
 - [Authoring agent](./authoring.md): `thixo agent` describe, check, submit and use, then share, use, fork and promote in the plugin browser; the scripted chat. CLI and browser.
 - [The thixo command](./cli.md): dev, build, start, compile, new plugin, registry list, release, redeploy on change. CLI.
