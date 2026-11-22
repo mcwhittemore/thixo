@@ -15,7 +15,8 @@ A plugin author (the authoring agent or the implementor) writes a folder of `.th
 
 ## How to get to it (user POV)
 
-- An agent or implementor compiles a plugin folder: `node --import tsx packages/thx/scripts/thxc.ts <folder>` (prints JSON; exit 1 with errors). Later the `thixo compile` command and the authoring agent's `check` tool call the same `compile`.
+- An implementor compiles a plugin folder against the app's real declarations: `npx thixo compile examples/todo/plugins/due-dates` (see `cli.md`). The authoring agent's `check` and `submit` (`thixo agent check|submit`, see `authoring.md`) call the same `compile`.
+- A package developer compiles against the test env: `node --import tsx packages/thx/scripts/thxc.ts <folder>` (prints JSON; exit 1 with errors).
 - The shell's plugin host runs a compiled module through `createRuntime(host).instantiate(module)` from `thixo-thx/runtime`.
 - The package's suites drive both: `npm test` in `packages/thx`.
 
@@ -27,7 +28,9 @@ Preconditions:
 - `npm run build` in `packages/thx` exits 0.
 - The fixtures `packages/thx/test/fixtures/todo-list` and `packages/thx/test/fixtures/due-dates` exist (the examples/todo plugins rewritten as thx).
 
-- **Compile the due-dates plugin.** Run `node --import tsx packages/thx/scripts/thxc.ts packages/thx/test/fixtures/due-dates`. Exit 0; JSON has `"ok": true`, `"verified": true`, `manifest.slot` `"todo-detail"`, `requiredEndpoints` `["getTodo"]`, `annotates` `["todo"]`, `data.stores.prefs` `[{"name":"warnDaysBefore","type":"number"}]`, `data.annotations.todo` `[{"name":"dueOn","type":"date"}]`.
+- **Compile the example's plugins against the real app.** Run `npx thixo compile examples/todo/plugins/due-dates`, `…/todo-list` and `…/done-badge`. Each exits 0 with `Compiled <folder> (<name>)` and a summary; due-dates says `Annotates todo with dueOn (date).`. A plugin with `window` fails `thixo agent check` with `plugin.thx:<line>:<col>` (see `authoring.md`).
+- **Run them in a browser.** The `todo-basics` journey in `todo-app.md` runs all three compiled plugins in the real runtime inside the shell, with `css()` rules scoped by the shell.
+- **Compile the due-dates fixture.** Run `node --import tsx packages/thx/scripts/thxc.ts packages/thx/test/fixtures/due-dates`. Exit 0; JSON has `"ok": true`, `"verified": true`, `manifest.slot` `"todo-detail"`, `requiredEndpoints` `["getTodo"]`, `annotates` `["todo"]`, `data.stores.prefs` `[{"name":"warnDaysBefore","type":"number"}]`, `data.annotations.todo` `[{"name":"dueOn","type":"date"}]`.
 - **Compile the todo list.** Run `node --import tsx packages/thx/scripts/thxc.ts packages/thx/test/fixtures/todo-list`. Exit 0; `requiredEndpoints` `["createTodo","listTodos","updateTodo"]`, `optionalEndpoints` `["deleteTodo","listAssignees"]`, data empty. These match the tables in `examples/todo/readme.md`.
 - **See the emitted module.** Add `--code` to either command. `code` starts with `export default function (rt) {` and `"use strict";`, and every read and call goes through `rt.g`, `rt.m` or `rt.c`.
 - **Refuse a hostile plugin.** Write a `plugin.thx` whose component returns `<iframe src={String(window.location)} />` into an empty scratch folder and run the compile command on it. Exit 1; errors include `thx/element` ("`<iframe>` is not an element a plugin can create...") and `thx/attribute`, each with `file`, `line`, `column` and a `hint`.
@@ -37,8 +40,8 @@ Preconditions:
 
 ## Gotchas
 
-- `scripts/thxc.ts` compiles against the test fixture env (the todo example's endpoints, records, slots and test-double module declarations) unless given `--env <file.json>` with a full `CompileEnv`. It does not prove the real `thixo/*` declarations core writes.
+- `scripts/thxc.ts` compiles against the test fixture env (test-double module declarations) unless given `--env <file.json>`. `thixo compile` uses the real `thixo/*` declarations core writes.
 - A `.thx` source passed on the command line must be a folder with a `plugin.thx`; a single file is refused with `thx/file`.
-- The runtime tests use a fake host (plain-object `createElement`, flat-array hooks), not React. A real React render goes through the shell's plugin host and is proved there.
+- The package's runtime tests use a fake host (plain-object `createElement`, flat-array hooks). The browser steps use React and the shell's plugin host.
 - Budget tests set `budget: 20000`; the default is 5,000,000. A stopped runtime stays stopped: create a new one to run the plugin again.
 - Plugin promises that the runtime stops are marked handled; any other plugin rejection still shows as unhandled, which `node --test` counts as a failure.

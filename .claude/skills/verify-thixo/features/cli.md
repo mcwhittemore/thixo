@@ -14,40 +14,39 @@ The `thixo` command (package `thixo-cli`) builds an app from its folders and run
 
 ## How to get to it (user POV)
 
-- Run `npx thixo dev [dir]` in an app folder (one with `thixo.config.ts`). The default port is 3000; `--port` or `$PORT` change it.
+- Run `npx thixo dev [dir]` in an app folder (one with `thixo.config.ts`). The default port is 3000; `--port` or `$PORT` change it, and `--port 0` picks a free one.
 - Run `npx thixo build [dir]`, then `npx thixo start [dir]`.
 - Run `npx thixo compile <plugin folder or file> [--out dir] [--json] [--project dir]`.
-- Run `npx thixo new plugin <name> --slot <slotExportName> [dir]`.
+- Run `npx thixo new plugin <name> --slot <slot> [dir]`. The slot is its name (`todo-detail`) or its export name in `app/slots.ts` (`todoDetail`).
 - Run `npx thixo agent <tool> --as <user> ...` while `thixo dev` runs.
 - Run `npx thixo registry list [dir]` and `npx thixo release [dir]`.
 - Run `npx thixo --help` or `npx thixo <command> --help`.
 
-## Driving it with a terminal (shell, curl)
+## Driving it with cli.mjs and a terminal
 
 Preconditions:
 
-- `npm install` and `npm run build` have been run in the repo root, so `packages/cli/dist` exists. Node is 22.13 or later.
-- `thixo-thx` and `thixo-node` are built (`ls node_modules/thixo-thx/dist/index.js node_modules/thixo-node/dist/index.js`). Without them every command that compiles, serves or loads the config stops with `Could not load thixo-thx` or a missing `thixo-node` module. The first three steps below do not need them.
-- A scratch copy of the app. Use `examples/todo` copied to a folder inside the repo (so `thixo` resolves), such as `cp -R examples/todo scratch-todo`, and `rm -rf scratch-todo` after.
+- `npm install` and `npm run build` have run in the repo root, so `packages/cli/dist` and every package's `dist` exist. Node is 22.13 or later.
+- An instance is up: `node .claude/skills/verify-thixo/bin/launch.mjs --run cli` printed its state and `doctor.mjs --run cli` printed `healthy`. That launch is itself `thixo dev <copy> --port 0`; its `dev.log` is the dev step's transcript.
+- `C` below stands for `node .claude/skills/verify-thixo/bin/cli.mjs --run cli --save <label> --`, which runs `thixo` in the run's copy of the app.
 
-- **Run the suite.** Run `npm test -w thixo-cli`. Exit code `0` and the output ends with `# fail 0` (37 tests). It builds a fixture app with esbuild, loads the bundle with the real core server and drives `build`, `start`, `dev`, `compile`, `agent`, `registry` and `release` over real HTTP. `thixo-thx` and `thixo-node` are replaced there by fakes in `test/support/helpers.ts`, so this does not prove the compiler or `serve()` are wired.
 - **Help and errors.** Run `node packages/cli/bin/thixo.js --help`, then `node packages/cli/bin/thixo.js bogus; echo $?`. The first lists dev, build, start, compile, new plugin, agent, registry list and release. The second prints `thixo: Unknown command "bogus".` and exits `1`.
-- **Scaffold a plugin.** Run `npx thixo new plugin greeter --slot main scratch-todo`. It prints `Created plugins/greeter/plugin.thx`. `grep -c 'id: "plg_' scratch-todo/plugins/greeter/plugin.thx` prints `1`. Run it again: `thixo: plugins/greeter already exists.` and exit code `1`.
-- **Build.** Run `npx thixo build scratch-todo`. Exit code `0`. `.thixo/build/server.mjs`, `.thixo/build/client/index.html`, `.thixo/build/client/app.js` and `.thixo/build/manifest.json` exist, the manifest has `"ok": true`, and each plugin prints `ok  <folder>` with its summary. Put `window` in a plugin: the build prints `plugins/<name>/plugin.thx:<line>:<col> thx/<code> <message>` and exits `1`, and `thixo start` then refuses with `The last build failed`.
-- **Start.** Run `npx thixo start scratch-todo --port 4100` in a second terminal or in the background, and wait for `thixo start  ready on http://127.0.0.1:4100`. `curl -s localhost:4100/_thixo/app` returns the app info. `curl -s -o /dev/null -w '%{http_code}' localhost:4100/api/todos` prints `401`. `curl -si localhost:4100/some/route` returns `200`, an HTML body with `<div id="root">`, and a `content-security-policy` header that starts `default-src 'self'; script-src 'self'; connect-src 'self'`. `stat -f %Lp scratch-todo/.thixo/signing-key` prints `600`. Stop it by its process id, never by name.
-- **Dev.** Run `npx thixo dev scratch-todo --port 4101` and wait for `thixo dev  ready on`. `stat -f %Lp scratch-todo/.thixo/agent-key` prints `600` and `scratch-todo/.thixo/dev.json` holds the URL. Edit the plugin file of one folder in `scratch-todo/plugins/` (a `.thx` file, once the example is converted from `.tsx`) to add `window`: the terminal prints the located error and `curl -s localhost:4101/_thixo/app` still answers. Fix it: a `deployed  release` line prints again with no restart. Edit an `api/` file: `server    rebuilt` prints. Edit `app/shell.tsx`: `client    rebuilt (reload the page)` prints.
-- **Agent.** With dev running, `npx thixo agent describe --as ana --project scratch-todo` prints the SDK, slots and language reference. `npx thixo agent search --as ana "due" --project scratch-todo --raw` prints the JSON body. Without the dev server it prints `Could not reach the dev server` and exits `1`. The route itself is the authoring agent's, so until it is merged these return a 404 with a note that the route is off.
-- **Compile.** `npx thixo compile scratch-todo/plugins/todo-list` prints `Compiled`, a `Summary` of plain sentences, the `Manifest` as JSON and `Output  <n> bytes`. `--json` prints one object with `ok`, `manifest`, `summary` and `size`. `--out out-dir` writes `plugin.js` and `manifest.json`. A folder outside any app (`mkdir /tmp/x && npx thixo compile /tmp/x`) exits `1` with `No project found ... @app/sdk and @app/slots`.
-- **Registry.** After dev or start has deployed, `npx thixo registry list scratch-todo` prints one row per plugin with ID, NAME, VISIBILITY, AUTHOR, VERSIONS and SLOT, and `npx thixo release scratch-todo` prints the release id, the deployment and one `slot  plugin@n` row per slot.
-- **Proof.** Save the test output, the terminal transcripts, the response headers from `curl -si` and the `ls -l` of `.thixo/` to `artifacts/cli/`. Cleanup removes `scratch-todo` and stops the processes you started, never `artifacts/`.
+- **Dev.** `artifacts/verify/cli/dev.log` shows `server    rebuilt`, `client    rebuilt (reload the page)`, `deployed  release rel_… (3 plugins; main -> plg_todo_list@1, main/todo-row -> plg_done_badge@1, todo-detail -> plg_due_dates@1)` and `thixo dev  ready on http://127.0.0.1:<port>`. In the copy (the `dir` launch printed), `.thixo/agent-key` and `.thixo/signing-key` are mode `600` (`stat -f %Lp`), and `.thixo/dev.json` holds the url and pid.
+- **Redeploy on change.** Copy `.claude/skills/verify-thixo/journeys/todo-summary` into the copy's `plugins/`, with `id: "plg_verify_summary", ` added before `name:` in its `definePlugin` literal. `dev.log` gains a `deployed  release` line with `4 plugins`, with no restart. Remove the folder again: another `deployed  release` line.
+- **Compile.** Run `C compile plugins/due-dates`. Exit `0`; stdout has `Compiled due-dates (Due dates)`, a `Summary` with `Annotates todo with dueOn (date).`, the `Manifest` JSON and `Output  2.9 KB`. Add `--json` for one object with `ok`, `manifest`, `summary` and `size`.
+- **New plugin.** Run `C new plugin my-notes --slot todo-detail`. It prints `Created plugins/my-notes/plugin.thx`; the file imports `{ todoDetail }` from `@app/slots` and has `id: "plg_…"`. `C compile plugins/my-notes` exits `0`. Run the new-plugin command again: `thixo: plugins/my-notes already exists.`, exit `1`. Delete `plugins/my-notes` from the copy after.
+- **Agent.** Run `C agent describe --as ana`: the reference starts `# Writing a plugin for this app` and lists `todo-detail (export todoDetail, panel)`. The agent path end to end (check, submit, use) is in `authoring.md`.
+- **Registry.** Run `C registry list`: one row per plugin with ID, NAME, VISIBILITY, AUTHOR, VERSIONS and SLOT: the three defaults by `implementor`, plus every folder dev deployed during the run (a removed folder stays in the registry; only the release drops it). Run `C release`: the release id, the deployment and one `slot  plugin@n` row per slot.
+- **Build and start.** In the copy, run `node <repo>/packages/cli/bin/thixo.js build .`: exit `0`, `ok  done-badge`, `ok  due-dates`, `ok  todo-list` with their summaries, and `.thixo/build/server.mjs`, `.thixo/build/client/index.html`, `.thixo/build/client/app.js`, `.thixo/build/manifest.json`. Then `thixo start . --port 0` in the background (it shares the copy's `.thixo/data.sqlite` with the running dev server, which is fine for this short check) prints `thixo start  ready on …`; `curl -si <url>/some/route` returns `200`, `<div id="root">` and a `content-security-policy` that starts `default-src 'self'; script-src 'self'`; `curl -so /dev/null -w '%{http_code}' <url>/api/todos` prints `401`. Stop start by its pid.
+- **Suite.** Run `npm test -w thixo-cli`: `# fail 0` (37 tests, against a fixture app with a fake compiler and `serve()` stand-in; the steps above use the real ones).
+- **Proof.** Keep `artifacts/verify/cli/cli/*.txt` and `dev.log`, then `node .claude/skills/verify-thixo/bin/cleanup.mjs --run cli`.
 
 ## Gotchas
 
-- Not run end to end when this file was written: `thixo-thx` and `thixo-node` were not merged, so no run of the real compiler, the real `serve()` or `local()` adapters exists. Running `thixo build examples/todo` stopped at `Cannot find module .../thixo-node/dist/index.js`. The registry, plugins and authoring routes and `services.deploy` were still stubs in core. The steps for Build, Start, Dev, Agent, Compile and Registry are written from the spec and the fake-backed tests: run them once those packages are in, and fix this file where they differ.
-- The fixture tests put the project's `thixo/shell` import behind a tsconfig `paths` entry to a stand-in, because the real shell is another package. They never run the browser bundle.
-- `thixo dev` passes the agent key as `config.agentKey` on `ThixoConfig`, and the deployment id as `deployment` on the object given to `services.deploy`. The `DeployInput` type does not have that field yet. Both need the receiving package to read them.
-- The deployment id is the git sha when the app is inside a git work tree, so two deploys of different plugin source on the same commit share an id. Versions are found by source hash, so nothing is stored twice.
-- The bundle is re-imported on each `api/` change, so in-memory app state (such as the todo example's `db.ts`) resets. Files outside `api/`, `app/`, `plugins/` and the config are not watched.
+- `thixo dev` and `thixo start` need an app whose `node_modules` resolves `thixo`, `thixo-node` and React. Inside the repo the workspace does that; `launch.mjs` links the repo's `node_modules` into its temp copy.
+- The deployment id is the git sha when the app is inside a git work tree, else the first 12 hex characters of the build hash. Versions are found by source hash, so nothing is stored twice.
+- The bundle is re-imported on each `api/` change, so in-memory app state (the todo example's `db.ts`) resets. Files outside `api/`, `app/`, `plugins/` and the config are not watched, and there is no live reload: reload the page after `client rebuilt`.
 - `--json` means two things: on `compile`, `registry list` and `release` it asks for JSON output, and on `agent` it is the tool's input, so `agent` uses `--raw` for the raw response.
-- Do not run two `thixo dev` servers on one project: they share `.thixo/data.sqlite`, and `agent-key` is rewritten on every start, so a running agent sees `401` until it reads the new key (the CLI reads the file on every call).
-- `dev` and `start` pick `127.0.0.1`. A port in use stops with `Port <n> is already in use`.
+- Do not run two `thixo dev` servers on one project: they share `.thixo/data.sqlite`, and `agent-key` is rewritten on every start.
+- `dev` and `start` listen on `127.0.0.1`. A port in use stops with `Port <n> is already in use`.
+- The page's CSP is `script-src 'self'`. Plugin code is imported by address (`/_thixo/plugins/<id>/<n>.js?u=…&e=…&k=…`, a five-minute ticket from the load reply), not from a `blob:`.

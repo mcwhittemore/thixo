@@ -12,6 +12,7 @@ A model adapter is the model behind the authoring chat (U1). `anthropic()` from 
 
 ## How to get to it (user POV)
 
+- In the todo app, press `Ask for a plugin` as ana. The todo config's model is `claudeCode()` from `thixo-node` (see `local-adapters.md`); swap in `anthropic()` to use the API.
 - Pass `model: anthropic()` in the app's Thixo config, set `ANTHROPIC_API_KEY`, and open the authoring chat.
 - Pass `anthropic({ apiKey, model, maxTokens, baseUrl })` to override the key, the model (default `claude-opus-5-5`), the reply limit (default 16000) or the endpoint.
 - Start the app with no key set and send a message in the chat.
@@ -32,7 +33,7 @@ Preconditions:
 - **History.** The test named `tool calls and results go back as tool_use and one tool_result user message` passes. The recorded request body holds one assistant message with two `tool_use` blocks, then one user message with two `tool_result` blocks.
 - **API error.** The tests named `an API error rejects with the status and message` and `an error event inside the stream rejects` pass.
 - **No key, by hand.** Run `env -u ANTHROPIC_API_KEY node --import tsx -e 'import {anthropic} from "./packages/thixo-anthropic/src/index.ts"; for await (const e of anthropic().run({system:"s",messages:[{role:"user",text:"hi"}],tools:[]})) console.log(JSON.stringify(e))'`. Stdout is a `text` event that begins `The Claude API key is missing` and then `{"type":"done"}`, with exit code `0` and no network use.
-- **Proof.** Save the suite output with `npm test -w thixo-anthropic > artifacts/model-adapters/anthropic.txt`. The file lists all 13 tests as passing.
+- **Proof.** Save the suite output with `mkdir -p artifacts/verify/model && npm test -w thixo-anthropic > artifacts/verify/model/anthropic.txt`. The file lists all 13 tests as passing.
 
 ## Gotchas
 

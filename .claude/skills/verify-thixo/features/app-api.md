@@ -15,20 +15,25 @@ An implementor writes endpoints, records, scopes and slots in plain TypeScript. 
 
 ## How to get to it (user POV)
 
-- As an implementor, write `api/*.ts` and `app/slots.ts`, then start the app with `npm run dev -w thixo-example-todo` (needs the CLI package, which another build step provides).
+- As an implementor, write `api/*.ts` and `app/slots.ts`, then run `npx thixo dev examples/todo` (or the skill's `launch.mjs`).
 - As the shell, call `POST /_thixo/token` with the session cookie, then `GET /_thixo/app`, `GET /_thixo/sdk.js` and `/api/...` with `Authorization: Bearer <token>`.
 - As the plugin compiler, read `CompileEnv` from `buildCompileEnv(app, config)` in `thixo/server`.
 - As a developer of this repo, call `createThixo(app, config).fetch(new Request(...))` directly. No port is needed.
 
-## Driving it with the fetch handler
+## Driving it with curl and the fetch handler
 
 Preconditions:
+
+- For the curl steps, `node .claude/skills/verify-thixo/bin/launch.mjs --run api` printed its state; `U` is its `url`.
 
 - Run from the repository root, after `npm install`.
 - `npm run build -w thixo` has succeeded. The example imports `thixo/api` from `packages/core/dist`.
 - Nothing listens on a port and nothing is written to disk: state is in memory and the data adapter is a stand-in that only remembers users.
 
-- **Whole suite.** Run `npm test -w thixo`. It builds, then runs the tests. The final lines read `# pass 33` and `# fail 0` (the count grows as tests are added; `fail` must be 0).
+- **Token from the session, over HTTP.** Run `curl -s -X POST -b thixo-user=cy U/_thixo/token`: 200 with `token`, `expiresAt` and `user.scopes` `["todos.read","thixo.data.read"]`. Without the cookie: 401 `Not signed in`.
+- **Scopes, over HTTP.** With that token as `T`: `curl -s -H "authorization: Bearer T" U/api/todos` lists the three seeded todos; `curl -s -X POST -H "authorization: Bearer T" -H 'content-type: application/json' -d '{"title":"x"}' U/api/todos` is 403 with `"missingScopes":["todos.write"]`; `curl -s -o /dev/null -w '%{http_code}' U/api/todos` (no token, cookie or not) is 401.
+- **App info and SDK, over HTTP.** `curl -s U/_thixo/app` has slots `main`, `todo-detail`, `todo-row` and endpoints with `input`/`output` schemas; `curl -s U/_thixo/sdk.js` is an ES module exporting `createTodo`, `deleteTodo`, `getTodo`, `listAssignees`, `listTodos` and `updateTodo`.
+- **Whole suite.** Run `npm test -w thixo`. It builds, then runs the tests. `# fail 0` (113 tests).
 - **Type-check the tests, including inferred types.** Run `npx tsc -p packages/core/test`. No output and exit code `0`.
 - **Drive the todo example.** Run `node --import tsx packages/core/test/drive-todo.ts`. Expected lines, in order:
   - `no cookie: POST /_thixo/token -> 401`
@@ -42,14 +47,13 @@ Preconditions:
   - `sdk deleteTodo as ana threw: 403 Missing scope: todos.delete`
 - **Tokens.** `node --import tsx --test packages/core/test/tokens.test.ts` passes: issue, verify, 15-minute expiry, wrong key, tampered claims, `alg: none`.
 - **Types a plugin sees.** `node --import tsx --test packages/core/test/compile-env.test.ts` passes. It type-checks the two example plugins (`due-dates`, `todo-list`, written with hooks from `thixo/plugin`) and a `ChildSlot` plugin against the generated declarations under `noLib`, and checks that wrong payloads, missing endpoint input, wrong field types and `import "react"` are errors.
-- **Proof.** Save the output: `node --import tsx packages/core/test/drive-todo.ts > artifacts/app-api/drive-todo.txt` and `npm test -w thixo > artifacts/app-api/tests.txt`. Both files exist after cleanup, and `tests.txt` ends with `# fail 0`.
+- **Proof.** Save the curl output and `node --import tsx packages/core/test/drive-todo.ts > artifacts/verify/api/drive-todo.txt` in `artifacts/verify/api/`, then `cleanup.mjs --run api`. The files stay.
 
 ## Gotchas
 
 - The tests import the todo example, which imports `thixo/api` from `packages/core/dist`. A stale or missing build fails with a module-not-found or a stale-behaviour error. `npm test -w thixo` builds first; running `node --test` by hand does not.
-- `examples/todo/thixo.config.ts` imports `thixo-node`, which another package provides. It cannot be loaded until that package is merged, so these tests build the config inline and never import it. Do not report that as a failure of this feature.
-- `thixo dev` and the shell are not part of this feature. Starting the example on a port, the sign-in cookie in a browser and a rendered `<Slot>` belong to the CLI and shell features.
+- The package tests build the todo config inline rather than importing `examples/todo/thixo.config.ts` (which calls `local()` and would open a SQLite file). The curl steps use the real config through `thixo dev`.
 - The token route issues a token for whatever scopes the identity adapter returns. A `403` after a scope change in `api/session.ts` can be a token minted before the change: fetch a new one.
 - An `Authorization: Bearer` token is the only credential on `/api`. Sending only the `thixo-user` cookie to `/api/todos` is a `401` on purpose.
 - Without `signingKey` in the config, `createThixo` makes a random key per process, so a token from one process is a `401` in another. Set `signingKey` in the config to share one.
-- Deleting a todo does not yet tell Thixo to drop its annotations (A13's deletion signal). That route belongs to the plugin-data feature.
+- Deleting a todo tells Thixo through `recordDeleted("todo", id)` in the example's `deleteTodo` handler (A13).
