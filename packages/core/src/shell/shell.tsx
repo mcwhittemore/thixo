@@ -3,7 +3,7 @@ import type { CreateRuntime } from "thixo-thx/contract";
 import type { AppInfo, LayoutReply, User } from "../contract.js";
 import type { ShellServiceHost, Tone } from "../plugin-host/services.js";
 import { createApi, createClient, type ApiFunction, type Client } from "./client.js";
-import { defaultCreateRuntime, defaultLoadModule, type CompiledModule } from "./runtime.js";
+import { defaultCreateRuntime, importByAddress, type CompiledModule } from "./runtime.js";
 import { Session } from "./session.js";
 import { SHELL_CSS } from "./styles.js";
 
@@ -184,8 +184,8 @@ export function Shell(props: ShellProps) {
       cache: cache.current,
       getCreateRuntime: async () => runtimeOption ?? defaultCreateRuntime(),
       loadCode: async (code) => {
-        const text = await client.pluginCode(code);
-        return (loadOption ?? defaultLoadModule)(text, code);
+        if (!loadOption) return importByAddress(new URL(code, propsRef.current.baseUrl ?? window.location.href).href);
+        return loadOption(await client.pluginCode(code), code);
       },
     };
   }, [state, client, layout, refreshLayout, browserOpen, services, runtimeOption, loadOption]);

@@ -12,13 +12,9 @@ export async function defaultCreateRuntime(): Promise<CreateRuntime> {
   return runtime.createRuntime;
 }
 
-/** Imports a compiled plugin module from its text. The text was fetched with the user's token (a personal plugin is
- * served to its author only), so it can't be imported by address: it goes through a blob address instead. */
-export async function defaultLoadModule(text: string): Promise<CompiledModule> {
-  const url = URL.createObjectURL(new Blob([text], { type: "text/javascript" }));
-  try {
-    return (await import(/* @vite-ignore */ /* webpackIgnore: true */ url)) as CompiledModule;
-  } finally {
-    URL.revokeObjectURL(url);
-  }
+/** Imports a compiled plugin module by its address. The load reply's `code` carries a short-lived ticket for this
+ * user and version (a personal plugin is served to its author only), so no token goes in the request and the page's
+ * CSP can stay `script-src 'self'`. */
+export async function importByAddress(url: string): Promise<CompiledModule> {
+  return (await import(/* @vite-ignore */ /* webpackIgnore: true */ url)) as CompiledModule;
 }
