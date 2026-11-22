@@ -31,9 +31,20 @@ export interface PluginDetail extends PluginSummary {
 }
 
 export interface PromotionReply {
+  /** Where the change went: locally, the project folder the files were written into. */
   where: string;
   folder: string;
   version: number;
+  /** The files written, from the project root, such as plugins/due-dates/plugin.thx. */
+  files: string[];
+  /** The slot paths the plugin can fill, for the layout line. */
+  slotPaths: string[];
+  /** The slot paths the config's layout already names this folder in. Empty: it is no default yet. */
+  inLayout: string[];
+  /** What happened, in a sentence. */
+  done: string;
+  /** What is left to do for it to fill a slot. */
+  next: string;
 }
 
 /** Plugin data (docs/06). `store` and `record` name the target: a store, or one of the app's records. */

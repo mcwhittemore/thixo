@@ -18,11 +18,12 @@ export type DeployResult = Release;
 
 /** A deploy that did not happen. Nothing was stored. */
 export class DeployError extends Error {
-  readonly problems: { folder: string; errors: ThxError[] }[];
+  readonly problems: { folder: string; errors: ThxError[]; at?: string }[];
 
-  constructor(problems: { folder: string; errors: ThxError[] }[]) {
+  /** `at` names where a problem is when it is not in a plugin folder, such as the config's layout. */
+  constructor(problems: { folder: string; errors: ThxError[]; at?: string }[]) {
     super(
-      `Deploy refused:\n${problems.map((p) => p.errors.map((e) => `  plugins/${p.folder}${e.file ? `/${e.file}` : ""}${e.line ? `:${e.line}` : ""}: ${e.message}${e.hint ? ` ${e.hint}` : ""}`).join("\n")).join("\n")}`,
+      `Deploy refused:\n${problems.map((p) => p.errors.map((e) => `  ${p.at ?? `plugins/${p.folder}${e.file ? `/${e.file}` : ""}${e.line ? `:${e.line}` : ""}`}: ${e.message}${e.hint ? ` ${e.hint}` : ""}`).join("\n")).join("\n")}`,
     );
     this.name = "DeployError";
     this.problems = problems;
@@ -39,7 +40,7 @@ const problem = (message: string, code: string, hint?: string): ThxError => ({ f
  * promoted from. */
 export async function deploy(ctx: ServerContext, input: DeployInput): Promise<DeployResult> {
   const data = ctx.adapters.data;
-  const problems: { folder: string; errors: ThxError[] }[] = [];
+  const problems: { folder: string; errors: ThxError[]; at?: string }[] = [];
 
   interface Built {
     folder: string;
@@ -96,11 +97,24 @@ export async function deploy(ctx: ServerContext, input: DeployInput): Promise<De
     if (!paths.includes(slot)) {
       const where = resolveSlotPath(ctx.app.slots, slot);
       const hint = where.ok ? `Write "${where.path}": a child slot's path has its parent in front.` : `The slot paths are: ${paths.join(", ") || "(none)"}.`;
-      problems.push({ folder, errors: [problem(`The layout names the slot "${slot}", which no part of the app shows.`, "deploy/unknown-slot", hint)] });
+      problems.push({ folder, at: "layout in thixo.config.ts", errors: [problem(`The layout names the slot "${slot}", which no part of the app shows.`, "deploy/unknown-slot", hint)] });
       continue;
     }
     const name = slot.split("/").filter(Boolean).pop();
-    if (!Object.hasOwn(input.plugins, folder)) problems.push({ folder, errors: [problem(`The layout puts "${folder}" in "${slot}", but there is no plugins/${folder}.`, "deploy/unknown-folder")] });
+    if (!Object.hasOwn(input.plugins, folder)) {
+      const folders = Object.keys(input.plugins).sort();
+      problems.push({
+        folder,
+        at: "layout in thixo.config.ts",
+        errors: [
+          problem(
+            `"${slot}": "${folder}" names a folder that is not in plugins/.`,
+            "deploy/unknown-folder",
+            `The folders there are: ${folders.join(", ") || "(none)"}. Name one of them, or add plugins/${folder}/.`,
+          ),
+        ],
+      });
+    }
     else if (b && b.manifest.slot !== name) {
       problems.push({ folder, errors: [problem(`plugins/${folder} fills the slot "${b.manifest.slot}", but the layout puts it in "${slot}".`, "deploy/wrong-slot")] });
     }

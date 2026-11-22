@@ -80,7 +80,7 @@ test("a folder without an id, a build error, a wrong slot or a missing folder fa
   assert.match(await attempt({ "due-dates": pluginFiles({ manifest: detail }) }, {}), /thixo new plugin/);
   assert.match(await attempt({ "due-dates": pluginFiles({ id: "p", note: "@error", manifest: detail }) }, {}), /fake error/);
   assert.match(await attempt(folders(), { "todo-detail": "faces" }), /fills the slot "todo-row"/);
-  assert.match(await attempt(folders(), { "todo-detail": "ghost" }), /no plugins\/ghost/);
+  assert.match(await attempt(folders(), { "todo-detail": "ghost" }), /layout in thixo\.config\.ts: "todo-detail": "ghost" names a folder that is not in plugins\/\. The folders there are: [a-z-, ]+\. Name one of them, or add plugins\/ghost\/\./);
   // A layout key no slot reads would deploy a plugin nobody sees (verify-chat): refused, with the path to write.
   assert.match(await attempt(folders(), { "todo-row": "faces" }), /names the slot "todo-row", which no part of the app shows\. Write "main\/todo-row"/);
   assert.match(await attempt(folders(), { "main/todo-detail": "due-dates" }), /The slot paths are: main, main\/todo-row, todo-detail/);
@@ -126,6 +126,12 @@ test("promotion round trip: promoting version 4 and deploying finds version 4 (d
   const promoted = await w.thixo.services.registry.promote({ user: w.users.boss, plugin: id, version: 4 });
   assert.equal(promoted.version, 4);
   assert.equal(promoted.folder, "due-dates");
+  // The reply says what happened and what is left: the folder is written, and it fills no slot until the layout names it.
+  assert.deepEqual(promoted.files, ["plugins/due-dates/plugin.thx"]);
+  assert.deepEqual(promoted.slotPaths, ["todo-detail"]);
+  assert.deepEqual(promoted.inLayout, []);
+  assert.match(promoted.done, /^Promoted .+ \(version 4\): its files are at plugins\/due-dates\/ /);
+  assert.match(promoted.next, /It fills no slot yet\. To make it a default, name it in layout in thixo\.config\.ts, such as "todo-detail": "due-dates"/);
   const [change] = w.adapters.code.changes;
   assert.match(change.title, /version 4/);
   assert.deepEqual(Object.keys(change.files), ["plugins/due-dates/plugin.thx"]);

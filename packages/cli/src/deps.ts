@@ -27,7 +27,10 @@ export interface ServerApi {
   /** Every slot path a layout can name. Optional so a fake server can leave it out. */
   slotPaths?(slots: AppDefinition["slots"]): string[];
   /** What the registry tells a user about a manifest: its summary and scopes. Optional, as above. */
-  describeManifest?(app: AppDefinition, manifest: import("thixo-thx/contract").Manifest): { summary: string[]; requiredScopes: string[]; optionalScopes: string[] };
+  describeManifest?(
+    app: AppDefinition,
+    manifest: import("thixo-thx/contract").Manifest,
+  ): { summary: string[]; requiredScopes: string[]; optionalScopes: string[]; scopeLabels?: Record<string, string> };
 }
 
 /** The three packages the CLI calls into. Each is loaded when first needed, so a command that does not need one

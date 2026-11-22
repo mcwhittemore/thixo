@@ -9,7 +9,7 @@ The todo example run by `thixo dev`: a signed-in user sees the todo list drawn b
 - `todo-add` adds a todo from the `Add a todo` textbox on Enter and clears it.
 - `todo-tick` toggles `done` through `updateTodo`; the tick and the badge survive a reload.
 - `todo-detail` opens `Selected todo` with the `Due dates (todo-detail)` plugin for the clicked todo.
-- `todo-due` patches a `dueOn` annotation (`POST /_thixo/data/patch`, 204) and reads it back after a reload. Annotations are shared within a user's group, so ben (same group as ana) sees ana's date.
+- `todo-due` patches a `dueOn` annotation (`POST /_thixo/data/patch`, 204) and reads it back after a reload. Annotations are shared within the todo's group (by design; `api/todos.ts` groups by the user's first group), so ben (same group as ana) sees ana's date, even from a plugin only ana has. A store is private to each user. cy (group `ops`) does not see it.
 - `todo-delete` is disabled for ana and cy (P4) and enabled for ben; ben's delete answers 204, the row goes, and Thixo drops the todo's annotations (A13).
 - `todo-refused` shows cy, who lacks `todos.write`, an alert in `main` instead of the list (`plg_todo_list stopped: Plugin Todo list needs the scope todos.write`).
 

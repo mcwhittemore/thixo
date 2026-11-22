@@ -211,7 +211,7 @@ test("the support agent is not offered plugins that need write scopes, and sees 
   for (const name of ["My notes", "Lead score", "Account health", "Pinned contacts", "Deals pipeline", "Pipeline totals", "Stage chart"]) {
     assert.equal(await results.getByRole("listitem", { name, exact: true }).count(), 0, `${name} is offered to support`);
   }
-  assert.match(await results.getByLabel("Scopes of Contacts list").innerText(), /Needs: companies\.read, contacts\.read( ·|$)/);
+  assert.match(await results.getByLabel("Scopes of Contacts list").innerText(), /Needs: companies\.read \(reads companies\), contacts\.read \(reads contacts\)( ·|$)/);
 
   await sam.getByRole("button", { name: "Maria Lopez" }).click();
   const alert = sam.getByRole("alert").filter({ hasText: "My notes" });

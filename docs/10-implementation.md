@@ -202,18 +202,39 @@ identity adapter's `scopesOf`, or from the scopes Thixo last saw for that user. 
 version by `sourceHash`, and writes a release. Each layout key must be a slot path the app has (`main/todo-row`, not
 `todo-row`): a layout, or a user's layout change, keyed where no slot reads it would hold a plugin nobody sees. When a
 folder the layout names fails to compile, `thixo dev` keeps the last release and says so rather than deploying
-without it. `thixo dev` and `thixo start` deploy when they start, and `thixo dev`
+without it. A layout entry naming a folder that is not in `plugins/` is refused with the folders there are. Either
+way the message is printed once. `thixo dev` and `thixo start` deploy when they start, and `thixo dev`
 deploys again when a file in `plugins/` changes.
 
 **Promotion** writes the plugin's source to `plugins/<slug>/` through the code adapter, with the plugin's id in its
 `definePlugin` metadata. Locally that is a change in the working tree. It becomes default when the implementor
-names it in `layout` in `thixo.config.ts` and deploys.
+names it in `layout` in `thixo.config.ts` and deploys. The reply says both: `done` (what was written, and where)
+and `next` (the layout line to add, with the slot's path, or that the layout already names the folder), with
+`files`, `slotPaths` and `inLayout`.
+
+**Ids.** Only a default plugin's folder has an `id` in its `definePlugin`, so a deploy finds the same plugin each
+time. The registry drops an id from submitted source and gives a personal plugin its own. `thixo new plugin
+--personal <folder>` writes a plugin with no id, outside `plugins/`.
+
+**Summaries (G5)** come from one place. Each scope's words are the app's, from `defineScopes`, made into a sentence
+(`Read todos` reads `Reads todos`); Thixo's own read `Reads its own data`, `Writes its own data` and so on
+(`packages/core/src/scope-words.ts`). The registry's summary, the plugin browser's scope list (`todos.read (reads
+todos)`), `thixo compile` and `thixo build` all use them.
 
 ## The authoring agent
 
 The loop is Thixo's (U4, U5). Its tools: `search_registry`, `read_plugin`, `describe_app` (the SDK, slots and
 language reference), `check` (build without storing), `submit` (build and store a new version of the user's own
 plugin, or a new plugin), `fork`, `use` (put a version in the user's layout).
+
+`describe_app` lists each slot with its full path and says that path is what `use` takes (`use takes slot:
+"main/todo-row"`). `use` refuses a slot path no slot reads, naming the paths there are, and replies with the layout
+entry it read back (`resolved`) and `confirmed`; a use that does not read back is `ok: false`. `read_plugin` with
+`files: true` also returns each file in its own UNTRUSTED block, which `thixo agent read --out <dir>` writes to a
+folder. The default prompt tells the agent to name slots by path, to confirm the layout after `use` before saying a
+plugin shows, and to make anything clickable a real button.
+
+Forking does not put the copy in the user's layout. `use` does, so a fork never changes what a user sees by itself.
 
 Three ways to drive it:
 
@@ -232,8 +253,8 @@ Three ways to drive it:
 | `thixo build [dir]` | Builds into `.thixo/build/`: the server bundle, the shell bundle, the SDK, each default plugin. Fails on any plugin error. |
 | `thixo start [dir]` | Serves a build. |
 | `thixo compile <folder or file> [--out dir] [--json]` | Compiles thx. Prints the summary in the registry's words (as `agent check` and the plugin browser give it), the scopes, the manifest, or the errors. |
-| `thixo new plugin <name> --slot <slot>` | A new folder in `plugins/`, with an id. The slot is its name or its export name. Prints the `layout` line with the slot's path. |
-| `thixo agent <tool> --as <user> [...]` | The authoring tools, against a running `thixo dev`. Exits 1 on a refusal and on a reply with `ok: false`. |
+| `thixo new plugin <name> --slot <slot> [--personal <folder>]` | A new folder in `plugins/`, with an id. The slot is its name or its export name; a slot the app lacks is refused, with the ones it has. Prints the `layout` line with the slot's path. `--personal` writes the plugin to another folder with no id, for `thixo agent submit`. |
+| `thixo agent <tool> --as <user> [...]` | The authoring tools, against a running `thixo dev`. Exits 1 on a refusal and on a reply with `ok: false`, printing a failed build's errors once. `read --out <dir>` writes a version's files to a new folder. |
 | `thixo registry list` / `thixo release` | What the local registry holds, and the current release. |
 
 The build uses esbuild twice: `api/`, `app/slots.ts` and the config for Node, and `app/shell.tsx` for the browser.
@@ -254,9 +275,19 @@ State lives in `.thixo/`: `data.sqlite`, `code/`, `signing-key`, `agent-key`, `b
   again, so a child slot's plugin shows a change its parent made.
 - **`<PluginBrowser />`** is the registry: search, a plugin's summary and scopes (G5), use, fork, share, promote, and
   reset a slot. Each plugin shows its id, and a default the release serves at an older version than its newest says
-  so (`PluginSummary.defaultVersion`). After a fork the status names the copy's id; after a promote it names the
-  folder and the layout edit that makes it a default. A default plugin carries a `Default` badge and another user's plugin a `From <author>` badge, beside
+  so (`PluginSummary.defaultVersion`). Each slot in `Your layout` shows the version it is on and, when the plugin has
+  a newer one, `v<n> is newer` with a button `Move <path> to v<n>`; a result in use says `In use: v<n> in <path>`.
+  After a fork the status names the copy's id and how to edit it (`thixo agent read --out`); after a promote it says
+  what was written and what is left (the layout line). A default plugin carries a `Default` badge and another user's plugin a `From <author>` badge, beside
   the name, not only in the muted caption.
+- **`<AuthoringChat />`**: Enter sends and Shift+Enter starts a new line. Each tool call is a line that becomes the
+  tool's outcome when it returns (`check passed`, `use put plg_…@2 in main/todo-row (confirmed in your layout)`, or
+  `use failed: …`, marked `data-ok="false"`). After a `use` that succeeds the page loads the layout again at once, so
+  the slot shows the new version without a reload. The log keeps its newest line in view, and the next message
+  carries the conversation id the last turn ended with.
+- **Annotations are shared by the record's group.** A field a plugin adds to a record is read and written per the
+  record's `group`, so two users in one group see each other's values, whichever plugin wrote them. A store is
+  private to each user. A plugin only one user has does not make its data private.
 - **What a plugin shows in shell chrome is attributed.** A dialog from `openModal` keeps the plugin's `title` but
   always has a line under it, drawn by the shell outside the plugin's box: "From the plugin “<name>”, by <author>"
   (or "one of this app's own" for the implementor's). The dialog's accessible name is the title and that line. A

@@ -30,6 +30,7 @@ const versions: FakeVersion[] = [
     ),
     code: "due-dates",
   },
+  { load: pluginLoad("plg_star", "Star", manifest({ slot: "todo-row", requiredEndpoints: ["getTodo"] })), code: "done-badge" },
 ];
 
 const summary = (v: FakeVersion, isDefault: boolean, lines: string[]): PluginSummary => ({
@@ -100,8 +101,13 @@ const server = fakeServer({
     JSON.stringify({ type: "conversation", id: "c1" }),
     JSON.stringify({ type: "text", text: "Looking at the registry. " }),
     JSON.stringify({ type: "tool", id: "t1", name: "search_registry", input: { q: "due" } }),
-    JSON.stringify({ type: "text", text: "Done: I used Due dates." }),
-    JSON.stringify({ type: "done" }),
+    JSON.stringify({ type: "tool_result", id: "t1", name: "search_registry", ok: true, output: JSON.stringify({ results: [{}, {}] }) }),
+    JSON.stringify({ type: "tool", id: "t2", name: "use", input: { plugin: "plg_star", version: 1, slot: "row" } }),
+    JSON.stringify({ type: "tool_result", id: "t2", name: "use", ok: false, output: JSON.stringify({ error: { code: "unknown_slot", message: 'There is no slot "row". The slot paths are: main, main/todo-row, todo-detail.' } }) }),
+    JSON.stringify({ type: "tool", id: "t3", name: "use", input: { plugin: "plg_star", version: 1, slot: "main/todo-row" } }),
+    JSON.stringify({ type: "tool_result", id: "t3", name: "use", ok: true, output: JSON.stringify({ ok: true, slot: "main/todo-row", plugin: "plg_star", version: 1, confirmed: true }) }),
+    JSON.stringify({ type: "text", text: "Done: I put Star in each row." }),
+    JSON.stringify({ type: "done", conversation: "c1" }),
   ],
 });
 
@@ -192,6 +198,29 @@ test("the plugin browser shows each slot's version, the summary before use, and 
   assert.equal(server.changes["todo-detail"], undefined);
 });
 
+test("the plugin browser says which version each slot is on, when a newer one exists, and moves the slot to it", async () => {
+  const badgeV2: FakeVersion = { load: { ...versions[1].load, version: 2, code: "/_thixo/plugins/plg_done_badge/2.js" }, code: "done-badge" };
+  const newer = fakeServer({
+    user: "ana",
+    versions: [...versions, badgeV2],
+    layout,
+    summaries: [{ ...summary(badgeV2, true, ["Reads todos"]), defaultVersion: 1 }],
+  });
+  await act(async () => root.render(h("div")));
+  await act(async () => root.render(h(App, { fetch: newer.fetch, browser: true })));
+  const row = await waitFor(() => (byLabel("Slot main/todo-row")?.textContent?.includes("v2 is newer") ? byLabel("Slot main/todo-row") : null), "the newer version beside the slot");
+  assert.equal(row.querySelector("[data-testid]")?.textContent, "Done badge v1");
+  assert.equal(byLabel("Done badge in use")?.textContent, "In use: v1 in main/todo-row (v2 is newer: Use moves to it)");
+  assert.equal(byLabel("Slot main")?.textContent?.includes("is newer"), false, "a slot on the newest version says nothing");
+  await click(byLabel("Move main/todo-row to v2"));
+  assert.deepEqual(newer.changes["main/todo-row"], { plugin: "plg_done_badge", number: 2 });
+  await waitFor(() => $$('[data-slot="main/todo-row"][data-plugin="plg_done_badge@2"]').length >= 3, "every row on v2");
+  await waitFor(() => byLabel("Plugin browser")?.querySelector('[role="status"]')?.textContent?.startsWith("Moved main/todo-row to Done badge v2"), "the status");
+  assert.equal(byLabel("Slot main/todo-row")?.textContent?.includes("is newer"), false);
+  await act(async () => root.render(h("div")));
+  await act(async () => root.render(h(App, { fetch: server.fetch, browser: true })));
+});
+
 test("with the browser open, an empty slot shows where it is", async () => {
   const saved = layout["main/todo-row"];
   Reflect.deleteProperty(layout, "main/todo-row");
@@ -201,8 +230,13 @@ test("with the browser open, an empty slot shows where it is", async () => {
   layout["main/todo-row"] = saved;
 });
 
-test("the authoring chat streams the agent's events and loads the layout again when it is done", async () => {
+test("the authoring chat streams the agent's events, shows each tool's outcome, and the page shows what use put in the layout without a reload", async () => {
+  await act(async () => root.render(h("div")));
+  await act(async () => root.render(h(App, { fetch: server.fetch, browser: false })));
+  await waitFor(() => $$('[data-slot="main/todo-row"][data-plugin="plg_done_badge@1"]').length >= 3, "the done badges");
   const layoutsBefore = server.requests.filter((r) => r.path === "/_thixo/layout").length;
+  // What the agent's use writes on the server; the page learns of it only by loading the layout again.
+  server.changes["main/todo-row"] = { plugin: "plg_star", number: 1 };
   const message = byLabel("Message")!;
   await act(async () => setValue(message, "Give todos a due date"));
   // Enter in the box sends, as in any chat (verify-chat); Shift+Enter would start a new line.
@@ -212,12 +246,25 @@ test("the authoring chat streams the agent's events and loads the layout again w
   assert.deepEqual(lines, [
     ["user", "Give todos a due date"],
     ["agent", "Looking at the registry. "],
-    ["tool", "Using search_registry"],
-    ["agent", "Done: I used Due dates."],
+    ["tool", "search_registry found 2 plugins"],
+    ["tool", 'use failed: There is no slot "row". The slot paths are: main, main/todo-row, todo-detail.'],
+    ["tool", "use put plg_star@1 in main/todo-row (confirmed in your layout)"],
+    ["agent", "Done: I put Star in each row."],
     ["done", "Done"],
   ]);
+  assert.equal(log.querySelector('[data-ok="false"]')?.textContent?.startsWith("use failed"), true, "a failed tool line is marked");
   assert.deepEqual(server.requests.find((r) => r.path === "/_thixo/authoring/chat")?.body, { message: "Give todos a due date" });
   await waitFor(() => server.requests.filter((r) => r.path === "/_thixo/layout").length > layoutsBefore, "the layout to load again");
+  await waitFor(() => $$('[data-slot="main/todo-row"][data-plugin="plg_star@1"]').length >= 3, "every row to show the plugin use put there");
+  assert.equal($$('[data-slot="main/todo-row"][data-plugin="plg_done_badge@1"]').length, 0, "the old plugin is gone without a reload");
+
+  // The next message carries the conversation id the last turn ended with.
+  await act(async () => setValue(message, "Make it red"));
+  await act(async () => void message.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }) as unknown as Event));
+  await waitFor(() => server.requests.filter((r) => r.path === "/_thixo/authoring/chat").length === 2, "the second message");
+  assert.deepEqual(server.requests.filter((r) => r.path === "/_thixo/authoring/chat")[1].body, { message: "Make it red", conversation: "c1" });
+  await waitFor(() => !byLabel("Authoring chat")?.querySelector('[aria-busy="true"]'), "the second turn to end");
+  Reflect.deleteProperty(server.changes, "main/todo-row");
 });
 
 test("when its slot unmounts the plugin stops: later SDK calls from it reject without a request (P7)", async () => {

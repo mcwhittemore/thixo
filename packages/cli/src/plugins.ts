@@ -74,11 +74,13 @@ export function summarizeManifest(manifest: Manifest): string[] {
 }
 
 /** Lines to print for one plugin: its summary, or its errors with the path from the project root. */
-export function reportOutcome(outcome: PluginOutcome): string[] {
+export function reportOutcome(outcome: PluginOutcome, describe?: (manifest: Manifest) => string[] | undefined): string[] {
   const { name, result } = outcome;
   if (result.ok) {
     const label = result.meta.name ? `${name} (${result.meta.name})` : name;
-    return [`  ok  ${label}`, ...summarizeManifest(result.manifest).map((line) => `      ${line}`)];
+    // The registry's own summary when the app is at hand, so build, compile and the plugin browser say the same.
+    const lines = describe?.(result.manifest) ?? summarizeManifest(result.manifest);
+    return [`  ok  ${label}`, ...lines.map((line) => `      ${line}`)];
   }
   return [`  FAILED  ${name}`, ...formatThxErrors(result.errors, `plugins/${name}/`).flatMap((e) => e.split("\n").map((l) => `      ${l}`))];
 }

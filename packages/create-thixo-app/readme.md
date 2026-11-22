@@ -48,8 +48,10 @@ grayed out, and as `ben` to use it.
 
 With `npm run dev` running, `npx thixo agent describe --as ana` prints the plugin language reference: the rules, every
 module a plugin may import, and every component's props (such as `Checkbox`'s `label`). Use it as the reference while
-you write `.thx`. `npx thixo new plugin <name> --slot <slot>` starts a plugin folder and prints the line to add to
-`layout` in `thixo.config.ts`.
+you write `.thx`. `npx thixo new plugin <name> --slot <slot>` starts a default plugin's folder in `plugins/`, with an
+id, and prints the line to add to `layout` in `thixo.config.ts`. For a personal plugin, one you store with
+`npx thixo agent submit`, add `--personal <folder>`: it goes outside `plugins/` and has no id. Only a default
+plugin's folder has an id.
 
 ## Making it your own
 

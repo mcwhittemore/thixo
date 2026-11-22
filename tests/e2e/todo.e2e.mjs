@@ -170,6 +170,22 @@ test("thixo compile and thixo new plugin work on the app", () => {
   const again = thixo(["compile", join(dir, "plugins/scratch-notes")]);
   assert.equal(again.code, 0, again.stderr);
   rmSync(join(dir, "plugins/scratch-notes"), { recursive: true });
+
+  // A slot the app does not have is refused, with the ones it has, and nothing is made (verify r2).
+  const unknown = thixo(["new", "plugin", "nowhere", "--slot", "nope"], { cwd: dir });
+  assert.equal(unknown.code, 1);
+  assert.match(unknown.stderr, /There is no slot "nope".*The slots are: main \(main\), todo-detail \(todoDetail\), todo-row \(todoRow\)/s);
+  assert.equal(existsSync(join(dir, "plugins/nowhere")), false);
+
+  // --personal: outside plugins/, no id, and the agent commands to store it.
+  const personal = thixo(["new", "plugin", "row-star", "--slot", "todo-row", "--personal", "mine/row-star"], { cwd: dir });
+  assert.equal(personal.code, 0, personal.stderr);
+  assert.doesNotMatch(readFileSync(join(dir, "mine/row-star/plugin.thx"), "utf8"), /id:/);
+  assert.match(personal.stdout, /thixo agent submit --as <user> --dir mine\/row-star/);
+  assert.match(personal.stdout, /--slot main\/todo-row/);
+  const checked = thixo(["compile", join(dir, "mine/row-star"), "--project", dir]);
+  assert.equal(checked.code, 0, checked.stderr);
+  rmSync(join(dir, "mine"), { recursive: true });
 });
 
 test("the agent describes the app, checks, submits and uses a new plugin as ana", () => {
@@ -194,6 +210,15 @@ test("the agent describes the app, checks, submits and uses a new plugin as ana"
   rmSync(broken, { recursive: true });
   assert.match(refused.stdout + refused.stderr, /plugin\.thx:\d+:\d+/);
   assert.equal(refused.code, 1, "a failed check exits 1, so a script can tell");
+  assert.equal((refused.stdout + refused.stderr).match(/thx\/no-global/g)?.length, 1, "and prints the error once");
+
+  // read --out writes the stored source to a folder, to edit and submit again.
+  const out = join(pluginDir, "..", `${pluginDir.split("/").pop()}-read`);
+  const read = thixo(["agent", "read", "--as", "ana", `${summaryId}@1`, "--out", out, "--project", dir]);
+  assert.equal(read.code, 0, read.stderr);
+  assert.match(read.stdout, new RegExp(`Wrote ${summaryId}@1 to .*: plugin\\.thx`));
+  assert.equal(readFileSync(join(out, "plugin.thx"), "utf8"), readFileSync(join(pluginDir, "plugin.thx"), "utf8"));
+  rmSync(out, { recursive: true });
 });
 
 test("ana sees her personal plugin in the detail panel; ben still sees the default", async () => {
@@ -229,6 +254,8 @@ test("ana shares it in the plugin browser; ben uses it, forks it and promotes it
   await pluginBrowser(ben).getByRole("status").getByText("Forked Todo summary").waitFor();
   // The status names the copy's id and says it is not in the layout yet (verify-plugins-todo).
   assert.match(await pluginBrowser(ben).getByRole("status").innerText(), /as plg_[0-9a-zA-Z_]+\. The copy is yours and is not in your layout yet: Use it/);
+  // ...and how to edit it as files (verify-plugins-todo r2).
+  assert.match(await pluginBrowser(ben).getByRole("status").innerText(), /thixo agent read --as ben plg_\w+ --out <folder>/);
   const fork = pluginBrowser(ben).getByRole("listitem", { name: "Todo summary" }).filter({ hasText: "personal · by ben" });
   await fork.waitFor();
 
@@ -239,7 +266,10 @@ test("ana shares it in the plugin browser; ben uses it, forks it and promotes it
   const { folder } = await reply.json();
   assert.equal(folder, "todo-summary");
   // The status says what was written and what makes it a default (verify-defaults-crm).
-  await pluginBrowser(ben).getByRole("status").getByText('wrote plugins/todo-summary/ for the implementor. It becomes a default when they name "todo-summary" in layout in thixo.config.ts').waitFor();
+  await pluginBrowser(ben).getByRole("status").getByText("its files are at plugins/todo-summary/").waitFor();
+  const said = await pluginBrowser(ben).getByRole("status").innerText();
+  assert.match(said, /^Promoted Todo summary \(version 1\): its files are at plugins\/todo-summary\/ /);
+  assert.match(said, /It fills no slot yet\. To make it a default, name it in layout in thixo\.config\.ts, such as "todo-detail": "todo-summary"/);
   const written = readFileSync(join(dir, "plugins", folder, "plugin.thx"), "utf8");
   assert.match(written, new RegExp(`id: "${summaryId}"`));
   await ben.context().close();

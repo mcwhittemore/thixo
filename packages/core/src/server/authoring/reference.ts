@@ -114,14 +114,15 @@ export function describeApp(ctx: ServerContext): string {
   const slots = ctx.app.slots
     .map((s) => {
       const at = paths.filter((p) => p === s.name || p.endsWith(`/${s.name}`));
-      return `- ${s.name} (export ${s.exportName}, ${s.kind}; path ${at.join(", ") || "(not placed)"})${s.children.length ? `, may place: ${s.children.join(", ")}` : ""}`;
+      const where = at.length ? `path ${at.join(", ")}` : "path (not placed: no layout can name it)";
+      return `- ${s.name} (export ${s.exportName}, ${s.kind}; ${where})${s.children.length ? `, may place: ${s.children.join(", ")}` : ""}${at.length ? `. use takes slot: ${at.map((p) => JSON.stringify(p)).join(" or ")}` : ""}`;
     })
     .join("\n");
   return [
     "# Writing a plugin for this app",
     LANGUAGE,
     ADDRESSES,
-    `## The app\n\nScopes the app defines (the build derives which a plugin needs from what it imports):\n${scopes || "(none)"}\n\nSlots (a plugin fills exactly one, named by its export from @app/slots). A layout, and the use tool, name a slot by its path: a child slot's path has its parent's in front, such as main/todo-row. A slot holds one plugin, so using one replaces what was there:\n${slots || "(none)"}`,
+    `## The app\n\nScopes the app defines (the build derives which a plugin needs from what it imports):\n${scopes || "(none)"}\n\nSlots (a plugin fills exactly one, named by its export from @app/slots). A layout, and the use tool, name a slot by its full path, not its name: a child slot's path has its parent's in front, such as main/todo-row. Pass that path as use's slot. A slot holds one plugin, so using one replaces what was there. After use, check that its reply's resolved entry names the plugin and version you meant:\n${slots || "(none)"}`,
     `## The modules a plugin may import\n\nThese are the declarations the build checks against. @app/sdk, @app/sdk/optional and @app/slots are generated from this app.\n\n${declarations}`,
     EXAMPLE,
   ].join("\n\n");

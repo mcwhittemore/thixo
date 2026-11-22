@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { call } from "./helpers/client.js";
-import { manifest, pluginFiles, submitOk, world } from "./helpers/registry-doubles.js";
+import { app, manifest, pluginFiles, submitOk, world } from "./helpers/registry-doubles.js";
+import { scopeLabel } from "../src/scope-words.js";
 
 const due = manifest({
   requiredEndpoints: ["listTodos"],
@@ -152,11 +153,19 @@ test("the summary is plain sentences from the manifest and the scopes' descripti
     "Creates and changes todos",
     "Adds 1 field to todo: dueOn (date)",
     "Keeps a private store: prefs",
+    "Reads its own data",
+    "Writes its own data",
     "If you can, sees who a todo is assigned to",
     "Uses: clipboard",
     "Names outside addresses: cdn.example.com, example.org",
     "Can choose among 2 addresses on cdn.example.com: which one it shows tells cdn.example.com something about what it read",
   ]);
+  // The scope list beside it uses the same words: the app's from defineScopes, Thixo's for its own.
+  assert.deepEqual(
+    ["todos.read", "todos.write", "thixo.data.read", "thixo.data.write", "nobody.knows"].map((scope) => scopeLabel(app.scopes, scope)),
+    ["todos.read (reads todos)", "todos.write (creates and changes todos)", "thixo.data.read (reads its own data)", "thixo.data.write (writes its own data)", "nobody.knows"],
+  );
+
 });
 
 test("the summary flags a plugin that chooses among fixed addresses on one host (redteam-exfil round 2)", async () => {

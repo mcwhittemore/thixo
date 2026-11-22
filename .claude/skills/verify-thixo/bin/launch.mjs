@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // Starts `thixo dev` on a disposable copy of an app, on a free port, in the background.
-//   node .claude/skills/verify-thixo/bin/launch.mjs [--run <id>] [--example todo|crm | --dir <app folder>] [--as <user>] [--port 0]
-// --example copies examples/<name>. --dir copies any app folder, such as one create-thixo-app made. --as is the user
-// the doctor signs in as (default: ana for todo and for a created app, rita for crm).
+//   node .claude/skills/verify-thixo/bin/launch.mjs [--run <id>] [--example todo|crm | --app <app folder>] [--as <user>] [--port 0]
+// --example copies examples/<name>. --app (or its older name --dir) copies any app folder: one create-thixo-app made,
+// one you wrote, or an example by path. --as is the user the doctor signs in as (default: ana for todo and for a
+// created app, rita for crm). For an app whose users are not ana, pass --as with one its login accepts.
 // Prints the run's state as JSON once the server says it is ready. Stop it with cleanup.mjs --run <id>.
 
 import { spawn } from "node:child_process";
@@ -13,13 +14,15 @@ import { alive, args, fail, readState, runDir, THIXO, writeState } from "./commo
 
 const a = args();
 const run = a.run ?? "default";
-if (a.dir && a.example) fail("give --example or --dir, not both.");
-if (a.dir === true) fail("--dir needs the app's folder, such as --dir examples-tmp/my-app.");
-const source = a.dir ? resolve(a.dir) : null;
+if (a.app && a.dir) fail("give --app or --dir (the same flag), not both.");
+const appDir = a.app ?? a.dir;
+if (appDir && a.example) fail("give --example or --app, not both.");
+if (appDir === true) fail("--app needs the app's folder, such as --app examples-tmp/my-app.");
+const source = appDir ? resolve(appDir) : null;
 const example = source ? basename(source) : (a.example ?? "todo");
 // Who the doctor signs in as: each example's own login, and the template's ana for an app create-thixo-app made.
 const SIGN_IN_AS = { todo: "ana", crm: "rita" };
-const signInAs = a.as && a.as !== true ? a.as : (source ? "ana" : SIGN_IN_AS[example]);
+const signInAs = a.as && a.as !== true ? a.as : (SIGN_IN_AS[example] ?? "ana");
 const previous = readState(run);
 if (previous?.pid && alive(previous.pid)) fail(`run "${run}" is still up (pid ${previous.pid}, ${previous.url}). Run cleanup.mjs --run ${run} first, or pick another --run.`);
 

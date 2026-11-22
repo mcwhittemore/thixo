@@ -5,7 +5,7 @@ Thixo's server keeps every plugin version, shows a person only the plugins they 
 ## Sub-features
 
 - `registry-submit` builds files through the build adapter, stores source and compiled code under content-derived keys, adds a version, and returns the schema diff. It is a service call (`services.registry.submit`), not an HTTP route (P6). Build errors come back and nothing is stored. A field that changes type anywhere in its lineage is rejected (D8). Only the author adds versions.
-- `registry-search` lists shared and default plugins plus the user's own, only those whose required scopes the user holds (G1), with plain summary sentences (G5): `Reads todos`, `Adds 1 field to todo: dueOn (date)`, `Keeps a private store: prefs`, `Uses: clipboard`, `Names outside addresses: ...`.
+- `registry-search` lists shared and default plugins plus the user's own, only those whose required scopes the user holds (G1), with plain summary sentences (G5): `Reads todos`, `Adds 1 field to todo: dueOn (date)`, `Keeps a private store: prefs`, `Reads its own data`, `Writes its own data`, `Uses: clipboard`, `Names outside addresses: ...`. The scope words are the app's from defineScopes and Thixo's for its own (`packages/core/src/scope-words.ts`), the same in `thixo compile`, `thixo build` and the plugin browser.
 - `registry-fork` makes a personal plugin with `forkedFrom` set and the same stored source; `empty` stops it reading its parent's data (D9).
 - `registry-share` turns a personal plugin shared. The author only, and only with `thixo.plugins.share`.
 - `registry-promote` asks the promotion rule (default: `thixo.plugins.promote`), then opens a change writing `plugins/<slug>/...` with the plugin's id in `definePlugin`'s metadata.
@@ -48,3 +48,4 @@ Preconditions:
 - `recordDeleted` reaches every Thixo created in the process. Call it from the handler that deletes the record.
 - The package tests use a fake build. The browser and CLI steps above use the real compiler, whose manifests key annotations by the record's name (`todo`) and name the slot (`todo-detail`), as the fake assumes.
 - The todo example calls `recordDeleted("todo", id)` from `deleteTodo`, so a deleted todo's annotations go with it.
+- `thixo registry list` shows each plugin's versions (`1,2`) and the slot path it fills (`main/todo-row`), not what changed between versions. The data diff of a version (`diff.added`, `noLongerShown`) is only in the reply to the `submit` that made it.

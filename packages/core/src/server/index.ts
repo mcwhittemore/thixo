@@ -5,6 +5,7 @@ import { createContext, type Route, type ServerContext, type Services } from "./
 import type { Manifest } from "thixo-thx/contract";
 import { optionalScopes, requiredScopes } from "./registry/scopes.js";
 import { summarise } from "./registry/summary.js";
+import { scopeLabel } from "../scope-words.js";
 import { deploy } from "./deploy.js";
 import { createRouter } from "./router.js";
 import { routes as authoringRoutes } from "./routes/authoring.js";
@@ -79,7 +80,15 @@ export { slotPaths, resolveSlotPath } from "../slots/paths.js";
 
 /** What the registry tells a user about a plugin built from `manifest` in `app` (G5): the summary sentences and the
  * scopes. `thixo compile` prints the same words the plugin browser and `thixo agent check` show. */
-export function describeManifest(app: AppDefinition, manifest: Manifest): { summary: string[]; requiredScopes: string[]; optionalScopes: string[] } {
+export function describeManifest(
+  app: AppDefinition,
+  manifest: Manifest,
+): { summary: string[]; requiredScopes: string[]; optionalScopes: string[]; scopeLabels: Record<string, string> } {
   const ctx = { app } as ServerContext;
-  return { summary: summarise(ctx, manifest), requiredScopes: requiredScopes(ctx, manifest), optionalScopes: optionalScopes(ctx, manifest) };
+  const required = requiredScopes(ctx, manifest);
+  const optional = optionalScopes(ctx, manifest);
+  const scopeLabels = Object.fromEntries([...required, ...optional].map((scope) => [scope, scopeLabel(app.scopes, scope)]));
+  return { summary: summarise(ctx, manifest), requiredScopes: required, optionalScopes: optional, scopeLabels };
 }
+
+export { scopeLabel, scopeSentence } from "../scope-words.js";

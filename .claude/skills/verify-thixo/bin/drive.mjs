@@ -74,4 +74,6 @@ try {
   await browser.close();
 }
 console.log(`evidence in ${out}`);
-if (failed) fail(failed.message);
+// Name what failed and where: a Playwright timeout's message carries the locator it waited for, and the step saved at
+// the failure ("…-failed.aria.txt") shows the page as it was.
+if (failed) fail(`${failed.name ?? "Error"}: ${failed.message}\nThe page at the failure: ${out}/*-failed.aria.txt and .png`);

@@ -3,11 +3,18 @@ import type { Deps } from "./deps.js";
 import type { Io } from "./io.js";
 import type { ProjectPaths } from "./project.js";
 
-async function withConfig<T>(paths: ProjectPaths, deps: Deps, use: (config: import("thixo/contract").ThixoConfig) => Promise<T>): Promise<T> {
+async function withConfig<T>(paths: ProjectPaths, deps: Deps, use: (config: import("thixo/contract").ThixoConfig, slotPathsOf: (slot: string) => string[]) => Promise<T>): Promise<T> {
   await buildServerBundle(paths);
-  const loaded = await loadServerBundle(paths, await deps.server());
+  const server = await deps.server();
+  const loaded = await loadServerBundle(paths, server);
+  // A plugin names the slot it fills; a layout names where that slot is (main/todo-row). Show the path.
+  const all = server.slotPaths ? server.slotPaths(loaded.app.slots) : [];
+  const slotPathsOf = (slot: string) => {
+    const at = all.filter((p) => p === slot || p.endsWith(`/${slot}`));
+    return at.length ? at : [slot];
+  };
   try {
-    return await use(loaded.config);
+    return await use(loaded.config, slotPathsOf);
   } finally {
     closeAdapters(loaded.config);
   }
@@ -21,12 +28,18 @@ function table(rows: string[][]): string[] {
 
 /** `thixo registry list`: every plugin in the local registry with its versions, visibility and author. */
 export async function runRegistryList(paths: ProjectPaths, options: { json: boolean }, io: Io, deps: Deps): Promise<number> {
-  const rows = await withConfig(paths, deps, async (config) => {
+  const rows = await withConfig(paths, deps, async (config, slotPathsOf) => {
     const plugins = await config.adapters.data.listPlugins();
-    return Promise.all(plugins.map(async (plugin) => ({ plugin, versions: await config.adapters.data.listVersions(plugin.id) })));
+    return Promise.all(
+      plugins.map(async (plugin) => {
+        const versions = await config.adapters.data.listVersions(plugin.id);
+        const slot = versions.at(-1)?.manifest.slot;
+        return { plugin, versions, paths: slot ? slotPathsOf(slot) : [] };
+      }),
+    );
   });
   if (options.json) {
-    io.out(JSON.stringify(rows.map(({ plugin, versions }) => ({ ...plugin, versions: versions.map((v) => ({ number: v.number, createdBy: v.createdBy, createdAt: v.createdAt, slot: v.manifest.slot })) })), null, 2));
+    io.out(JSON.stringify(rows.map(({ plugin, versions, paths }) => ({ ...plugin, slotPaths: paths, versions: versions.map((v) => ({ number: v.number, createdBy: v.createdBy, createdAt: v.createdAt, slot: v.manifest.slot })) })), null, 2));
     return 0;
   }
   if (!rows.length) {
@@ -34,13 +47,13 @@ export async function runRegistryList(paths: ProjectPaths, options: { json: bool
     return 0;
   }
   const header = ["ID", "NAME", "VISIBILITY", "AUTHOR", "VERSIONS", "SLOT"];
-  const body = rows.map(({ plugin, versions }) => [
+  const body = rows.map(({ plugin, versions, paths }) => [
     plugin.id,
     plugin.name,
     plugin.visibility,
     plugin.author,
     versions.length ? versions.map((v) => `${v.number}`).join(",") : "-",
-    versions.at(-1)?.manifest.slot ?? "-",
+    paths.join(", ") || "-",
   ]);
   for (const line of table([header, ...body])) io.out(line);
   return 0;

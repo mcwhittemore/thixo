@@ -68,7 +68,11 @@ export async function run(argv: string[], context: RunContext = {}): Promise<num
       case "compile":
         return await runCompile(command, io, deps);
       case "new-plugin":
-        newPlugin({ name: command.pluginName, slot: command.slot, dir: resolve(io.cwd, command.dir) }, io, await appSlots(resolve(io.cwd, command.dir), deps));
+        newPlugin(
+          { name: command.pluginName, slot: command.slot, dir: resolve(io.cwd, command.dir), ...(command.personal !== undefined ? { personal: resolve(io.cwd, command.personal) } : {}) },
+          io,
+          await appSlots(resolve(io.cwd, command.dir), deps),
+        );
         return 0;
       case "agent":
         return await runAgent(command.options, io, context.fetch);
