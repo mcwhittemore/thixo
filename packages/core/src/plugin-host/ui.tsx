@@ -1,4 +1,7 @@
-import { useId, type ReactNode } from "react";
+import * as React from "react";
+
+type ReactNode = React.ReactNode;
+const { useId } = React;
 import { sanitizeStyle } from "./styles.js";
 
 type Tone = "default" | "muted" | "info" | "success" | "warning" | "danger";

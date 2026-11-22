@@ -39,7 +39,7 @@ export function Slot<S extends SlotHandle<any, any>>(props: SlotProps<S>) {
   on.current = props.on as typeof on.current;
   const onEvent = React.useCallback<Deliver>((event, payload) => on.current?.[event]?.(payload), []);
   const name = handle?.def?.name;
-  const def = internals?.app.slots.find((s) => s.name === name) ?? (handle?.def ? ({ exportName: name, ...handle.def } as SlotDef) : undefined);
+  const def = internals?.app.slots.find((s) => s.name === name);
   const contextKey = JSON.stringify(props.context ?? {});
   const checked = React.useMemo(() => {
     if (!def || !internals) return undefined;
@@ -50,7 +50,8 @@ export function Slot<S extends SlotHandle<any, any>>(props: SlotProps<S>) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [def, internals?.app, contextKey]);
-  if (!internals || !def || !checked) return null;
+  if (!internals) return null;
+  if (!def || !checked) return <SlotMessage text={`The app has no slot ${String(name)}`} />;
   if ("error" in checked) return <SlotMessage text={`Wrong context for slot ${def.name}: ${checked.error}`} />;
   return <SlotView path={def.name} def={def} context={checked.context!} onEvent={onEvent} />;
 }
