@@ -5,3 +5,4 @@ dist
 .thixo
 *.tsbuildinfo
 package-lock.json
+artifacts

@@ -111,6 +111,7 @@ test("ana adds a todo, ticks one, and sets a due date that survives a reload", a
     const button = [...document.querySelectorAll("button")].find((b) => b.textContent === "Review the pull request");
     return button?.parentElement?.querySelector('input[type="checkbox"]')?.checked === true;
   });
+  await row(page, "Review the pull request").getByRole("region", { name: "Done badge (main/todo-row)" }).getByText("Done").waitFor();
 
   await openTodo(page, "Write the quarterly report");
   const slot = detail(page).getByRole("region", { name: "Due dates (todo-detail)" });
