@@ -1280,8 +1280,9 @@ export class Emitter {
 
   private addressLiteral(lit: ts.StringLiteral | ts.NoSubstitutionTemplateLiteral, kind: "link" | "load", tag: string, name: string): string {
     const text = lit.text;
-    const check = checkAddress(text, kind, this.env.addressHosts);
-    if (check !== true) return this.error(lit, "thx/address", `\`<${tag} ${name}="${text.length > 60 ? text.slice(0, 57) + "..." : text}">\`: ${check}`, kind === "load" ? `A loaded address is a \`data:\` address or on one of the app's address hosts (${this.env.addressHosts.join(", ") || "none"}).` : "A link is an http or https address written out in full.");
+    const hosts = kind === "load" ? this.env.addressHosts : (this.env.linkHosts ?? []);
+    const check = checkAddress(text, kind, hosts);
+    if (check !== true) return this.error(lit, "thx/address", `\`<${tag} ${name}="${text.length > 60 ? text.slice(0, 57) + "..." : text}">\`: ${check}`, kind === "load" ? `A loaded address is a \`data:\` address or on one of the app's address hosts (${hosts.join(", ") || "none"}).` : `A written-out link is an http or https address on one of the app's link hosts (${hosts.join(", ") || "none"}). To link elsewhere, pass along a \`Url\` the app handed you.`);
     if (!text.startsWith("data:")) this.facts.addresses.add(text);
     return `rt.addr(${JSON.stringify(text)}, ${JSON.stringify(kind)})`;
   }
@@ -1304,7 +1305,9 @@ export class Emitter {
   }
 }
 
-/** True when an address literal may stand where `kind` says, or the reason it may not. */
+/** True when an address literal may stand where `kind` says, or the reason it may not. `hosts` are the outside
+ * hosts allowed for that kind: `addressHosts` for a load, `linkHosts` for a link. A host not listed is refused for
+ * both, since choosing among fixed addresses on a host is a message to whoever runs it. */
 export function checkAddress(text: string, kind: "link" | "load", hosts: string[]): true | string {
   if (kind === "load" && /^data:/i.test(text)) {
     if (!/^data:(image\/(png|jpeg|gif|webp|avif|svg\+xml)|font\/(woff2?|ttf|otf))[;,]/i.test(text)) return "a `data:` address here must be an image or a font.";
@@ -1318,8 +1321,8 @@ export function checkAddress(text: string, kind: "link" | "load", hosts: string[
   }
   if (url.protocol !== "https:" && url.protocol !== "http:") return `\`${url.protocol}\` addresses are not allowed.`;
   if (url.username || url.password) return "an address can't carry a user name or password.";
-  if (kind === "load" && !hosts.map((h) => h.toLowerCase()).includes(url.hostname.toLowerCase()))
-    return `\`${url.hostname}\` is not one of the hosts the app lets plugins load from.`;
+  if (!hosts.map((h) => h.toLowerCase()).includes(url.hostname.toLowerCase()))
+    return kind === "load" ? `\`${url.hostname}\` is not one of the hosts the app lets plugins load from.` : `\`${url.hostname}\` is not one of the hosts the app lets plugins link to.`;
   return true;
 }
 

@@ -118,6 +118,8 @@ export interface ThixoConfig {
   authoring?: AuthoringFlow;
   /** Outside hosts plugins may load images, fonts and styles from. Default none. */
   addressHosts?: string[];
+  /** Outside hosts a plugin's written-out links (`<a href>`) may point to. Default none. */
+  linkHosts?: string[];
   libraries?: ExposedLibrary[];
 }
 

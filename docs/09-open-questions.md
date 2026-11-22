@@ -191,6 +191,11 @@ The largest portability question. See [portability](07-portability.md#build).
 ## Security
 
 - What does Thixo check about a library the implementor exposes, if anything?
+- Choosing between fixed links. The build refuses a written-out `<a href>` to a host not in `linkHosts`
+  ([implementation](10-implementation.md#addresses)), because a plugin can choose which of several fixed links
+  to show from what it read, and the click tells that host. The choice still works among handed-in `Url`s and on
+  listed hosts. Is a listed host enough, or should the registry
+  also flag a plugin whose source picks among many near-identical outside addresses?
 
 ## Project
 

@@ -141,6 +141,7 @@ test("the compile env carries what the manifest needs", () => {
   assert.deepEqual(env.slots.todoDetail, { name: "todo-detail" });
   assert.deepEqual(env.services, ["navigate", "openModal", "copyToClipboard", "download", "toast"]);
   assert.deepEqual(env.addressHosts, []);
+  assert.deepEqual(env.linkHosts, []);
 });
 
 test("every fixed module and the generated ones are valid declarations on their own", () => {
@@ -195,4 +196,9 @@ test("services are typed", () => {
 navigate("/todos/1"); const m = openModal(<span>hi</span>, { title: "x" }); m.close(); copyToClipboard("a").then(() => 1); download("a.txt", "x"); toast("done", { tone: "success" });`,
   });
   assert.deepEqual(ok, []);
+});
+
+test("the config's link hosts reach the compiler, apart from its address hosts", () => {
+  const withHosts = buildCompileEnv(app, { addressHosts: ["cdn.example.com"], linkHosts: ["docs.example.com"] });
+  assert.deepEqual([withHosts.addressHosts, withHosts.linkHosts], [["cdn.example.com"], ["docs.example.com"]]);
 });

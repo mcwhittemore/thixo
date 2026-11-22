@@ -104,8 +104,19 @@ In the emitted code:
 Copy at build is the lean in [the language](05-language.md#choosing-between-fixed-addresses). This build takes the
 second option, which needs no fetch at build: an address that loads something (`<img src>`, a style's `url()`) must
 be a `data:` address or on a host in `addressHosts` in the config, which is empty by default. A link the user
-clicks, `<a href>`, may point anywhere when it is written out in the source, and opens in a new tab with
-`rel="noopener noreferrer"`. Every outside address is in the manifest.
+clicks, `<a href>`, written out in the source must be an http or https address on a host in `linkHosts` in the
+config, also empty by default, and kept apart from `addressHosts`. Hosts match exactly; a subdomain is its own
+host. A link to anywhere else is a `Url` the app handed the plugin, such as a field declared `t.url()`. Every link
+opens in a new tab with `rel="noopener noreferrer"`. Every outside address is in the manifest.
+
+Links were open to any host until the red team's first round showed why not: a plugin that can read the user's
+data picks, by control flow, which of several fixed addresses on its author's server an anchor points to
+(`secret ? <a href=".../bit1"> : <a href=".../bit0">`). No address is built, so L7 holds, but each click tells the
+author's server what the plugin read, log2(N) bits for N addresses. The language now refuses the written-out
+outside link, as it refuses the outside image. The same choice still works on a host the implementor lists, so a
+link host should be one whose logs the implementor trusts, not one a plugin author runs. The check is the
+compiler's, as it is for `addressHosts`; the runtime takes any http or https `Url`, since it can only be given one
+the compiler wrote or the app handed in.
 
 ## The app
 

