@@ -132,7 +132,7 @@ test("ana adds a todo, ticks one, and sets a due date that survives a reload", a
   await page.context().close();
 });
 
-test("Delete is disabled for ana and enabled for ben (P4)", async () => {
+test("Delete is disabled for ana, and enabled for ben, who deletes a todo (P4)", async () => {
   const ana = await as("ana");
   const anaDelete = list(ana).getByRole("button", { name: "Delete" });
   await anaDelete.first().waitFor();
@@ -144,7 +144,17 @@ test("Delete is disabled for ana and enabled for ben (P4)", async () => {
   await benDelete.first().waitFor();
   await ben.waitForFunction(() => [...document.querySelectorAll("button")].some((b) => b.textContent === "Delete" && !b.disabled));
   for (const button of await benDelete.all()) assert.equal(await button.isDisabled(), false);
+  const deleted = ben.waitForResponse((r) => r.request().method() === "DELETE" && r.url().includes("/api/todos/"));
+  await row(ben, "Book flights for the offsite").getByRole("button", { name: "Delete" }).click();
+  assert.equal((await deleted).status(), 204);
+  await list(ben).getByRole("button", { name: "Book flights for the offsite", exact: true }).waitFor({ state: "detached" });
+  await ben.waitForLoadState("networkidle");
   await ben.context().close();
+  // A write makes every useQuery on the page ask again, so the deleted row's badge may ask for its todo once more
+  // before the list drops the row. That one 404 is expected.
+  const gone = problems.filter((p) => p.startsWith("ben: console: Failed to load resource") && p.includes("404"));
+  assert.ok(gone.length <= 1, problems.join("\n"));
+  problems.splice(0, problems.length, ...problems.filter((p) => !gone.includes(p)));
 });
 
 test("thixo compile and thixo new plugin work on the app", () => {
