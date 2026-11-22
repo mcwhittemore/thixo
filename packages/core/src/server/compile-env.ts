@@ -101,7 +101,7 @@ function slotDecl(s: SlotDef, recordTypes: Map<string, string>): string {
 
 /** Everything the compiler needs about the app: the declarations of each module a plugin may import, and what the
  * manifest records for each endpoint, record and slot. */
-export function buildCompileEnv(app: AppDefinition, config: Pick<ThixoConfig, "libraries" | "addressHosts">): CompileEnv {
+export function buildCompileEnv(app: AppDefinition, config: Pick<ThixoConfig, "libraries" | "addressHosts" | "linkHosts">): CompileEnv {
   const recordTypes = new Map<string, string>(app.records.map((r: RecordDef) => [r.name, r.exportName]));
   const libraries = [...app.libraries, ...(config.libraries ?? [])];
   const unique = [...new Map(libraries.map((l) => [l.specifier, l])).values()];
@@ -121,5 +121,6 @@ export function buildCompileEnv(app: AppDefinition, config: Pick<ThixoConfig, "l
     services: [...SERVICE_NAMES],
     libraries: unique.map((l) => l.specifier),
     addressHosts: config.addressHosts ?? [],
+    linkHosts: config.linkHosts ?? [],
   };
 }

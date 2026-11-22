@@ -79,6 +79,10 @@ export interface CompileEnv {
   libraries: string[];
   /** Outside hosts a plugin may load from, in `src` and style addresses. Empty by default. */
   addressHosts: string[];
+  /** Outside hosts a written-out `<a href>` may point to. Empty, or left out, means none: a plugin's only links to
+   * other hosts are `Url`s the app hands it. A link chosen among fixed addresses is a message to whoever runs the
+   * host, so the implementor names the hosts. */
+  linkHosts?: string[];
 }
 
 export interface ThxError {
