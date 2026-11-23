@@ -19,7 +19,7 @@ export interface RunningApp {
 }
 
 /** Loads the server bundle, makes sure there is a signing key, makes the server and migrates the data adapter. */
-export async function activateApp(paths: ProjectPaths, deps: Deps, options: { agentKey?: string }): Promise<RunningApp> {
+export async function activateApp(paths: ProjectPaths, deps: Deps, options: { agentKey?: string; log?: (line: string) => void }): Promise<RunningApp> {
   const server = await deps.server();
   const loaded = await loadServerBundle(paths, server);
   const signingKey = ensureSigningKey(paths.signingKeyFile);
@@ -27,6 +27,7 @@ export async function activateApp(paths: ProjectPaths, deps: Deps, options: { ag
     ...loaded.config,
     signingKey: loaded.config.signingKey ?? signingKey,
     ...(options.agentKey ? { agentKey: options.agentKey } : {}),
+    ...(options.log ? { authoringGuard: logRefusals(loaded.config.authoringGuard, options.log) } : {}),
   };
   try {
     await config.adapters.data.migrate();
@@ -34,6 +35,20 @@ export async function activateApp(paths: ProjectPaths, deps: Deps, options: { ag
     throw new CliError(`The data adapter could not migrate: ${messageOf(error)}`);
   }
   return { thixo: server.createThixo(loaded.app, config), config, loaded };
+}
+
+/** In dev, each refusal is also a line in the log, before the implementor's own hook runs. */
+export function logRefusals(guard: ThixoConfig["authoringGuard"], log: (line: string) => void): NonNullable<ThixoConfig["authoringGuard"]> {
+  return {
+    ...guard,
+    async onRefusal(notice) {
+      const r = notice.refusal;
+      const count = r.from === "data" ? "from data, not counted" : notice.limit ? `${notice.count} of ${notice.limit} in ${notice.windowHours}h` : `${notice.count}, blocking off`;
+      log(`  authoring refused ${r.user} (${r.category}, ${r.source}, ${count}): ${r.reason.replace(/\s+/g, " ")}`);
+      if (notice.blocked) log(`  authoring blocked ${r.user} from making plugins. Lift it with \`thixo authoring unblock ${r.user}\`.`);
+      await guard?.onRefusal?.(notice);
+    },
+  };
 }
 
 /** The git sha when the project is in a git work tree. */

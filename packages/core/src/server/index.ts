@@ -13,6 +13,7 @@ import { routes as dataRoutes } from "./routes/data.js";
 import { routes as layoutRoutes } from "./routes/layout.js";
 import { routes as pluginsRoutes } from "./routes/plugins.js";
 import { routes as registryRoutes, services as registryServices } from "./routes/registry.js";
+import { guardOf } from "./authoring/guard.js";
 
 export { collectApp } from "../api/collect.js";
 export { HttpError } from "../api/errors.js";
@@ -23,6 +24,9 @@ export { DeployError } from "./deploy.js";
 export type { DeployInput, DeployResult } from "./deploy.js";
 export { runAuthoring, scriptedModel } from "./authoring/index.js";
 export type { AuthoringEvent, AuthoringRequest, ScriptedModel, ScriptedStep, ScriptedTurn } from "./authoring/index.js";
+export { DEFAULT_REFUSAL_LIMIT, DEFAULT_REFUSAL_WINDOW_HOURS, REFUSAL_CATEGORIES, blockedMessage } from "./authoring/guard.js";
+export type { AuthoringGuard } from "./authoring/guard.js";
+export { flagSource } from "./authoring/source-check.js";
 export { recordDeleted } from "./registry/record-deleted.js";
 export { isAddress } from "./registry/plugin-data.js";
 export { withPluginId, withoutPluginId, readPluginId } from "./registry/plugin-source.js";
@@ -61,6 +65,10 @@ export function createThixo(app: AppDefinition, config: ThixoConfig): Thixo {
     services: {
       deploy: (input) => deploy(ctx, input),
       registry: registryServices(ctx),
+      authoring: (() => {
+        const guard = guardOf(ctx);
+        return { status: guard.status, refusals: guard.refusals, blocks: guard.blocks, unblock: guard.unblock };
+      })(),
     },
     async fetch(request) {
       const url = new URL(request.url);

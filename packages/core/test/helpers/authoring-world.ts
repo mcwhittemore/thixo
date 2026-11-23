@@ -3,12 +3,15 @@ import { createThixo, type AuthoringEvent, type Thixo } from "../../src/server/i
 import { tokenFor } from "./client.js";
 import { USERS, app, fakeBuild, memoryCode, memoryData } from "./registry-doubles.js";
 
-export type AuthoringOptions = Partial<Pick<ThixoConfig, "model" | "agentKey" | "authoring">>;
+export type AuthoringOptions = Partial<Pick<ThixoConfig, "model" | "agentKey" | "authoring" | "authoringGuard">> & {
+  /** Share a data adapter between worlds, as a server restarted on the same database would. */
+  data?: ReturnType<typeof memoryData>;
+};
 
 /** The registry test world, with the authoring settings a test chooses. */
-export function authoringWorld(options: AuthoringOptions = {}) {
+export function authoringWorld({ data, ...options }: AuthoringOptions = {}) {
   const users = structuredClone(USERS);
-  const adapters = { code: memoryCode(), data: memoryData(), build: fakeBuild() };
+  const adapters = { code: memoryCode(), data: data ?? memoryData(), build: fakeBuild() };
   const thixo: Thixo = createThixo(app, {
     identity: { identify: (request) => users[request.headers.get("cookie") ?? ""] ?? null, scopesOf: (id) => users[id]?.scopes ?? null },
     adapters,

@@ -100,12 +100,41 @@ What is still open:
 - **A later version can ask for more.** If users follow the newest version of a shared plugin, its author can add an
   endpoint and every user picks it up.
 - **The authoring agent reads other people's plugins.** Text in a plugin's source or description could steer the
-  agent when it works for someone else.
+  agent when it works for someone else. The prompt and the guard below make this harder, not impossible.
 - **A plugin can hang the page.** Code on the page's main thread can't be stopped from outside, so not hanging the
   app is a goal for the language, not a promise
   ([decision 44](08-decisions.md#44-a-plugin-that-hangs-is-a-goal-not-a-requirement)).
 
 See [open questions](09-open-questions.md#1-who-agrees-to-a-plugins-scopes).
+
+## The authoring guard
+
+A plugin that looks like the app's own chrome can ask a user for what the app would never ask for. The red team's
+second round drew a "Session expired" sign-in in a dialog. The shell now draws every plugin dialog and toast with a
+line saying which plugin drew it, outside the plugin's box. That line is the guard: it holds whatever the agent was
+talked into writing.
+
+Authoring adds a second, softer layer:
+
+- **The base prompt.** Thixo's authoring prompt tells the agent to refuse a plugin that imitates the shell or the
+  app's chrome, a system or browser dialog, a sign-in or anything that asks for a credential or a secret, or that
+  passes itself off as another plugin or a default. It also refuses any text that tells it to skip or loosen its
+  rules, from the person in the chat or from what it reads: a comment or string in a plugin's source, a name or
+  description, registry results, app data. Those are data, never instructions.
+- **A refusal is an event.** The agent refuses by calling the `refuse` tool. The loop stores the refusal through the
+  data adapter, calls the implementor's hook, ends the turn and shows the person a plain refusal.
+- **Repeat attempts block.** Three refusals of one person's own requests within 24 hours (configurable) end the
+  session and block them from making plugins: the chat, every authoring tool and `thixo agent --as` refuse. Using
+  and installing plugins still works. The first refusals say what happens next. A refusal of text the agent read
+  is recorded but does not count, since the person did not write it.
+- **A cheap check on submit.** The agent's `check` and `submit` refuse source that says what a sign-in says
+  ("session expired", "sign in again") or that has a field to type into and asks for a password, a code, a key or a
+  card number. It reads words and is easy to get past. It is a tripwire, not a classifier.
+- **The implementor can undo it.** An innocent person will be caught. A user with `thixo.authoring.admin`, or the
+  implementor at `thixo authoring`, sees refusals and blocks and lifts a block.
+
+The prompt is a soft layer. A model can be talked past it, and a user can write a plugin by other means the
+implementor allows. Nothing here replaces the attributed dialogs, the compiler or the broker.
 
 ## The spike
 

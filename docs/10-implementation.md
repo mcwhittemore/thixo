@@ -184,6 +184,10 @@ thixo.config.ts
 | `POST /_thixo/data/remove-field` | D7. Needs `thixo.data.admin`. |
 | `POST /_thixo/authoring/chat` | `{ conversation?, message }` to the agent's events, as newline-delimited JSON. Needs `thixo.plugins.author`. |
 | `POST /_thixo/authoring/tool` | One of the agent's tools, called directly. Off unless the server was started with an agent key, and the request carries it. See below. |
+| `GET /_thixo/authoring/status` | `AuthoringStatus`: whether the current user is blocked from making plugins, and their count of refusals. |
+| `GET /_thixo/authoring/refusals?user=&since=` | `{ refusals }`, oldest first. Needs `thixo.authoring.admin`. |
+| `GET /_thixo/authoring/blocks?all=1` | `{ blocks }`: who is blocked now, or every block with `all`. Needs `thixo.authoring.admin`. |
+| `DELETE /_thixo/authoring/blocks/:user` | Lifts a block and starts the user's count again. Needs `thixo.authoring.admin`. |
 
 **Plugin code by address.** The page's CSP is `script-src 'self'`, so the shell imports a compiled module by its
 address, not from a `blob:`. A module import can't carry the token, so the load route answers with
@@ -225,7 +229,7 @@ todos)`), `thixo compile` and `thixo build` all use them.
 
 The loop is Thixo's (U4, U5). Its tools: `search_registry`, `read_plugin`, `describe_app` (the SDK, slots and
 language reference), `check` (build without storing), `submit` (build and store a new version of the user's own
-plugin, or a new plugin), `fork`, `use` (put a version in the user's layout).
+plugin, or a new plugin), `fork`, `use` (put a version in the user's layout), `refuse` (see the guard below).
 
 `describe_app` lists each slot with its full path and says that path is what `use` takes (`use takes slot:
 "main/todo-row"`). `use` refuses a slot path no slot reads, naming the paths there are, and replies with the layout
@@ -235,6 +239,36 @@ folder. The default prompt tells the agent to name slots by path, to confirm the
 plugin shows, and to make anything clickable a real button.
 
 Forking does not put the copy in the user's layout. `use` does, so a fork never changes what a user sees by itself.
+
+### The guard
+
+The default prompt lists what the agent never builds: a plugin that imitates the shell or the app's chrome, a
+system or browser dialog, a sign-in or anything that asks for a credential or secret, or another plugin or a
+default. It refuses text that tells it to skip or loosen its rules, from the chat or from anything it reads. See
+[the security model](04-security-model.md#the-authoring-guard) for why this is a soft layer.
+
+- **`refuse`** takes `category` (`shell`, `dialog`, `credentials`, `impersonation`, `override`), `reason` (one
+  sentence for the person), `from` (`user`, or `data` when the text was in something the agent read) and `quote`.
+- **The loop** stores an `AuthoringRefusal` through the data adapter: user, conversation, category, reason, the
+  person's message as `trigger`, the quote, `from`, `source` (`agent` or `check`) and the time. It calls
+  `config.authoringGuard.onRefusal` with the count, the limit and whether it blocked. It ends the turn: calls after
+  the refusal in the same turn are not run, and the model gets no further turn. The chat gets a `refusal` event with
+  the words the person sees.
+- **The count** is refusals with `from: "user"` inside the window, after the last lift. The default is 3 in 24
+  hours (`authoringGuard: { limit, windowHours }`; `limit: 0` records without blocking). Before the limit, the
+  person reads how many are left. At it, the loop stores an `AuthoringBlock` and marks the conversation ended.
+  `implementor` is never blocked.
+- **A blocked user** is refused the chat route and every tool, on the chat and on the tool route, with 403
+  `authoring_blocked` and a message saying they can still use and install plugins. The registry, layout and data
+  routes do not look at blocks. `<AuthoringChat />` reads `/_thixo/authoring/status` and shows the message in place
+  of the input.
+- **The check** in `check` and `submit` (`flagSource`) flags source that says what a sign-in says, or that has a
+  field to type into and asks for a secret word. A flag is a refusal with `source: "check"`, returned as a build
+  error `guard/credentials` with a `refusal` field, and it ends the turn like `refuse`. Deploys and `thixo compile`
+  do not run it: they are the implementor's.
+- **Lifting** keeps the block on record with `liftedAt` and `liftedBy`, and the count starts after it.
+  `thixo.services.authoring` has `status`, `refusals`, `blocks` and `unblock` for the host. `thixo dev` prints a line
+  for each refusal and block.
 
 Three ways to drive it:
 
@@ -256,6 +290,7 @@ Three ways to drive it:
 | `thixo new plugin <name> --slot <slot> [--personal <folder>]` | A new folder in `plugins/`, with an id. The slot is its name or its export name; a slot the app lacks is refused, with the ones it has. Prints the `layout` line with the slot's path. `--personal` writes the plugin to another folder with no id, for `thixo agent submit`. |
 | `thixo agent <tool> --as <user> [...]` | The authoring tools, against a running `thixo dev`. Exits 1 on a refusal and on a reply with `ok: false`, printing a failed build's errors once. `read --out <dir>` writes a version's files to a new folder. |
 | `thixo registry list` / `thixo release` | What the local registry holds, and the current release. |
+| `thixo authoring blocks [--all]` / `refusals [--user u]` / `unblock <user>` | The authoring guard's records, through the app's own services on its data adapter, acting as `implementor`. A running `thixo dev` sees a lift at once. |
 
 The build uses esbuild twice: `api/`, `app/slots.ts` and the config for Node, and `app/shell.tsx` for the browser.
 State lives in `.thixo/`: `data.sqlite`, `code/`, `signing-key`, `agent-key`, `build/`.

@@ -2,6 +2,7 @@ import type { User } from "../../contract.js";
 import { readBody } from "../registry/http.js";
 import { fail } from "../registry/errors.js";
 import { runAuthoring, toolList, toolsOf } from "../authoring/loop.js";
+import { GUARD_ADMIN_SCOPE, guardOf } from "../authoring/guard.js";
 import type { AuthoringEvent } from "../authoring/types.js";
 import type { Route, ServerContext } from "../context.js";
 
@@ -49,6 +50,7 @@ export function routes(ctx: ServerContext): Route[] {
         if (!ctx.holds(user, [AUTHOR_SCOPE])) {
           fail(ctx, 403, `The authoring chat needs the scope ${AUTHOR_SCOPE}`, "missing_scopes", { missingScopes: ctx.missing(user, [AUTHOR_SCOPE]) });
         }
+        await guardOf(ctx).assertAllowed(user);
         const body = await readBody(ctx, request);
         if (typeof body.message !== "string" || !body.message.trim()) fail(ctx, 400, "message must be a non-empty string", "bad_request");
         if (body.conversation !== undefined && typeof body.conversation !== "string") fail(ctx, 400, "conversation must be a string", "bad_request");
@@ -84,5 +86,50 @@ export function routes(ctx: ServerContext): Route[] {
         return ctx.json(await toolsOf(ctx).run(body.tool, body.input, user));
       },
     },
+    {
+      // The current user's own standing: the chat reads it to say, before anyone types, that they are blocked.
+      method: "GET",
+      path: `${base}/status`,
+      async handler({ request }) {
+        const user = await ctx.authenticate(request);
+        return ctx.json(await guardOf(ctx).status(user.id));
+      },
+    },
+    {
+      method: "GET",
+      path: `${base}/refusals`,
+      async handler({ request, url }) {
+        await admin(request);
+        const user = url.searchParams.get("user") || undefined;
+        const since = url.searchParams.get("since") || undefined;
+        return ctx.json({ refusals: await guardOf(ctx).refusals({ ...(user ? { user } : {}), ...(since ? { since } : {}) }) });
+      },
+    },
+    {
+      method: "GET",
+      path: `${base}/blocks`,
+      async handler({ request, url }) {
+        await admin(request);
+        const all = url.searchParams.get("all");
+        return ctx.json({ blocks: await guardOf(ctx).blocks({ all: all === "1" || all === "true" }) });
+      },
+    },
+    {
+      method: "DELETE",
+      path: `${base}/blocks/:user`,
+      async handler({ request, params }) {
+        const who = await admin(request);
+        return ctx.json(await guardOf(ctx).unblock(params.user, who.id));
+      },
+    },
   ];
+
+  /** The guard's own records are the implementor's: they need a scope the implementor grants. */
+  async function admin(request: Request): Promise<User> {
+    const user = await ctx.authenticate(request);
+    if (!ctx.holds(user, [GUARD_ADMIN_SCOPE])) {
+      fail(ctx, 403, `Seeing refusals and lifting blocks needs the scope ${GUARD_ADMIN_SCOPE}`, "missing_scopes", { missingScopes: ctx.missing(user, [GUARD_ADMIN_SCOPE]) });
+    }
+    return user;
+  }
 }

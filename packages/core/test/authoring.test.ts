@@ -74,7 +74,7 @@ test("a conversation searches, checks a broken plugin, fixes it, submits and use
   assert.deepEqual(layout["todo-detail"], { plugin: plugins[0].id, number: 1 });
   assert.equal(model.turns.length, 7);
   assert.match(model.turns[0].system, /Search the registry first/i);
-  assert.deepEqual(model.turns[0].tools.map((t) => t.name), ["search_registry", "read_plugin", "describe_app", "check", "submit", "fork", "use"]);
+  assert.deepEqual(model.turns[0].tools.map((t) => t.name), ["search_registry", "read_plugin", "describe_app", "check", "submit", "fork", "use", "refuse"]);
 });
 
 test("a conversation continues with its history, and belongs to the user who started it", async () => {

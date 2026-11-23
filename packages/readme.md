@@ -11,7 +11,7 @@ one's tests. [docs/10](../docs/10-implementation.md) is the build spec; `thx/src
 | `thixo-sql` | `thixo-sql` | The data adapter, on a small SQL driver interface. See [its readme](thixo-sql/readme.md). | Built, run on SQLite only |
 | `thixo-node` | `thixo-node` | Local adapters: `local()` (files for code, `node:sqlite` for data, an in-process build), `serve()`, and `claudeCode()`, a model adapter on the local `claude` command. | Built |
 | `thixo-anthropic` | `thixo-anthropic` | The model adapter for the Claude API. | Built, tested against a local fake of the API |
-| `cli` | `thixo-cli` | The `thixo` command: dev, build, start, compile, new plugin, agent, registry list, release. | Built |
+| `cli` | `thixo-cli` | The `thixo` command: dev, build, start, compile, new plugin, agent, registry list, release, authoring. | Built |
 | `create-thixo-app` | `create-thixo-app` | Starts a new app from the todo example. | Not written |
 | `thixo-cloudflare`, `thixo-vercel`, `thixo-aws` | | Adapters for each cloud. | Not written |
 

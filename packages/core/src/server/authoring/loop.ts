@@ -3,7 +3,8 @@ import type { AgentMessage, AgentTool } from "../../contract.js";
 import type { ServerContext } from "../context.js";
 import { conversationsOf, remember } from "./conversations.js";
 import { defaultSystemPrompt } from "./prompt.js";
-import { createAuthoringTools, type AuthoringTools } from "./tools.js";
+import { blockedMessage, guardOf } from "./guard.js";
+import { createAuthoringTools, type AuthoringTools, type ToolContext } from "./tools.js";
 import { DEFAULT_MAX_TURNS, type AuthoringEvent, type AuthoringRequest } from "./types.js";
 
 const toolsets = new WeakMap<ServerContext, AuthoringTools>();
@@ -23,16 +24,41 @@ export function toolList(ctx: ServerContext): AgentTool[] {
   return ctx.config.authoring?.tools ? ctx.config.authoring.tools(defaults) : defaults;
 }
 
+/** A refusal in a tool's reply (`refuse`, or a check or submit the guard flagged). */
+export interface ToolRefusal {
+  category: Extract<AuthoringEvent, { type: "refusal" }>["category"];
+  from: "user" | "data";
+  message: string;
+  count: number;
+  limit: number;
+  blocked: boolean;
+}
+
+function refusalIn(result: unknown): ToolRefusal | undefined {
+  if (!result || typeof result !== "object") return undefined;
+  const refusal = (result as { refusal?: unknown }).refusal;
+  if (!refusal || typeof refusal !== "object") return undefined;
+  const r = refusal as ToolRefusal;
+  return { category: r.category, from: r.from, message: r.message, count: r.count, limit: r.limit, blocked: r.blocked };
+}
+
 /** What a tool call comes back as, for the model: JSON, or the refusal as `{ error }`. */
-export async function runTool(ctx: ServerContext, name: string, input: unknown, user: AuthoringRequest["user"]): Promise<{ ok: boolean; output: string }> {
+export async function runTool(
+  ctx: ServerContext,
+  name: string,
+  input: unknown,
+  user: AuthoringRequest["user"],
+  context?: ToolContext,
+): Promise<{ ok: boolean; output: string; refusal?: ToolRefusal }> {
   try {
     if (!toolList(ctx).some((tool) => tool.name === name)) {
       const names = toolList(ctx).map((tool) => tool.name).join(", ");
       return { ok: false, output: JSON.stringify({ error: { code: "unknown_tool", message: `There is no tool named ${name}. The tools are ${names}.` } }) };
     }
-    const result = await toolsOf(ctx).run(name, input, user);
+    const result = await toolsOf(ctx).run(name, input, user, context);
     const failed = !!result && typeof result === "object" && (result as { ok?: unknown }).ok === false;
-    return { ok: !failed, output: JSON.stringify(result) };
+    const refusal = refusalIn(result);
+    return { ok: !failed, output: JSON.stringify(result), ...(refusal ? { refusal } : {}) };
   } catch (error) {
     if (isHttpError(error)) {
       return { ok: false, output: JSON.stringify({ error: { code: error.code, message: error.message, ...(error.details ?? {}) } }) };
@@ -57,6 +83,17 @@ export async function* runAuthoring(ctx: ServerContext, request: AuthoringReques
   }
   if (conversation && conversation.owner !== request.user.id) {
     yield { type: "error", message: `There is no conversation ${id}.` };
+    yield { type: "done", conversation: id };
+    return;
+  }
+  const block = await guardOf(ctx).activeBlock(request.user.id);
+  if (block) {
+    yield { type: "error", message: blockedMessage(block) };
+    yield { type: "done", conversation: id };
+    return;
+  }
+  if (conversation?.ended) {
+    yield { type: "error", message: "This conversation has ended. Start a new one by leaving conversation out." };
     yield { type: "done", conversation: id };
     return;
   }
@@ -105,10 +142,24 @@ export async function* runAuthoring(ctx: ServerContext, request: AuthoringReques
       conversation.messages.push(assistant);
       if (!calls.length) break turns;
 
+      let refused: ToolRefusal | undefined;
       for (const call of calls) {
-        const result = await runTool(ctx, call.name, call.input, request.user);
+        if (refused) {
+          // A refusal ends the turn: the calls after it in the same turn do not run.
+          const output = JSON.stringify({ error: { code: "not_run", message: "Not run: an earlier call in this turn was a refusal." } });
+          conversation.messages.push({ role: "tool", id: call.id, name: call.name, output });
+          yield { type: "tool_result", id: call.id, name: call.name, ok: false, output };
+          continue;
+        }
+        const result = await runTool(ctx, call.name, call.input, request.user, { conversation: id, message: request.message });
         conversation.messages.push({ role: "tool", id: call.id, name: call.name, output: result.output });
         yield { type: "tool_result", id: call.id, name: call.name, ok: result.ok, output: result.output };
+        if (result.refusal) refused = result.refusal;
+      }
+      if (refused) {
+        yield { type: "refusal", ...refused };
+        if (refused.blocked) conversation.ended = true;
+        break turns;
       }
     }
   } finally {

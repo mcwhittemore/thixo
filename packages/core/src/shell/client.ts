@@ -1,4 +1,4 @@
-import type { AgentEvent, AppInfo, LayoutReply, PluginLoad, PluginSummary, PluginVersionRef, SchemaJson } from "../contract.js";
+import type { AgentEvent, AppInfo, AuthoringStatus, LayoutReply, PluginLoad, PluginSummary, PluginVersionRef, SchemaJson } from "../contract.js";
 import { ThixoCallError } from "../plugin-host/refused.js";
 import type { Session } from "./session.js";
 
@@ -70,6 +70,10 @@ export function createClient(session: Session) {
     },
     async promote(id: string): Promise<unknown> {
       return json(await send("POST", `/_thixo/registry/plugins/${enc(id)}/promote`, {}), "Promoting");
+    },
+    /** Whether the current user may make plugins, or has been blocked. */
+    async authoringStatus(): Promise<AuthoringStatus> {
+      return json(await authed("/_thixo/authoring/status"), "Loading the authoring status");
     },
     /** Streams the authoring agent's events: newline-delimited JSON. */
     async *chat(message: string, conversation?: string, signal?: AbortSignal): AsyncGenerator<ChatEvent> {

@@ -21,6 +21,7 @@ npx thixo start          # serve what `thixo build` made
 | `agent <tool> --as <user>` | Calls an authoring tool on a running `thixo dev`. | `npx thixo agent describe --as ana` |
 | `registry list [dir]` | Lists the plugins in the local registry. | `npx thixo registry list` |
 | `release [dir]` | Shows the current release and its layout. | `npx thixo release` |
+| `authoring blocks\|refusals\|unblock <user> [dir]` | The authoring guard's records: who is blocked from making plugins (`--all` adds lifted blocks), every refusal (`--user`), and lifting a block. Option: `--json`. | `npx thixo authoring unblock ana` |
 
 `thixo agent` has shortcuts: `submit`, `check`, `search`, `read`, `fork`, `use` and `describe`. A tool's own name
 (`read_plugin`, `search_registry`, `describe_app`) takes the same arguments. Any other tool name is sent as

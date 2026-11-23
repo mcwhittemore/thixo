@@ -75,7 +75,8 @@ field name write different rows, so they don't collide. Two users' store records
 - **The latest release** is the one put last. Each release gets a sequence number when it is put.
 
 The registry tables are `thixo_plugins`, `thixo_versions`, `thixo_releases`, `thixo_layouts` and `thixo_users`.
-`thixo_schema` holds the version of the schema.
+The authoring guard keeps `thixo_refusals` (one row per refusal) and `thixo_authoring_blocks` (one row per user,
+kept when the block is lifted). `thixo_schema` holds the version of the schema.
 
 ## Migrations
 

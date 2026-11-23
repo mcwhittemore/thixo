@@ -1,5 +1,6 @@
 import { parseArgs, type ParseArgsConfig } from "node:util";
 import type { AgentOptions } from "./agent.js";
+import type { AuthoringCommand } from "./authoring-cmd.js";
 import { CliError } from "./errors.js";
 
 export type Command =
@@ -12,7 +13,8 @@ export type Command =
   | { name: "new-plugin"; pluginName: string; slot: string; dir: string; personal?: string }
   | { name: "agent"; options: AgentOptions }
   | { name: "registry-list"; dir: string; json: boolean }
-  | { name: "release"; dir: string; json: boolean };
+  | { name: "release"; dir: string; json: boolean }
+  | { name: "authoring"; dir: string; command: AuthoringCommand };
 
 const HELP: Record<string, string> = {
   main: `thixo: build and run a Thixo app from its folders.
@@ -29,6 +31,7 @@ Commands
   agent <tool>     Call an authoring tool on the running dev server
   registry list    List the plugins in the local registry
   release          Show the current release and its layout
+  authoring        See the agent's refusals and blocked users; lift a block
 
 Every command that takes [dir] uses the current folder when it is left out.
 Run \`thixo <command> --help\` for a command's options.`,
@@ -107,6 +110,20 @@ A reply with ok: false (a failed check or submit) prints its errors and exits 1.
   registry: `thixo registry list [dir] [--json]
 
 Prints the plugins in the local registry with their versions, visibility and author.`,
+  authoring: `thixo authoring blocks [dir] [--all] [--json]
+thixo authoring refusals [dir] [--user <user>] [--json]
+thixo authoring unblock <user> [dir] [--json]
+
+The authoring guard's records, read from the app's data adapter. When the authoring agent refuses a request
+(a plugin that imitates the app, a sign-in, a request to drop its rules), Thixo records it. Three refusals by
+one person within 24 hours block them from making plugins; config.authoringGuard changes the limit.
+
+  blocks     Who is blocked now. --all adds lifted blocks.
+  refusals   Every refusal, oldest first: who, when, the category, the reason and the text that set it off.
+  unblock    Lift a person's block. Their count starts again. A running \`thixo dev\` sees it at once.
+
+The same records are served at /_thixo/authoring/refusals and /_thixo/authoring/blocks to a user who holds
+thixo.authoring.admin.`,
   release: `thixo release [dir] [--json]
 
 Prints the current release: its id, its deployment and which plugin version fills each slot.`,
@@ -220,6 +237,25 @@ export function parseCommand(argv: string[], env: NodeJS.ProcessEnv = process.en
       if (wantsHelp) return { name: "help", topic: "release" };
       const { values, positionals } = parse("release", rest, { json: { type: "boolean" } });
       return { name: "release", dir: oneDir("release", positionals), json: !!values.json };
+    }
+    case "authoring": {
+      const [what, ...more] = rest;
+      if (wantsHelp || !what) return { name: "help", topic: "authoring" };
+      const { values, positionals } = parse(`authoring ${what}`, more, { json: { type: "boolean" }, all: { type: "boolean" }, user: { type: "string" } });
+      const json = !!values.json;
+      switch (what) {
+        case "blocks":
+          return { name: "authoring", dir: oneDir("authoring blocks", positionals), command: { what, all: !!values.all, json } };
+        case "refusals":
+          return { name: "authoring", dir: oneDir("authoring refusals", positionals), command: { what, json, ...(values.user ? { user: values.user } : {}) } };
+        case "unblock": {
+          const [user, ...dir] = positionals;
+          if (!user) throw new CliError("thixo authoring unblock needs a user: `thixo authoring unblock <user> [dir]`.");
+          return { name: "authoring", dir: oneDir("authoring unblock", dir), command: { what, user, json } };
+        }
+        default:
+          throw new CliError(`thixo authoring has three commands: blocks, refusals and unblock <user>. Got "${what}".\nRun \`thixo authoring --help\`.`);
+      }
     }
     default:
       throw new CliError(`Unknown command "${first}".\n\n${HELP.main}`);

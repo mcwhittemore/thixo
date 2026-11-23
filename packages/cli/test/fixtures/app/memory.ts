@@ -1,4 +1,11 @@
-import type { Adapters, Plugin, PluginVersion, Release } from "thixo/contract";
+import type { Adapters, AuthoringBlock, AuthoringRefusal, Plugin, PluginVersion, Release } from "thixo/contract";
+
+type GuardState = { refusals: AuthoringRefusal[]; blocks: Map<string, AuthoringBlock> };
+
+function guard(): GuardState {
+  const g = globalThis as { __thixoFixtureGuard?: GuardState };
+  return (g.__thixoFixtureGuard ??= { refusals: [], blocks: new Map() });
+}
 
 export function memoryAdapters(): Adapters & { close(): void; migrations: number } {
   const plugins: Plugin[] = [];
@@ -25,6 +32,22 @@ export function memoryAdapters(): Adapters & { close(): void; migrations: number
       return null;
     },
     async rememberUser() {},
+    // The guard's records outlive one load of the bundle, as a database would: tests seed and read them here.
+    async addRefusal(r: AuthoringRefusal) {
+      guard().refusals.push(r);
+    },
+    async listRefusals(filter?: { user?: string; since?: string }) {
+      return guard().refusals.filter((r) => (!filter?.user || r.user === filter.user) && (!filter?.since || r.at > filter.since));
+    },
+    async putAuthoringBlock(b: AuthoringBlock) {
+      guard().blocks.set(b.user, b);
+    },
+    async getAuthoringBlock(user: string) {
+      return guard().blocks.get(user) ?? null;
+    },
+    async listAuthoringBlocks() {
+      return [...guard().blocks.values()];
+    },
   };
   return {
     code: { async put() {}, async get() { return null; }, async openChange() { return { where: "" }; } },

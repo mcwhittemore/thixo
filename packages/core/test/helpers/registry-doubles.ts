@@ -3,7 +3,7 @@ import { collectApp } from "../../src/api/collect.js";
 import { endpoint, record, defineScopes } from "../../src/api/index.js";
 import { slot } from "../../src/slots/index.js";
 import { t } from "../../src/schema/index.js";
-import type { Adapters, BuildAdapter, CodeAdapter, DataAdapter, DataTarget, Fields, Plugin, PluginId, PluginVersion, Release, User } from "../../src/contract.js";
+import type { Adapters, AuthoringBlock, AuthoringRefusal, BuildAdapter, CodeAdapter, DataAdapter, DataTarget, Fields, Plugin, PluginId, PluginVersion, Release, User } from "../../src/contract.js";
 import type { CompileResult, Manifest, SourceFiles } from "thixo-thx/contract";
 import { createThixo, type Thixo } from "../../src/server/index.js";
 import { tokenFor } from "./client.js";
@@ -36,6 +36,8 @@ export function memoryData(): DataAdapter & { layers: Map<string, Map<string, Fi
   const layouts = new Map<string, Record<string, { plugin: string; number: number }>>();
   const users = new Map<string, User>();
   const layers = new Map<string, Map<string, Fields>>();
+  const refusals: AuthoringRefusal[] = [];
+  const blocks = new Map<string, AuthoringBlock>();
   const merged = (target: DataTarget, chain: PluginId[]): Fields => {
     const layer = layers.get(keyOf(target));
     const out: Fields = {};
@@ -130,6 +132,21 @@ export function memoryData(): DataAdapter & { layers: Map<string, Map<string, Fi
         const [kind, name, rid] = k.split("|");
         if (kind === "annotation" && name === record && rid === id) layers.delete(k);
       }
+    },
+    async addRefusal(r) {
+      refusals.push(structuredClone(r));
+    },
+    async listRefusals(filter) {
+      return structuredClone(refusals.filter((r) => (!filter?.user || r.user === filter.user) && (!filter?.since || r.at > filter.since)));
+    },
+    async putAuthoringBlock(b) {
+      blocks.set(b.user, structuredClone(b));
+    },
+    async getAuthoringBlock(user) {
+      return structuredClone(blocks.get(user) ?? null);
+    },
+    async listAuthoringBlocks() {
+      return structuredClone([...blocks.values()].sort((a, b) => (a.at < b.at ? 1 : -1)));
     },
   };
 }

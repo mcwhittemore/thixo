@@ -21,6 +21,7 @@ export const THIXO_SCOPES = {
   "thixo.plugins.share": "Share a plugin with other users",
   "thixo.plugins.promote": "Propose a plugin as a default for everyone",
   "thixo.data.admin": "Delete a field's data from a plugin",
+  "thixo.authoring.admin": "See the authoring agent's refusals and lift a block on making plugins",
 } as const;
 
 // ---- The app, as the server sees it ----
@@ -121,6 +122,8 @@ export interface ThixoConfig {
   /** Outside hosts a plugin's written-out links (`<a href>`) may point to. Default none. */
   linkHosts?: string[];
   libraries?: ExposedLibrary[];
+  /** What the authoring loop does when its agent refuses a request: how many refusals block a user, and a hook. */
+  authoringGuard?: AuthoringGuardConfig;
 }
 
 // ---- Adapters (X4) ----
@@ -218,6 +221,16 @@ export interface DataAdapter {
   removeField(plugin: PluginId, scope: { store: string } | { record: string }, field: string): Promise<void>;
   /** A13: the app says a record was deleted. */
   removeAnnotations(record: string, id: string): Promise<void>;
+
+  // The authoring guard: what the agent refused, and who may no longer make plugins
+  addRefusal(refusal: AuthoringRefusal): Promise<void>;
+  /** Oldest first. `since` is an ISO time; only refusals strictly after it. */
+  listRefusals(filter?: { user?: UserId; since?: string }): Promise<AuthoringRefusal[]>;
+  /** One per user: a new one replaces the last. */
+  putAuthoringBlock(block: AuthoringBlock): Promise<void>;
+  getAuthoringBlock(user: UserId): Promise<AuthoringBlock | null>;
+  /** Every block, lifted ones too, newest first. */
+  listAuthoringBlocks(): Promise<AuthoringBlock[]>;
 }
 
 export interface Adapters {
@@ -264,6 +277,83 @@ export interface ModelAdapter {
 export interface AuthoringFlow {
   system?(defaults: string): string;
   tools?(defaults: AgentTool[]): AgentTool[];
+}
+
+// ---- The authoring guard ----
+
+/** What the agent refuses to build, or to obey.
+ * - `shell`: imitates the app's shell or its own chrome.
+ * - `dialog`: imitates a system or browser dialog.
+ * - `credentials`: a sign-in, or anything that asks for a password, a code or another secret.
+ * - `impersonation`: passes itself off as another plugin or a default.
+ * - `override`: text that tells the agent to skip or loosen its rules. */
+export type RefusalCategory = "shell" | "dialog" | "credentials" | "impersonation" | "override";
+
+/** One refusal, kept through the data adapter. */
+export interface AuthoringRefusal {
+  id: string;
+  user: UserId;
+  /** The chat it happened in. Null on the tool route (`thixo agent`), which has no conversation. */
+  conversation: string | null;
+  category: RefusalCategory;
+  /** The agent's reason, in a sentence, or the check's. */
+  reason: string;
+  /** The text that set it off: the person's message in the chat, else what the agent or the check quoted. */
+  trigger: string;
+  /** The words the agent or the check pointed at, when they differ from `trigger`. */
+  quote?: string;
+  /** `user`: the person asked. `data`: it came from text the agent read (a plugin's source or description, registry
+   * results, app data). Only `user` refusals count toward a block. */
+  from: "user" | "data";
+  /** `agent`: the agent called `refuse`. `check`: the submit path's own check flagged the source. */
+  source: "agent" | "check";
+  /** ISO time. */
+  at: string;
+}
+
+/** A user who may no longer make plugins. Lifting it keeps the record and starts the count again. */
+export interface AuthoringBlock {
+  user: UserId;
+  /** ISO time. */
+  at: string;
+  /** Why, in a sentence: how many refusals in how long. */
+  reason: string;
+  /** The refusals that reached the limit. */
+  refusals: string[];
+  liftedAt?: string;
+  liftedBy?: UserId;
+}
+
+export interface RefusalNotice {
+  refusal: AuthoringRefusal;
+  /** Refusals by this user that count, inside the window, this one included. */
+  count: number;
+  /** 0 when blocking is off. */
+  limit: number;
+  windowHours: number;
+  /** This refusal blocked the user. */
+  blocked: boolean;
+  block?: AuthoringBlock;
+}
+
+export interface AuthoringGuardConfig {
+  /** Refusals by one user inside the window that block them from making plugins. Default 3. 0 turns blocking off:
+   * refusals are still recorded and the hook still runs. */
+  limit?: number;
+  /** Default 24. */
+  windowHours?: number;
+  /** Called after each refusal is stored. An error it throws is logged and does not stop the loop. */
+  onRefusal?(notice: RefusalNotice): void | Promise<void>;
+}
+
+/** `GET /_thixo/authoring/status`: the current user's own standing. */
+export interface AuthoringStatus {
+  blocked: boolean;
+  /** What to tell the person when blocked. */
+  message?: string;
+  count: number;
+  limit: number;
+  windowHours: number;
 }
 
 // ---- What the shell asks the server (the HTTP surface under /_thixo) ----

@@ -209,7 +209,7 @@ The other side of A1: the endpoints every app gets.
 | Registry | Search, get a plugin, list its versions, submit a version, fork, share, promote |
 | Plugin data | Read through a chain, read many, patch, delete a field's data |
 | Layouts | Get the current user's layout, set a slot, reset a slot to the default |
-| Authoring | Start and continue a chat with the authoring agent |
+| Authoring | Start and continue a chat with the authoring agent. See its refusals and blocks, and lift a block (`thixo.authoring.admin`) |
 | Tokens | Trade the user's session for a token (A4) |
 
 Promoting goes through the promotion adapter, which says who may (W2). Plugin data needs the read and write scopes

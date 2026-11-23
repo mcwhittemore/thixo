@@ -63,4 +63,26 @@ export const STATEMENTS = [
   )`,
   `CREATE INDEX IF NOT EXISTS thixo_data_plugin ON thixo_data (kind, scope, plugin, field)`,
   `CREATE INDEX IF NOT EXISTS thixo_data_record ON thixo_data (kind, scope, id)`,
+  // The authoring guard: each refusal, and one block row per user. Times are ISO strings, which sort as text.
+  `CREATE TABLE IF NOT EXISTS thixo_refusals (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    conversation TEXT,
+    category TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    trigger_text TEXT NOT NULL,
+    quote TEXT,
+    origin TEXT NOT NULL,
+    source TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS thixo_refusals_user ON thixo_refusals (user_id, created_at)`,
+  `CREATE TABLE IF NOT EXISTS thixo_authoring_blocks (
+    user_id TEXT PRIMARY KEY,
+    blocked_at TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    refusals TEXT NOT NULL,
+    lifted_at TEXT,
+    lifted_by TEXT
+  )`,
 ];

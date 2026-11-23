@@ -1,4 +1,6 @@
 import type {
+  AuthoringBlock,
+  AuthoringRefusal,
   DataAdapter,
   DataTarget,
   Fields,
@@ -79,6 +81,34 @@ function toRelease(row: SqlRow): Release {
     layout: JSON.parse(row.layout as string),
     createdAt: row.created_at as string,
   };
+}
+
+function toRefusal(row: SqlRow): AuthoringRefusal {
+  const refusal: AuthoringRefusal = {
+    id: row.id as string,
+    user: row.user_id as string,
+    conversation: (row.conversation as string | null) ?? null,
+    category: row.category as AuthoringRefusal["category"],
+    reason: row.reason as string,
+    trigger: row.trigger_text as string,
+    from: row.origin as AuthoringRefusal["from"],
+    source: row.source as AuthoringRefusal["source"],
+    at: row.created_at as string,
+  };
+  if (row.quote !== null && row.quote !== undefined) refusal.quote = row.quote as string;
+  return refusal;
+}
+
+function toBlock(row: SqlRow): AuthoringBlock {
+  const block: AuthoringBlock = {
+    user: row.user_id as string,
+    at: row.blocked_at as string,
+    reason: row.reason as string,
+    refusals: JSON.parse(row.refusals as string),
+  };
+  if (row.lifted_at !== null && row.lifted_at !== undefined) block.liftedAt = row.lifted_at as string;
+  if (row.lifted_by !== null && row.lifted_by !== undefined) block.liftedBy = row.lifted_by as string;
+  return block;
 }
 
 function isConflict(error: unknown): boolean {
@@ -342,6 +372,62 @@ export function sqlDataAdapter(driver: SqlDriver): DataAdapter {
 
     async removeAnnotations(record, id) {
       await driver.run(`DELETE FROM thixo_data WHERE kind = 'annotation' AND scope = ? AND id = ?`, [record, id]);
+    },
+
+    async addRefusal(refusal) {
+      await driver.run(
+        `INSERT INTO thixo_refusals (id, user_id, conversation, category, reason, trigger_text, quote, origin, source, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          refusal.id,
+          refusal.user,
+          refusal.conversation,
+          refusal.category,
+          refusal.reason,
+          refusal.trigger,
+          refusal.quote ?? null,
+          refusal.from,
+          refusal.source,
+          refusal.at,
+        ],
+      );
+    },
+
+    async listRefusals(filter) {
+      const where: string[] = [];
+      const params: SqlParam[] = [];
+      if (filter?.user) {
+        where.push("user_id = ?");
+        params.push(filter.user);
+      }
+      if (filter?.since) {
+        where.push("created_at > ?");
+        params.push(filter.since);
+      }
+      const rows = await driver.all(
+        `SELECT * FROM thixo_refusals ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY created_at, id`,
+        params,
+      );
+      return rows.map(toRefusal);
+    },
+
+    async putAuthoringBlock(block) {
+      await driver.run(
+        `INSERT INTO thixo_authoring_blocks (user_id, blocked_at, reason, refusals, lifted_at, lifted_by) VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT (user_id) DO UPDATE SET blocked_at = excluded.blocked_at, reason = excluded.reason,
+           refusals = excluded.refusals, lifted_at = excluded.lifted_at, lifted_by = excluded.lifted_by`,
+        [block.user, block.at, block.reason, json(block.refusals), block.liftedAt ?? null, block.liftedBy ?? null],
+      );
+    },
+
+    async getAuthoringBlock(user) {
+      const rows = await driver.all(`SELECT * FROM thixo_authoring_blocks WHERE user_id = ?`, [user]);
+      return rows[0] ? toBlock(rows[0]) : null;
+    },
+
+    async listAuthoringBlocks() {
+      const rows = await driver.all(`SELECT * FROM thixo_authoring_blocks ORDER BY blocked_at DESC, user_id`);
+      return rows.map(toBlock);
     },
   };
 }
