@@ -100,4 +100,6 @@ export interface RegistryServices {
   data: DataServices;
   /** The compiled module of a version, for the plugin route. Same access rule as `load`. */
   code(input: { user: User; ref: PluginVersionRef }): Promise<string>;
+  /** A file the version copied at build, under the same rule as its code. */
+  asset(input: { user: User; ref: PluginVersionRef; file: string }): Promise<{ bytes: Uint8Array; contentType: string }>;
 }

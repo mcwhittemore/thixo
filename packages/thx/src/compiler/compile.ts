@@ -127,6 +127,9 @@ function buildManifest(e: Emitter, env: CompileEnv, errors: ThxError[]): Manifes
     schemaHash: schemaHash(data),
     shellServices: sorted(f.imports.filter((i) => i.spec === "thixo/services" && env.services.includes(i.name)).map((i) => i.name)),
     addresses: sorted(f.addresses),
+    loads: sorted(f.loads),
+    links: sorted(f.links),
+    assets: Object.fromEntries([...f.assets].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))),
     libraries: sorted(f.imports.filter((i) => env.libraries.includes(i.spec)).map((i) => i.spec)),
   };
 }

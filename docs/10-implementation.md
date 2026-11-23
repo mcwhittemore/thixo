@@ -100,44 +100,77 @@ In the emitted code:
 - Every loop body and function entry counts against a budget. Each entry from the host (a render, an event
   handler, a resumed `await`) starts a new count.
 - Every element goes through one function that checks its tag and attributes against a list, takes a `Url` and
-  never a string where an address goes, and wraps each event handler so it gets plain data, not the event.
+  never a string where an address goes, and wraps each event handler so it gets plain data, not the event. A load
+  written in the source is the app's copy (`rt.asset`), never an outside address.
 - Values the host hands in are frozen copies.
 
 ### Addresses
 
-Copy at build is the lean in [the language](05-language.md#choosing-between-fixed-addresses). This build takes the
-second option, which needs no fetch at build: an address that loads something (`<img src>`, a style's `url()`) must
-be a `data:` address or on a host in `addressHosts` in the config, which is empty by default. A link the user
-clicks, `<a href>`, written out in the source must be an http or https address on a host in `linkHosts` in the
-config, also empty by default, and kept apart from `addressHosts`. Hosts match exactly; a subdomain is its own
-host. A link to anywhere else is a `Url` the app handed the plugin, such as a field declared `t.url()`. Every link
-opens in a new tab with `rel="noopener noreferrer"`. Every outside address is in the manifest.
+The owner decided how outside addresses work ([decision 60](08-decisions.md#60-copy-at-build-and-addresses-from-data)).
+There are no host lists: `addressHosts` and `linkHosts` are gone.
 
-Links were open to any host until the red team's first round showed why not: a plugin that can read the user's
-data picks, by control flow, which of several fixed addresses on its author's server an anchor points to
-(`secret ? <a href=".../bit1"> : <a href=".../bit0">`). No address is built, so L7 holds, but each click tells the
-author's server what the plugin read, log2(N) bits for N addresses. The language now refuses the written-out
-outside link, as it refuses the outside image. The same choice still works on a host the implementor lists, so a
-link host should be one whose logs the implementor trusts, not one a plugin author runs. The check on a written-out
-link is the compiler's; the runtime takes any http or https `Url` for a link, since a link waits for a click and
-the runtime can only be given a `Url` the compiler wrote or the app handed in.
+**A written-out load is copied at build.** An `https://` address written in the source where something loads
+(`<img src>`, the only such place today) is fetched once when the plugin is built. Its bytes are stored with the
+version, and the compiled code loads the app's copy. The page a plugin runs in never fetches from an outside host
+because of something written in plugin source. The build builds like an npm install: there are no outside file refs.
 
-A load is different: it fires when the slot renders, with no click. The red team's second round rendered a `Url`
-the app handed in (an avatar field, or a `t.url()` annotation another user had seeded with their own server's
-address) as `<img src>`, and the browser fetched it: a zero-click request to any host, which L4 rules out. So the
-runtime checks every load, a written-out one and a handed-in one alike, against the same `addressHosts` the
-compiler uses. The shell reads them from `AppInfo.addressHosts` and hands them to each plugin's runtime
-(`RuntimeHost.addressHosts`); an outside address on any other host stops the plugin with "can't load that address".
-An outside avatar host is one the implementor lists, as the page's CSP (`img-src`) already required. This holds
-without the CSP; the CSP is the second wall, not the first. The server takes for a `t.url()` field only what the
-runtime can hold as a `Url`: http and https with a host, mailto, a path on the app, or a `data:` image or font.
+- The compiler stays pure and offline. It puts each such address in the manifest's `loads`, and emits
+  `rt.addr(address, "load")`, which the runtime refuses at render ("loads ... from outside the app"). The build
+  step (`buildWithCopies` in `packages/core/src/server/registry/assets.ts`) fetches each one through the build
+  adapter's `fetchAsset`, then compiles again with `CompileEnv.assets` (address to file), and the compiler emits
+  `rt.asset("<sha256>.<ext>")` instead. The manifest keeps the original addresses (`addresses`, `loads`) and says
+  what was copied (`assets`).
+- Every build goes through that step: a deploy, the authoring agent's `check` and `submit`, `thixo build`, `thixo
+  dev` and `thixo compile` (whose `--out` also writes `assets/`).
+- A copy that fails is a build error, `build/copy-failed`, at the line that names the address, with a hint: use an
+  https address that serves an image or a font, a `data:` address, or a `Url` the app hands in.
+- A file is stored through the code adapter under `assets/<sha256>`, and is at most 2 MiB; one version copies at
+  most 8 MiB and 32 files. Only images and fonts are copied: png, jpeg, gif, webp, avif, svg, woff, woff2, ttf and
+  otf. An SVG with a `<script>`, a `<foreignObject>`, an `on...=` attribute or a `javascript:` address is refused.
+- Copies are kept in memory for the process, by address, so `thixo dev` does not fetch again on every change. A
+  stored version keeps its copy even if the outside file changes (U2).
 
-Choosing among fixed addresses works on a listed load host as it does on a listed link host: which of two images
-a plugin shows tells whoever runs that host one bit of what it read, and even one address, shown or not, is a bit.
-The language can't close that and still load from outside hosts, so the registry says it: a plugin whose manifest
-names more than one address on one host gets the summary line "Can choose among N addresses on <host>: which one
-it shows tells <host> something about what it read" (G5). A listed host, for loads or links, should be one whose
-logs the implementor trusts.
+**The fetch is guarded.** The server fetches on behalf of whoever wrote the source, so `guardedFetch()` in
+`thixo-node` (the default for `localBuild` and `local()`) refuses to reach inside the network: https only, on port
+443, no user name or password; the host resolved, and refused if any address it resolves to is loopback, private,
+shared, link-local (so `169.254.169.254`), multicast, reserved, documentation, or IPv6 that carries an IPv4 address;
+the connection pinned to the address that was checked, so a second lookup can't rebind it; every redirect checked
+the same way, at most 3; 10 seconds in all; the size cap enforced while it reads; and the content type checked.
+`localBuild(compiler, { fetchAsset })` and `local({ fetchAsset })` take another fetcher, so tests never touch the
+network. A build adapter with no `fetchAsset` can't build a plugin that loads from outside.
+
+**Copies are served under the code's rule.** `GET /_thixo/plugins/:id/:n/assets/:file` serves a file the version
+copied, and only such a file, to whoever may load the version: a personal plugin's files are its author's. An
+`<img>` can't carry a token, so the load route answers with `assets: { path, query }`, where the query is a ticket
+bound to the user, the plugin and the version, good for 12 hours and for that version's files only. The shell gives
+the runtime `RuntimeHost.assetAddress(file)`, which must return a path on the app. A copy is served with
+`x-content-type-options: nosniff`, `content-security-policy: default-src 'none'; style-src 'unsafe-inline'; sandbox`,
+`cross-origin-resource-policy: same-origin` and, for an SVG, `content-disposition: attachment`, so a copy opened on
+its own runs no script and loads nothing.
+
+**A `Url` from the app's data loads whatever its host.** An endpoint result, a slot's context or a `t.url()` field
+may hold any address, and a plugin may show it, load it as an image or a style's `url()`, or link to it. The process
+of making the plugin did not make that address, so the owner accepts it. A plugin still can't build or change a
+`Url` (L7), and the host can't hand it `javascript:` or any scheme but http, https and mailto, a path on the app,
+or a `data:` image or font. The server takes for a `t.url()` field only what the runtime can hold as a `Url`.
+
+**A written-out link may go to any https host.** `<a href="https://...">` compiles for any host; `http:` and
+`mailto:` written out are refused. Every link opens in a new tab with `rel="noopener noreferrer"`. A plugin that
+chooses between fixed links by what it read tells the host one bit on a click, and the owner accepts that. The
+registry summary says which hosts a plugin links to ("Links to docs.example.com"), and when there is more than one
+link to a host it says "Can choose among N links to <host>: which one you click tells <host> something about what it
+read" (G5). A copied load gets "Copied N files from <host> when it was built: they load from this app, never from
+<host>".
+
+**The page's CSP** is the second wall, not the first: `img-src 'self' data: https:`, so a handed-in `Url` can load,
+and `font-src 'self' data:`. What stops a written-out load from reaching outside is the runtime, which refuses an
+outside address from `rt.addr` for a load; the shell also drops an `<img src>` or style `url()` equal to one of the
+version's `loads`.
+
+**What remains.** A `Url` someone saved as data, such as a `t.url()` annotation another user can see, is a tracking
+pixel: everyone who opens a page that shows it as an image tells its host, with no click. The plugin did not make it,
+and choosing among saved `Url`s by what a plugin read still leaks a little. See
+[the security model](04-security-model.md#what-p1-does-not-cover).
 
 ## The app
 
@@ -179,6 +212,7 @@ thixo.config.ts
 | `POST /_thixo/registry/plugins/:id/promote` | Asks the promotion adapter, then opens a change in `plugins/` through the code adapter (G3). |
 | `GET /_thixo/plugins/:id/:n.js` | The compiled module. A personal plugin is served to its author only. Takes a token, or the ticket the load route puts in `PluginLoad.code` (see below). |
 | `GET /_thixo/plugins/:id/:n/load` | `PluginLoad`. |
+| `GET /_thixo/plugins/:id/:n/assets/:file` | A file the version copied at build. Same rule as the code. Takes a token, or the ticket in `PluginLoad.assets.query`. |
 | `GET /_thixo/layout` | `LayoutReply`. |
 | `PUT /_thixo/layout/:slot` | `{ plugin, number }`. Refused when the user lacks a required scope or can't see the plugin, and when no slot reads that path (`unknown_slot`). A child slot's bare name or export name that sits in one place is stored under its path. |
 | `DELETE /_thixo/layout/:slot` | Back to the default. |
@@ -230,8 +264,9 @@ todos)`), `thixo compile` and `thixo build` all use them.
 ## The authoring agent
 
 The loop is Thixo's (U4, U5). Its tools: `search_registry`, `read_plugin`, `describe_app` (the SDK, slots and
-language reference), `check` (build without storing), `submit` (build and store a new version of the user's own
-plugin, or a new plugin), `fork`, `use` (put a version in the user's layout), `refuse` (see the guard below).
+language reference), `check` (build without storing, copying outside loads as a submit would), `submit` (build and
+store a new version of the user's own plugin, or a new plugin), `fork`, `use` (put a version in the user's layout),
+`refuse` (see the guard below).
 
 `describe_app` lists each slot with its full path and says that path is what `use` takes (`use takes slot:
 "main/todo-row"`). `use` refuses a slot path no slot reads, naming the paths there are, and replies with the layout
@@ -295,7 +330,7 @@ Three ways to drive it:
 | `thixo dev [dir] [--port 3000]` | Builds the app, deploys, serves, and rebuilds on change. |
 | `thixo build [dir]` | Builds into `.thixo/build/`: the server bundle, the shell bundle, the SDK, each default plugin. Fails on any plugin error. |
 | `thixo start [dir]` | Serves a build. |
-| `thixo compile <folder or file> [--out dir] [--json]` | Compiles thx. Prints the summary in the registry's words (as `agent check` and the plugin browser give it), the scopes, the manifest, or the errors. |
+| `thixo compile <folder or file> [--out dir] [--json]` | Builds thx the way the registry does, copying outside loads. Prints the summary in the registry's words (as `agent check` and the plugin browser give it), the scopes, the manifest, or the errors. `--out` writes `plugin.js`, `manifest.json` and `assets/`. |
 | `thixo new plugin <name> --slot <slot> [--personal <folder>]` | A new folder in `plugins/`, with an id. The slot is its name or its export name; a slot the app lacks is refused, with the ones it has. Prints the `layout` line with the slot's path. `--personal` writes the plugin to another folder with no id, for `thixo agent submit`. |
 | `thixo agent <tool> --as <user> [...]` | The authoring tools, against a running `thixo dev`. Exits 1 on a refusal and on a reply with `ok: false`, printing a failed build's errors once. `read --out <dir>` writes a version's files to a new folder. |
 | `thixo registry list` / `thixo release` | What the local registry holds, and the current release. |
@@ -356,5 +391,5 @@ to a feature updates its file.
 
 ## Left for later
 
-Copy at build for addresses. A hosted build adapter. The Cloudflare, Vercel and AWS packages. Teams as a concept
+A hosted build adapter, with its own guarded fetch. The Cloudflare, Vercel and AWS packages. Teams as a concept
 (grouping is a function the implementor writes). Registry search by meaning: search here matches words.

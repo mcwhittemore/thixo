@@ -37,8 +37,15 @@ export interface Manifest {
   /** sha256, hex, of the canonical JSON of `data` (D3). */
   schemaHash: string;
   shellServices: string[];
-  /** Every outside address the source names (L7). */
+  /** Every outside address the source names (L7): what it loads and what it links to. */
   addresses: string[];
+  /** The outside addresses the source writes out where something loads (`<img src>`). The build copies each one into
+   * the app, so the page never fetches it from outside. */
+  loads: string[];
+  /** The outside addresses the source writes out as links (`<a href>`). */
+  links: string[];
+  /** Each address in `loads` that the build copied, to the name of the file it stored: `<sha256>.<ext>`. */
+  assets: Record<string, string>;
   /** Exposed libraries the plugin imports (L3). */
   libraries: string[];
 }
@@ -77,12 +84,11 @@ export interface CompileEnv {
   services: string[];
   /** Module specifiers that are exposed libraries (L3), so the manifest can list them. */
   libraries: string[];
-  /** Outside hosts a plugin may load from, in `src` and style addresses. Empty by default. */
-  addressHosts: string[];
-  /** Outside hosts a written-out `<a href>` may point to. Empty, or left out, means none: a plugin's only links to
-   * other hosts are `Url`s the app hands it. A link chosen among fixed addresses is a message to whoever runs the
-   * host, so the implementor names the hosts. */
-  linkHosts?: string[];
+  /** The files the build copied: each outside address the source loads, to the stored file's name
+   * (`<sha256>.<ext>`). The compiler emits a load of a listed address as the app's copy. An outside load that is not
+   * listed compiles, is in the manifest's `loads`, and is refused at run time: the build step copies it and compiles
+   * again. The compiler itself never fetches. */
+  assets?: Record<string, string>;
 }
 
 export interface ThxError {
@@ -137,10 +143,9 @@ export interface RuntimeHost {
   /** Loops and calls a plugin may run in one entry (a render, an event handler, a resumed await) before it is
    * stopped. Default 5,000,000. */
   budget?: number;
-  /** The app's `addressHosts`, the same list `CompileEnv.addressHosts` gives the compiler. An outside address a
-   * plugin loads (`<img src>`, a style's `url()`) must be on one of them, whether the source wrote it or the app
-   * handed it in as a `Url`. Left out means none: only paths on the app and `data:` images and fonts load. */
-  addressHosts?: string[];
+  /** Where one of the plugin version's copied files is served on the app, from its name (`<sha256>.<ext>`). It
+   * must return a path on the app. Left out, a plugin that loads a copied file stops when it renders it. */
+  assetAddress?(file: string): string;
   /** Called when a plugin is stopped or throws outside a render. */
   onError?(error: Error): void;
   /** Called once for each class `css({...})` makes, with its rules. The host adds them to a stylesheet in the page.

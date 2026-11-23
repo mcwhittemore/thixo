@@ -10,7 +10,7 @@ How the parts fit.
 | Thixo API | Server | Thixo's side of the API, the same in every app. Issues tokens and enforces the user's scopes on every endpoint of both sides (A1, A4). |
 | Plugin data | Server | The store and annotations, as fixed endpoints in Thixo's API. |
 | Registry | Server | Stores versions, builds them, derives manifests, answers searches. |
-| Plugin route | Server | Serves a plugin version's compiled JavaScript. |
+| Plugin route | Server | Serves a plugin version's compiled JavaScript, and the files its build copied. |
 | Authoring agent | Server | Writes plugins from a chat. Uses the registry's build and search. |
 | Shell | Browser | The base app. Places slots, loads plugins, runs the broker. |
 | Plugin | Browser, in the app's page | Renders into its slot while it is on screen. Calls the SDK. |

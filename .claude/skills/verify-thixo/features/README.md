@@ -47,5 +47,6 @@ Each feature file starts with an H1 title and one paragraph describing the user-
 - [Plugin language (thx)](./plugin-language.md): compiling and refusing plugins, the wall, the budget. CLI and the thx suites.
 - [Local adapters](./local-adapters.md): `.thixo/` state, SQLite data, file code store, streaming `serve()`, `claudeCode()` (now in `thixo-anthropic/node`). `thixo dev` and node.
 - [SQL drivers](./sql-drivers.md): the data adapter on SQLite, Postgres and D1 from one suite, and the todo app on Postgres across a restart. Terminal and browser.
-- [Plugin containment against the red team](./security.md): handed-in Urls can't load from unlisted hosts (no CSP needed), the choose-among-addresses summary flag, attributed dialogs and toasts, unique shared names. Browser e2e and the suites.
+- [Plugin containment against the red team](./security.md): written-out images never load from outside (no CSP needed), the build's fetch refuses the inside network, handed-in Urls load anywhere, the choose-among-links summary flag, attributed dialogs and toasts, unique shared names. Browser e2e and the suites.
+- [Outside addresses: copy at build](./copy-at-build.md): written-out images copied at build and served from `/_thixo/.../assets/`, the guarded fetch, the asset route's rule and headers, links to any https host, Urls from data. CLI, browser and the suites.
 - [Model adapters](./model-adapters.md): `anthropic()` against a local fake of the Messages stream. node.

@@ -5,6 +5,7 @@ import * as esbuild from "esbuild";
 import type { AppDefinition, ThixoConfig } from "thixo/contract";
 import type { CompileEnv } from "thixo-thx/contract";
 import type { ServerApi } from "./deps.js";
+import type { Builder } from "./plugins.js";
 import { clientEntry, indexHtml, serverEntry } from "./entries.js";
 import { CliError, formatEsbuildMessages, messageOf } from "./errors.js";
 import { findApiFiles, findShellFile, findSlotsFile, type ProjectPaths } from "./project.js";
@@ -128,6 +129,13 @@ export async function loadServerBundle(paths: ProjectPaths, server: ServerApi, b
     throw new CliError(`The app's definitions are wrong: ${messageOf(error)}`);
   }
   return { config: mod.config, app, compileEnv: server.buildCompileEnv(app, mod.config) };
+}
+
+/** The server's build step for a loaded app, or undefined when the server or the config has none. */
+export function builderFor(loaded: LoadedApp, server: ServerApi): Builder | undefined {
+  const build = loaded.config.adapters?.build;
+  if (!server.buildWithCopies || !build) return undefined;
+  return (files, env) => server.buildWithCopies!(build, env, files);
 }
 
 /** `local()` adapters hold a database open. Close whatever has a `close`. */

@@ -10,11 +10,15 @@ const UNSAFE_VALUE = /[;{}<>\\@]|\/\*|url\s*\(|image-set\s*\(|image\s*\(|express
 
 const PROPERTY = /^[a-zA-Z]{1,64}$/;
 
-/** Who may be loaded from a style `url()`: a `Url` the plugin was handed or wrote out, whose address is a data image
- * or a path on the app, or one the build listed in the manifest (L7). */
+/** The properties a `Url` may stand in, as the runtime's list has them. */
+const URL_PROPERTIES = new Set(["backgroundImage", "background", "listStyle"]);
+
+/** Who may be loaded from a style `url()`: a `Url` whose address is a data image, a path on the app, or an http or
+ * https address, but never one of the outside addresses the plugin's source loads, which the build copied (L7). The
+ * runtime checks first; this is the shell's second look. */
 export interface StyleAddresses {
   rt: UrlMint;
-  allowed: Set<string>;
+  refused: Set<string>;
 }
 
 function kebab(property: string): string {
@@ -25,10 +29,10 @@ function cssString(text: string): string {
   return `"${text.replace(/[^\w\-./:+=,?&#%~]/g, (c) => `\\${c.charCodeAt(0).toString(16)} `)}"`;
 }
 
-function addressAllowed(address: string, allowed: Set<string>): boolean {
+function addressAllowed(address: string, refused: Set<string>): boolean {
   if (/^data:image\/(png|gif|jpeg|webp|avif);/i.test(address)) return true;
   if (address.startsWith("/") && !address.startsWith("//")) return true;
-  return allowed.has(address);
+  return /^https?:\/\/[^/]/i.test(address) && !refused.has(address);
 }
 
 /** One style value, as CSS text, or undefined when it is refused. */
@@ -38,8 +42,9 @@ export function styleValue(property: string, value: unknown, addresses?: StyleAd
     return UNITLESS.has(property) || value === 0 ? String(value) : `${value}px`;
   }
   if (addresses && addresses.rt.isUrl(value)) {
+    if (!URL_PROPERTIES.has(property)) return undefined;
     const address = addresses.rt.unwrapUrl(value);
-    return addressAllowed(address, addresses.allowed) ? `url(${cssString(address)})` : undefined;
+    return addressAllowed(address, addresses.refused) ? `url(${cssString(address)})` : undefined;
   }
   if (typeof value !== "string" || value.length > 500 || UNSAFE_VALUE.test(value) || /[\u0000-\u001f]/.test(value)) return undefined;
   return value;

@@ -13,7 +13,7 @@ const DATA_ADDRESS = /^data:(image\/(png|jpeg|gif|webp|avif|svg\+xml)|font\/(wof
 
 /** What the broker marks as an address on the wire: `{ "$url": "https://..." }`. A plain string is never an address.
  * The same set the in-page runtime lets the host mint a `Url` from: http, https, mailto, a path on the app, or a
- * `data:` image or font. Where an outside one may load is the runtime's check, against the app's `addressHosts`. */
+ * `data:` image or font. A plugin may load or link to one on any host: the plugin did not make it (L7). */
 export function isAddress(value: string): boolean {
   if (!value || /[\u0000-\u001f\u007f\s]/.test(value)) return false;
   if (value.startsWith("/")) return !value.startsWith("//");

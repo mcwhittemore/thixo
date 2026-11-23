@@ -1,11 +1,11 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import type { CompileResult } from "thixo-thx/contract";
-import { buildClientBundle, buildServerBundle, closeAdapters, loadServerBundle, readTitle } from "./bundle.js";
+import { buildClientBundle, buildServerBundle, builderFor, closeAdapters, loadServerBundle, readTitle } from "./bundle.js";
 import type { Deps } from "./deps.js";
 import { CliError } from "./errors.js";
 import type { Io } from "./io.js";
-import { compilePlugins, readPlugins, reportOutcome, type PluginOutcome } from "./plugins.js";
+import { buildPlugins, readPlugins, reportOutcome, type PluginOutcome } from "./plugins.js";
 import type { ProjectPaths } from "./project.js";
 
 export interface BuildManifest {
@@ -62,7 +62,7 @@ export async function buildProject(paths: ProjectPaths, options: BuildOptions, i
   log(`  client    .thixo/build/client/ (${client.files.length} files${options.production ? ", minified" : ""})`);
 
   const thx = await deps.thx();
-  const outcomes = compilePlugins(readPlugins(paths.pluginsDir), loaded.compileEnv, thx, paths.pluginsDir);
+  const outcomes = await buildPlugins(readPlugins(paths.pluginsDir), loaded.compileEnv, thx, paths.pluginsDir, builderFor(loaded, server));
   log(outcomes.length ? "  plugins" : "  plugins   none in plugins/");
   const describe = server.describeManifest ? (m: Parameters<NonNullable<typeof server.describeManifest>>[1]) => server.describeManifest!(loaded.app, m).summary : undefined;
   for (const outcome of outcomes) for (const line of reportOutcome(outcome, io.cwd, describe)) log(line);

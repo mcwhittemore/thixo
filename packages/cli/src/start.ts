@@ -26,7 +26,7 @@ export async function startServer(paths: ProjectPaths, options: { port: number; 
   try {
     await deployPlugins(app, paths, deps, io, { strict: true, buildHash: manifest.hash });
     const node = await deps.node();
-    const handler = createHandler({ thixo: () => app.thixo, clientDir: paths.clientDir, addressHosts: () => app.config.addressHosts ?? [] });
+    const handler = createHandler({ thixo: () => app.thixo, clientDir: paths.clientDir });
     let served: Served;
     try {
       served = await node.serve(handler, { port: options.port, hostname: options.hostname });

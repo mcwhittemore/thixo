@@ -115,16 +115,20 @@ export function SlotView(props: { path: string; def: SlotDef; context: Record<st
       const createRuntime = await internals.getCreateRuntime();
       if (signal.aborted) return;
       const modules: Record<string, Record<string, unknown>> = {};
-      const allowed = new Set(load.manifest.addresses);
+      // The outside addresses this version's source loads. The build copied each into the app, so the compiled code
+      // never names one; if one reaches the DOM anyway, the shell drops it (a second check behind the runtime).
+      const refused = new Set(load.manifest.loads ?? []);
       let rt: Runtime | undefined;
       const createElement = (type: unknown, elementProps: Record<string, unknown> | null, ...children: unknown[]) =>
-        React.createElement(type as string, hostElementProps(type, elementProps, rt, allowed) as never, ...(children as React.ReactNode[]));
+        React.createElement(type as string, hostElementProps(type, elementProps, rt, refused) as never, ...(children as React.ReactNode[]));
       const scopeClass = scopeClassFor(load.plugin.id, load.version);
       const early: [string, string][] = [];
       let styles: ScopedStyles | undefined;
       const insertStyle = (className: string, cssText: string) => (styles ? styles.insert(className, cssText) : early.push([className, cssText]));
-      rt = createRuntime({ createElement, Fragment: React.Fragment, modules, budget: internals.budget, addressHosts: internals.app.addressHosts ?? [], onError: stop, insertStyle });
-      styles = new ScopedStyles(scopeClass, { rt, allowed });
+      const assets = load.assets ?? { path: `/_thixo/plugins/${load.plugin.id}/${load.version}/assets/`, query: "" };
+      const assetAddress = (file: string) => `${assets.path}${encodeURIComponent(file)}${assets.query ? `?${assets.query}` : ""}`;
+      rt = createRuntime({ createElement, Fragment: React.Fragment, modules, budget: internals.budget, assetAddress, onError: stop, insertStyle });
+      styles = new ScopedStyles(scopeClass, { rt, refused });
       for (const [className, cssText] of early) styles.insert(className, cssText);
       const broker = createBroker({ load, app: internals.app, rt, request: internals.session.request, signal });
       const scoped = styles;
@@ -244,13 +248,15 @@ class SlotBoundary extends React.Component<{ name: string; stop: () => void; chi
 
 /** Props for an element the runtime has already let through: Urls become their addresses for the DOM, and a style
  * object is checked again (P8, L7). Host components get their props as they are. */
-function hostElementProps(type: unknown, props: Record<string, unknown> | null, rt: Runtime | undefined, allowed: Set<string>) {
+function hostElementProps(type: unknown, props: Record<string, unknown> | null, rt: Runtime | undefined, refused: Set<string>) {
   if (typeof type !== "string" || !props || !rt) return props;
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(props)) {
-    if (key === "style") out.style = sanitizeStyle(value, { rt, allowed });
-    else if (rt.isUrl(value)) out[key] = rt.unwrapUrl(value);
-    else out[key] = value;
+    if (key === "style") out.style = sanitizeStyle(value, { rt, refused });
+    else if (rt.isUrl(value)) {
+      const address = rt.unwrapUrl(value);
+      if (key !== "src" || !refused.has(address)) out[key] = address;
+    } else out[key] = value;
   }
   return out;
 }

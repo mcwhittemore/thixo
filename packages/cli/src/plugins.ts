@@ -35,7 +35,12 @@ export interface PluginOutcome {
   /** The folder the plugin's files are in, absolute. */
   dir: string;
   result: CompileResult;
+  /** The files the build copied, by stored name, when it went through the build step. */
+  assets?: Record<string, Uint8Array>;
 }
+
+/** The server's build step for this app: compile, copy what the source loads from outside, compile again. */
+export type Builder = (files: SourceFiles, env: CompileEnv) => Promise<CompileResult & { assets?: Record<string, Uint8Array> }>;
 
 function failure(file: string, code: string, message: string, hint?: string): CompileResult {
   const error: ThxError = { file, line: 1, column: 1, code, message, ...(hint ? { hint } : {}) };
@@ -53,8 +58,25 @@ export function compileFolder(files: SourceFiles, env: CompileEnv, thx: Pick<Thx
   }
 }
 
-export function compilePlugins(plugins: Record<string, SourceFiles>, env: CompileEnv, thx: Pick<ThxApi, "compile">, pluginsDir: string): PluginOutcome[] {
-  return Object.entries(plugins).map(([name, files]) => ({ name, dir: join(pluginsDir, name), result: compileFolder(files, env, thx, name) }));
+/** One folder through the build step, as a deploy and the authoring agent build it: an outside load is copied, and a
+ * copy that fails is a build error. Without a builder (a fake server), a plain compile. `dir` is the folder the files
+ * came from, so errors can name a path. */
+export async function buildFolder(files: SourceFiles, env: CompileEnv, thx: Pick<ThxApi, "compile">, name: string, dir: string, builder?: Builder): Promise<PluginOutcome> {
+  if (!builder || !("plugin.thx" in files)) return { name, dir, result: compileFolder(files, env, thx, name) };
+  try {
+    const built = await builder(files, env);
+    if (!built.ok) return { name, dir, result: built };
+    const { assets, ...result } = built;
+    return { name, dir, result, assets: assets ?? {} };
+  } catch (error) {
+    return { name, dir, result: failure("plugin.thx", "cli/compiler-crashed", `The build stopped on ${name}: ${messageOf(error)}`) };
+  }
+}
+
+export async function buildPlugins(plugins: Record<string, SourceFiles>, env: CompileEnv, thx: Pick<ThxApi, "compile">, pluginsDir: string, builder?: Builder): Promise<PluginOutcome[]> {
+  const out: PluginOutcome[] = [];
+  for (const [name, files] of Object.entries(plugins)) out.push(await buildFolder(files, env, thx, name, join(pluginsDir, name), builder));
+  return out;
 }
 
 /** The manifest in plain sentences. */
@@ -71,7 +93,10 @@ export function summarizeManifest(manifest: Manifest): string[] {
   }
   if (manifest.shellServices.length) lines.push(`Uses the shell services ${manifest.shellServices.join(", ")}.`);
   if (manifest.libraries.length) lines.push(`Imports ${manifest.libraries.join(", ")}.`);
-  if (manifest.addresses.length) lines.push(`Names the outside addresses ${manifest.addresses.join(", ")}.`);
+  const loads = manifest.loads ?? [];
+  const links = manifest.links ?? manifest.addresses.filter((a) => !loads.includes(a));
+  if (loads.length) lines.push(`Copies into the app at build, and loads from there: ${loads.join(", ")}.`);
+  if (links.length) lines.push(`Links to ${links.join(", ")}.`);
   return lines;
 }
 

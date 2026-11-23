@@ -110,7 +110,7 @@ test("summarizeManifest says what data a plugin keeps", () => {
   const lines = summarizeManifest({
     slot: "todoDetail", requiredEndpoints: [], optionalEndpoints: ["listAssignees"], annotates: ["Todo"],
     data: { stores: { prefs: [{ name: "warn", type: "number" }] }, annotations: { Todo: [{ name: "dueOn", type: "date" }] } },
-    schemaHash: "", shellServices: ["toast"], addresses: [], libraries: [],
+    schemaHash: "", shellServices: ["toast"], addresses: [], loads: [], links: [], assets: {}, libraries: [],
   });
   assert.deepEqual(lines, [
     "Fills the slot todoDetail.",
@@ -148,9 +148,9 @@ test("index.html has the root and the bundle, and no inline script", () => {
   assert.doesNotMatch(html.replace(/<script type="module" src="\/app\.js"><\/script>/, ""), /<script/);
 });
 
-test("the CSP carries the required directives and the address hosts", () => {
-  const csp = contentSecurityPolicy(["cdn.example.com"]);
-  for (const part of ["default-src 'self'", "script-src 'self'", "connect-src 'self'", "img-src 'self' data: https://cdn.example.com", "style-src 'self' 'unsafe-inline'", "frame-src 'none'", "object-src 'none'", "base-uri 'none'", "form-action 'self'"]) {
+test("the CSP carries the required directives; images from any https host, since a handed-in Url may load anywhere", () => {
+  const csp = contentSecurityPolicy();
+  for (const part of ["default-src 'self'", "script-src 'self'", "connect-src 'self'", "img-src 'self' data: https:", "font-src 'self' data:", "style-src 'self' 'unsafe-inline'", "frame-src 'none'", "object-src 'none'", "base-uri 'none'", "form-action 'self'"]) {
     assert.ok(csp.split("; ").includes(part), part);
   }
 });

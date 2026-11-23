@@ -17,8 +17,9 @@ export default defineConfig({
 });
 ```
 
-`projectDir` is the app's folder. It defaults to `THIXO_PROJECT_DIR`, or the current folder. The result also has a
-`close()` that closes the database.
+`projectDir` is the app's folder. It defaults to `THIXO_PROJECT_DIR`, or the current folder. `fetchAsset` replaces
+the fetch that copies a plugin's outside images at build (default `guardedFetch()`). The result also has a `close()`
+that closes the database.
 
 `driver` keeps the data in another database than `.thixo/data.sqlite`. It is any `thixo-sql` driver, so the same app
 can run its data on Postgres. Code, the build and the state folder stay local.
@@ -60,7 +61,12 @@ await served.close();
 - `fileCodeAdapter({ dir, projectDir })`: stores plugin code as files. Writes are atomic, and a path outside the
   folder is refused.
 - `sqliteDriver(file)`: a driver on `node:sqlite`, for `thixo-sql`.
-- `localBuild()`: compiles and checks plugins in this process.
+- `localBuild(compiler?, { fetchAsset? })`: compiles and checks plugins in this process, and fetches the outside files a
+  plugin's source loads, for copy at build.
+- `guardedFetch(options?)`: that fetch. https on port 443 only; a host that resolves to a loopback, private,
+  link-local or metadata address is refused, after every redirect too (at most 3); the connection goes to the address
+  that was checked; 10 seconds; the size and type limits it is given. `resolve` and `get` can be replaced, so tests
+  never touch the network. `isPublicAddress(ip)` is its address check.
 - `parseClaudeOutput`, `parseReply` and `renderPrompt`: the parts of `claudeCode()` that turn a turn into a prompt and
   the reply back into events.
 

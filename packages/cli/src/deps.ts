@@ -1,6 +1,6 @@
 import type { CompileEnv, CompileResult, SourceFiles } from "thixo-thx/contract";
 import type { Thixo } from "thixo/server";
-import type { AppDefinition, ThixoConfig } from "thixo/contract";
+import type { AppDefinition, BuildAdapter, ThixoConfig } from "thixo/contract";
 import { CliError, messageOf } from "./errors.js";
 
 /** What the CLI uses from `thixo-thx`. */
@@ -24,6 +24,9 @@ export interface ServerApi {
   createThixo(app: AppDefinition, config: ThixoConfig): Thixo;
   collectApp(modules: Record<string, unknown>[], config: Pick<ThixoConfig, "libraries">): AppDefinition;
   buildCompileEnv(app: AppDefinition, config: ThixoConfig): CompileEnv;
+  /** Copy at build: the build step every plugin goes through, which fetches what the source loads from outside and
+   * compiles again with the copies. Optional so a fake server can leave it out; then the CLI compiles directly. */
+  buildWithCopies?(build: BuildAdapter, env: CompileEnv, files: SourceFiles): Promise<CompileResult & { assets?: Record<string, Uint8Array> }>;
   /** Every slot path a layout can name. Optional so a fake server can leave it out. */
   slotPaths?(slots: AppDefinition["slots"]): string[];
   /** What the registry tells a user about a manifest: its summary and scopes. Optional, as above. */

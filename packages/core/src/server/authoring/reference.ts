@@ -43,13 +43,15 @@ const ADDRESSES = `## The address rule
 
 An image, a link, a font or a CSS url() sends a request, and an address can carry data out. So an address in a plugin is one
 of two things:
-- Written out in the source: <img src="https://example.com/logo.png">. It is fixed at build and must be on an allowed host.
-- Handed to the plugin from outside it (an avatar address an endpoint returned, a route from the shell). It has the type
-  Url. The plugin passes it along and can't look inside it, build one, join one from parts or add to one.
-An image or a CSS url() loads when the plugin renders, so a Url there, written out or handed in, must be a path on the
-app, a data: image or font, or on one of the app's load hosts; any other stops the plugin. A link waits for a click and may
-be any handed-in http or https Url. No string operation produces a Url. A field that holds an address is declared t.url(), and a plugin can write only a Url to
-it, never a string. The manifest lists every outside address the source names.`;
+- Written out in the source: <img src="https://example.com/logo.png"> or <a href="https://example.com/help">. It is fixed
+  at build and must be https. A written-out image is copied into the app when the plugin is built (check and submit do
+  this), and the page loads the copy, never the outside host. A copy that fails (not found, not an image or font, too big,
+  a host inside the network) is a build error that names the address. A written-out link may go to any https host.
+- Handed to the plugin from outside it (an avatar address an endpoint returned, a t.url() field, a route from the shell).
+  It has the type Url, and it may be shown, loaded or linked whatever its host. The plugin passes it along and can't look
+  inside it, build one, join one from parts or add to one.
+No string operation produces a Url. A field that holds an address is declared t.url(), and a plugin can write only a Url to
+it, never a string. The manifest lists every outside address the source names, which ones it copied, and which it links to.`;
 
 const EXAMPLE = `## A worked example
 

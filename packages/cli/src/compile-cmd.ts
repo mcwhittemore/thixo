@@ -1,11 +1,11 @@
 import { mkdirSync, statSync, writeFileSync, readFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import type { SourceFiles, ThxError } from "thixo-thx/contract";
-import { buildServerBundle, closeAdapters, loadServerBundle } from "./bundle.js";
+import { buildServerBundle, builderFor, closeAdapters, loadServerBundle } from "./bundle.js";
 import type { Deps } from "./deps.js";
 import { CliError, formatThxErrors, locateThxErrors } from "./errors.js";
 import type { Io } from "./io.js";
-import { compileFolder, readPluginFolder, summarizeManifest } from "./plugins.js";
+import { buildFolder, readPluginFolder, summarizeManifest } from "./plugins.js";
 import { findProjectRoot, openProject } from "./project.js";
 
 export interface CompileOptions {
@@ -46,12 +46,15 @@ export async function runCompile(options: CompileOptions, io: Io, deps: Deps): P
   const loaded = await loadServerBundle(paths, await deps.server());
   closeAdapters(loaded.config);
 
+  // The same build step a deploy and the authoring agent use: an outside image is copied into the app here too.
   const thx = await deps.thx();
   const isFolder = statSync(target).isDirectory();
   const base = { cwd: io.cwd, dir: isFolder ? target : dirname(target) };
   // A single file is compiled as the plugin's `plugin.thx`; its errors name the file it came from.
   const named = (errors: ThxError[]) => (isFolder ? errors : errors.map((e) => (e.file === "plugin.thx" ? { ...e, file: basename(target) } : e)));
-  const result = compileFolder(files, loaded.compileEnv, thx, label);
+  const outcome = await buildFolder(files, loaded.compileEnv, thx, label, base.dir, builderFor(loaded, await deps.server()));
+  const result = outcome.result;
+  const assets = outcome.assets ?? {};
 
   if (!result.ok) {
     if (options.json) io.out(JSON.stringify({ ok: false, errors: locateThxErrors(named(result.errors), base) }, null, 2));
@@ -77,6 +80,10 @@ export async function runCompile(options: CompileOptions, io: Io, deps: Deps): P
     mkdirSync(out, { recursive: true });
     writeFileSync(join(out, "plugin.js"), result.code);
     writeFileSync(join(out, "manifest.json"), `${JSON.stringify(result.manifest, null, 2)}\n`);
+    if (Object.keys(assets).length) {
+      mkdirSync(join(out, "assets"), { recursive: true });
+      for (const [file, bytes] of Object.entries(assets)) writeFileSync(join(out, "assets", file), bytes);
+    }
   }
 
   if (options.json) {

@@ -529,3 +529,25 @@ Two parts of the data model were requirements, not structures: deletion is never
 Cambria is no longer held in reserve.
 
 - **Requirements:** A13, D13.
+
+## 2026-11-22: addresses
+
+### 60. Copy at build, and addresses from data
+
+The owner settled the open part of L7, choosing between fixed addresses.
+
+- **Copy at build.** "The build should build like an npm install. There should be no outside file refs." An outside
+  address written in a plugin's source that loads something, such as an image or a font, is fetched once when the
+  plugin is built and stored with the version. The page loads the app's copy, so it never fetches from an outside
+  host because of something written in plugin source. A fetch that fails is a build error. The fetch runs on the
+  server for whoever wrote the source, so it must not reach inside the network.
+- **Addresses from data load anywhere.** "As long as the process of creating the plugin is not what makes the URL
+  this is ok. If people want to put external urls into the apis, that's fine." A `Url` the app hands a plugin, from
+  an endpoint, a slot's context or a url field, may be shown, loaded and linked whatever its host. A plugin still
+  can't build or change one, and no address that runs code is allowed.
+- **Links go anywhere.** A written-out link may go to any https host. A plugin that chooses between fixed links
+  tells the host one bit on a click, and the registry names the hosts it links to.
+- **Turned down:** the implementor listing the hosts plugins may load from and link to. It left the leak open on
+  every listed host, and it stopped plugins showing the app's own outside images.
+- **What remains:** a `Url` someone saved as data is a tracking pixel for whoever opens the page.
+- **Requirements:** L4, L7, L8.

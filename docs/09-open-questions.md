@@ -191,13 +191,9 @@ The largest portability question. See [portability](07-portability.md#build).
 ## Security
 
 - What does Thixo check about a library the implementor exposes, if anything?
-- Choosing between fixed addresses. The build refuses a written-out `<a href>` to a host not in `linkHosts`, and
-  every load, written out or handed in, to a host not in `addressHosts`
-  ([implementation](10-implementation.md#addresses)), because a plugin can choose which of several fixed addresses
-  to show from what it read, and the load or click tells that host. The choice still works on listed hosts, and
-  among handed-in `Url`s for links. The registry now flags a plugin that names more than one address on one host.
-  Is a flag enough, or should a plugin that reads user data be refused more than one outside address per host, or
-  any outside load at all?
+- A `Url` saved as data is a tracking pixel for whoever opens the page
+  ([decision 60](08-decisions.md#60-copy-at-build-and-addresses-from-data)). Should the shell offer an implementor a
+  way to proxy or copy handed-in images too, or to mark which url fields may load?
 - Shell chrome a plugin fills. A dialog and a toast now carry a line, drawn by the shell, naming the plugin and its
   author. Should a plugin also be refused form fields that look like a sign-in (a password-like label), or should
   `openModal` stop taking a free-text title?

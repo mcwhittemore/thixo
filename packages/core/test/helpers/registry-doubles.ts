@@ -3,8 +3,8 @@ import { collectApp } from "../../src/api/collect.js";
 import { endpoint, record, defineScopes } from "../../src/api/index.js";
 import { slot } from "../../src/slots/index.js";
 import { t } from "../../src/schema/index.js";
-import type { Adapters, AuthoringBlock, AuthoringRefusal, BuildAdapter, CodeAdapter, DataAdapter, DataTarget, Fields, Plugin, PluginId, PluginVersion, Release, User } from "../../src/contract.js";
-import type { CompileResult, Manifest, SourceFiles } from "thixo-thx/contract";
+import type { Adapters, AuthoringBlock, AuthoringRefusal, BuildAdapter, CodeAdapter, DataAdapter, DataTarget, FetchedAsset, Fields, Plugin, PluginId, PluginVersion, Release, User } from "../../src/contract.js";
+import type { CompileEnv, CompileResult, Manifest, SourceFiles } from "thixo-thx/contract";
 import { createThixo, type Thixo } from "../../src/server/index.js";
 import { tokenFor } from "./client.js";
 
@@ -165,6 +165,9 @@ export function manifest(over: Partial<Manifest> & { stores?: Manifest["data"]["
     schemaHash: createHash("sha256").update(JSON.stringify(data)).digest("hex"),
     shellServices: [],
     addresses: [],
+    loads: [],
+    links: [],
+    assets: {},
     libraries: [],
     ...rest,
   };
@@ -205,7 +208,7 @@ export function fakeBuild(): BuildAdapter & { builds: number; brokenOutput: Set<
   const adapter = {
     builds: 0,
     brokenOutput: new Set<string>(),
-    async build(files: SourceFiles): Promise<CompileResult> {
+    async build(files: SourceFiles, env?: CompileEnv): Promise<CompileResult> {
       adapter.builds++;
       const text = files["plugin.thx"] ?? "";
       if (text.includes("@error")) return { ok: false, errors: [{ file: "plugin.thx", line: 1, column: 1, code: "thx/test", message: "fake error" }] };
@@ -214,7 +217,14 @@ export function fakeBuild(): BuildAdapter & { builds: number; brokenOutput: Set<
       const field = (key: string) => new RegExp(`\\b${key}:\\s*("(?:[^"\\\\]|\\\\.)*")`).exec(text)?.[1];
       const meta = { name: JSON.parse(field("name") ?? '""'), description: JSON.parse(field("description") ?? '""'), ...(field("id") ? { id: JSON.parse(field("id")!) } : {}) };
       const sourceHash = createHash("sha256").update(JSON.stringify(Object.entries(files).sort())).digest("hex");
-      return { ok: true, code: `export default function (rt) { /* ${sourceHash} */ }`, manifest: JSON.parse(m[1]), meta, sourceHash };
+      const manifest = JSON.parse(m[1]) as Manifest;
+      // As the real compiler does: a load the build step copied is the app's copy.
+      if (env?.assets) manifest.assets = Object.fromEntries((manifest.loads ?? []).filter((a) => env.assets![a]).map((a) => [a, env.assets![a]]));
+      return { ok: true, code: `export default function (rt) { /* ${sourceHash} ${JSON.stringify(manifest.assets ?? {})} */ }`, manifest, meta, sourceHash };
+    },
+    /** Every outside address serves a one-pixel gif. */
+    async fetchAsset(): Promise<FetchedAsset> {
+      return { ok: true, bytes: Uint8Array.from(Buffer.from("R0lGODlhAQABAAAAACw=", "base64")), contentType: "image/gif" };
     },
     verify(code: string) {
       return code.startsWith("export default function (rt)") && !adapter.brokenOutput.has(code) ? { ok: true as const } : { ok: false as const, errors: ["not from the build"] };

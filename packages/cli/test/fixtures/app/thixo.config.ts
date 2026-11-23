@@ -5,5 +5,4 @@ export default defineConfig({
   identity: () => null,
   adapters: memoryAdapters(),
   layout: { main: "hello" },
-  addressHosts: ["cdn.example.com"],
 });

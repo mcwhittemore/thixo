@@ -117,10 +117,6 @@ export interface ThixoConfig {
   promotion?: PromotionAdapter;
   /** W2: replaces Thixo's authoring flow. */
   authoring?: AuthoringFlow;
-  /** Outside hosts plugins may load images, fonts and styles from. Default none. */
-  addressHosts?: string[];
-  /** Outside hosts a plugin's written-out links (`<a href>`) may point to. Default none. */
-  linkHosts?: string[];
   libraries?: ExposedLibrary[];
   /** What the authoring loop does when its agent refuses a request: how many refusals block a user, and a hook. */
   authoringGuard?: AuthoringGuardConfig;
@@ -139,7 +135,25 @@ export interface BuildAdapter {
   build(files: SourceFiles, env: CompileEnv): Promise<CompileResult>;
   /** The compiler's `verifyOutput`. The plugin route runs it again on stored code before serving it (P7). */
   verify?(code: string): { ok: true } | { ok: false; errors: string[] } | Promise<{ ok: true } | { ok: false; errors: string[] }>;
+  /** Copy at build: fetches one outside address a plugin's source loads (`<img src="https://...">`), so the file can
+   * be stored with the version and served from the app. It runs on the server for whoever wrote the source, so it
+   * must refuse to reach inside the network: https only, no loopback, private, link-local or metadata addresses,
+   * after every redirect too, a timeout, and no more than `maxBytes`. Without it, a plugin that loads from outside
+   * does not build. */
+  fetchAsset?(address: string, limits: AssetLimits): Promise<FetchedAsset>;
 }
+
+/** What one copy at build may take. */
+export interface AssetLimits {
+  /** The most bytes this file may have. */
+  maxBytes: number;
+  /** The content types that may be copied: images and fonts. */
+  types: string[];
+}
+
+/** What `fetchAsset` got. `contentType` is the type alone, lower-cased, such as `image/png`. A failure's `message`
+ * says why in words the authoring agent can act on. */
+export type FetchedAsset = { ok: true; bytes: Uint8Array; contentType: string } | { ok: false; message: string };
 
 export interface Plugin {
   id: PluginId;
@@ -367,9 +381,6 @@ export interface AppInfo {
   records: { name: string; exportName: string; read: string[]; fields: Record<string, SchemaJson> }[];
   slots: SlotDef[];
   libraries: string[];
-  /** The config's `addressHosts`. The shell hands them to each plugin's runtime, which refuses to load an outside
-   * address on any other host, even a `Url` the app handed in (L4, L7). */
-  addressHosts: string[];
 }
 
 export interface TokenReply {
@@ -385,6 +396,9 @@ export interface PluginLoad {
   manifest: Manifest;
   /** Where the compiled module is served. */
   code: string;
+  /** Where the version's copied files are served: `path` + `<file>` + `?` + `query`. The query is a ticket the load
+   * route signs, since an image can't carry the token. */
+  assets: { path: string; query: string };
   /** Endpoints in the manifest whose scopes the author holds. The broker refuses the rest (P3). */
   authorCan: string[];
   /** Endpoints in the manifest the current user can call (P4). */

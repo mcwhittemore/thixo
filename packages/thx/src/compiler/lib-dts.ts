@@ -358,7 +358,7 @@ function attrType(tag: string, name: string, kind: AttrKind): string {
     case "token":
       return tokens ? tokens.map((t) => JSON.stringify(t)).join(" | ") : "string";
     case "link":
-      return "Url | `https://${string}` | `http://${string}`";
+      return "Url | `https://${string}`";
     case "load":
       return "Url | `data:${string}` | `https://${string}`";
     case "event":

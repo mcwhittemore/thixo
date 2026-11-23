@@ -3,6 +3,7 @@ import type { SourceFiles, ThxError } from "thixo-thx/contract";
 import type { Plugin, PluginLoad, PluginSummary, PluginVersion, PluginVersionRef, SchemaDiff, SubmitReply, User } from "../../contract.js";
 import type { ServerContext } from "../context.js";
 import { canSee, chainOf, latestVersion, versionOf, visiblePlugin } from "./access.js";
+import { ASSET_FILE, assetType, buildWithCopies, readAsset, storeAssets } from "./assets.js";
 import { readCompiled, readSource, storeCompiled, storeSource } from "./code-store.js";
 import { fail, missingScopes } from "./errors.js";
 import { newId } from "./hash.js";
@@ -116,7 +117,7 @@ export function createRegistryServices(ctx: ServerContext): RegistryServices {
         if (existing.author !== user.id) fail(ctx, 403, "Only the author can add a version to a plugin. Fork it to change it.", "not_author");
       }
       const source = withoutPluginId(files);
-      const built = await ctx.adapters.build.build(source, ctx.compileEnv);
+      const built = await buildWithCopies(ctx.adapters.build, ctx.compileEnv, source);
       if (!built.ok) return { ok: false, errors: built.errors };
       const verdict = await ctx.adapters.build.verify?.(built.code);
       if (verdict && !verdict.ok) {
@@ -159,6 +160,7 @@ export function createRegistryServices(ctx: ServerContext): RegistryServices {
       let version = await data.findVersionByHash(plugin.id, built.sourceHash);
       let diff: SchemaDiff = { added: [], noLongerShown: [], typeChanged: [] };
       if (!version) {
+        await storeAssets(ctx.adapters.code, built.assets);
         version = await data.addVersion({
           plugin: plugin.id,
           source: await storeSource(ctx, source),
@@ -283,6 +285,7 @@ export function createRegistryServices(ctx: ServerContext): RegistryServices {
         version: version.number,
         manifest: version.manifest,
         code: `/_thixo/plugins/${plugin.id}/${version.number}.js`,
+        assets: { path: `/_thixo/plugins/${plugin.id}/${version.number}/assets/`, query: "" },
         authorCan: endpointsCallableBy(ctx, version.manifest, author),
         userCan: endpointsCallableBy(ctx, version.manifest, user),
         authorData: { read: ctx.holds(author, ["thixo.data.read"]), write: ctx.holds(author, ["thixo.data.write"]) },
@@ -292,6 +295,15 @@ export function createRegistryServices(ctx: ServerContext): RegistryServices {
     async code({ user, ref }) {
       const { version } = await checkLoadable(user, ref);
       return readCompiled(ctx, version.compiled);
+    },
+
+    async asset({ user, ref, file }) {
+      const { version } = await checkLoadable(user, ref);
+      // Only a file this version copied: a plugin's address can't be used to read another plugin's files.
+      if (!ASSET_FILE.test(file) || !Object.values(version.manifest.assets ?? {}).includes(file)) fail(ctx, 404, `Version ${ref.number} of ${ref.plugin} has no copied file ${file}`, "asset_not_found");
+      const bytes = await readAsset(ctx.adapters.code, file);
+      if (!bytes) fail(ctx, 404, `The copied file ${file} is not stored`, "asset_not_found");
+      return { bytes, contentType: assetType(file)! };
     },
 
     layout: createLayoutServices(ctx),

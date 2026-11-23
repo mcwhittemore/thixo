@@ -3,6 +3,7 @@ import type { Adapters, DataAdapter } from "thixo/contract";
 import { sqlDataAdapter } from "thixo-sql";
 import type { SqlDriver } from "thixo-sql";
 import { fileCodeAdapter } from "./file-code-adapter.js";
+import type { AssetFetch } from "./guarded-fetch.js";
 import { localBuild } from "./local-build.js";
 import { sqliteDriver } from "./sqlite-driver.js";
 
@@ -13,6 +14,8 @@ export interface LocalOptions {
    * `thixo-postgres`. Code, the build and the state folder stay local. `close()` closes the driver if it has a
    * `close`. */
   driver?: SqlDriver & { close?(): void | Promise<void> };
+  /** Copy at build: what fetches an outside file a plugin loads. Default `guardedFetch()`. */
+  fetchAsset?: AssetFetch;
 }
 
 export interface LocalAdapters extends Adapters {
@@ -46,7 +49,7 @@ export function local(options: LocalOptions = {}): LocalAdapters {
   return {
     code: fileCodeAdapter({ dir: join(stateDir, "code"), projectDir }),
     data,
-    build: localBuild(),
+    build: localBuild(undefined, { fetchAsset: options.fetchAsset }),
     stateDir,
     close: () => (driver as { close?(): void | Promise<void> }).close?.(),
   };
