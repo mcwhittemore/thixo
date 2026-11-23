@@ -3,7 +3,5 @@
 import { defineScopes } from "thixo/api";
 
 export const scopes = defineScopes({
-  "todos.read": "Read todos",
-  "todos.write": "Create and change todos",
-  "todos.delete": "Delete todos",
+  "hello.read": "Read the hello message",
 });

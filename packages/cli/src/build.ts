@@ -62,10 +62,10 @@ export async function buildProject(paths: ProjectPaths, options: BuildOptions, i
   log(`  client    .thixo/build/client/ (${client.files.length} files${options.production ? ", minified" : ""})`);
 
   const thx = await deps.thx();
-  const outcomes = compilePlugins(readPlugins(paths.pluginsDir), loaded.compileEnv, thx);
+  const outcomes = compilePlugins(readPlugins(paths.pluginsDir), loaded.compileEnv, thx, paths.pluginsDir);
   log(outcomes.length ? "  plugins" : "  plugins   none in plugins/");
   const describe = server.describeManifest ? (m: Parameters<NonNullable<typeof server.describeManifest>>[1]) => server.describeManifest!(loaded.app, m).summary : undefined;
-  for (const outcome of outcomes) for (const line of reportOutcome(outcome, describe)) log(line);
+  for (const outcome of outcomes) for (const line of reportOutcome(outcome, io.cwd, describe)) log(line);
 
   const failed = failedPlugins(outcomes);
   const manifest: BuildManifest = {

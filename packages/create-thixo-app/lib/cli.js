@@ -24,7 +24,7 @@ export function nextSteps(name, { checkout = null, built = true } = {}) {
     "  npm install",
     "  npm run dev",
     "",
-    'Then open the address dev prints and pick a user in "Signed in as": ana (can\'t delete) or ben (can).',
+    'Then open the address dev prints and pick a user in "Signed in as": ana or ben.',
     "With dev running, `npx thixo agent describe --as ana` prints the plugin language and every component's props.",
   );
   return lines.join("\n");

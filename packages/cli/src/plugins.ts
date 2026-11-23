@@ -32,6 +32,8 @@ export function readPlugins(pluginsDir: string): Record<string, SourceFiles> {
 
 export interface PluginOutcome {
   name: string;
+  /** The folder the plugin's files are in, absolute. */
+  dir: string;
   result: CompileResult;
 }
 
@@ -51,8 +53,8 @@ export function compileFolder(files: SourceFiles, env: CompileEnv, thx: Pick<Thx
   }
 }
 
-export function compilePlugins(plugins: Record<string, SourceFiles>, env: CompileEnv, thx: Pick<ThxApi, "compile">): PluginOutcome[] {
-  return Object.entries(plugins).map(([name, files]) => ({ name, result: compileFolder(files, env, thx, name) }));
+export function compilePlugins(plugins: Record<string, SourceFiles>, env: CompileEnv, thx: Pick<ThxApi, "compile">, pluginsDir: string): PluginOutcome[] {
+  return Object.entries(plugins).map(([name, files]) => ({ name, dir: join(pluginsDir, name), result: compileFolder(files, env, thx, name) }));
 }
 
 /** The manifest in plain sentences. */
@@ -73,8 +75,8 @@ export function summarizeManifest(manifest: Manifest): string[] {
   return lines;
 }
 
-/** Lines to print for one plugin: its summary, or its errors with the path from the project root. */
-export function reportOutcome(outcome: PluginOutcome, describe?: (manifest: Manifest) => string[] | undefined): string[] {
+/** Lines to print for one plugin: its summary, or its errors with paths relative to where the command was run. */
+export function reportOutcome(outcome: PluginOutcome, cwd: string, describe?: (manifest: Manifest) => string[] | undefined): string[] {
   const { name, result } = outcome;
   if (result.ok) {
     const label = result.meta.name ? `${name} (${result.meta.name})` : name;
@@ -82,5 +84,5 @@ export function reportOutcome(outcome: PluginOutcome, describe?: (manifest: Mani
     const lines = describe?.(result.manifest) ?? summarizeManifest(result.manifest);
     return [`  ok  ${label}`, ...lines.map((line) => `      ${line}`)];
   }
-  return [`  FAILED  ${name}`, ...formatThxErrors(result.errors, `plugins/${name}/`).flatMap((e) => e.split("\n").map((l) => `      ${l}`))];
+  return [`  FAILED  ${name}`, ...formatThxErrors(result.errors, { cwd, dir: outcome.dir }).flatMap((e) => e.split("\n").map((l) => `      ${l}`))];
 }

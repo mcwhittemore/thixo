@@ -63,8 +63,9 @@ test("plugin folders are read recursively, keyed by relative path, and nothing e
 });
 
 test("errors print as file:line:col code message, with the hint under", () => {
-  assert.equal(formatThxError(FAKE_ERROR), "plugin.thx:3:7 thx/no-global window does not exist.\n  hint: Plugins cannot reach the page.");
-  assert.equal(formatThxError({ ...FAKE_ERROR, hint: undefined }, "plugins/a/"), "plugins/a/plugin.thx:3:7 thx/no-global window does not exist.");
+  assert.equal(formatThxError(FAKE_ERROR, { cwd: "/app/plugins/a", dir: "/app/plugins/a" }), "plugin.thx:3:7 thx/no-global window does not exist.\n  hint: Plugins cannot reach the page.");
+  assert.equal(formatThxError({ ...FAKE_ERROR, hint: undefined }, { cwd: "/app", dir: "/app/plugins/a" }), "plugins/a/plugin.thx:3:7 thx/no-global window does not exist.");
+  assert.equal(formatThxError({ ...FAKE_ERROR, file: "lib/x.thx", hint: undefined }, { cwd: "/app/plugins", dir: "/app/plugins/a" }), "a/lib/x.thx:3:7 thx/no-global window does not exist.");
 });
 
 test("a folder with no plugin.thx and a compiler that throws both become errors", () => {
@@ -79,11 +80,11 @@ test("a folder with no plugin.thx and a compiler that throws both become errors"
 
 test("reportOutcome prints a summary for a good plugin and located errors for a bad one", () => {
   const env = {} as never;
-  const good = reportOutcome({ name: "a", result: compileFolder({ "plugin.thx": 'import { hello } from "@app/sdk";\ndefinePlugin(main, { id: "plg_a" })' }, env, fakeThx) });
+  const good = reportOutcome({ name: "a", dir: "/app/plugins/a", result: compileFolder({ "plugin.thx": 'import { hello } from "@app/sdk";\ndefinePlugin(main, { id: "plg_a" })' }, env, fakeThx) }, "/app");
   assert.match(good.join("\n"), /ok {2}a \(Fake\)/);
   assert.match(good.join("\n"), /Fills the slot main\./);
   assert.match(good.join("\n"), /Needs the endpoints hello\./);
-  const bad = reportOutcome({ name: "a", result: compileFolder({ "plugin.thx": "window" }, env, fakeThx) });
+  const bad = reportOutcome({ name: "a", dir: "/app/plugins/a", result: compileFolder({ "plugin.thx": "window" }, env, fakeThx) }, "/app");
   assert.match(bad.join("\n"), /FAILED {2}a/);
   assert.match(bad.join("\n"), /plugins\/a\/plugin\.thx:3:7 thx\/no-global/);
 });

@@ -35,7 +35,7 @@ Each feature file starts with an H1 title and one paragraph describing the user-
 
 - [The todo app](./todo-app.md): the list, child-slot badges, add, tick, due dates kept across reloads, delete by scope, a refused plugin. Browser.
 - [The CRM app](./crm-app.md): the CRM example's routes, deals pipeline, finance gating, notes, lead score and dashboard widgets as a rep. Browser.
-- [Starting a new app with create-thixo-app](./create-app.md): the template copy, checkout links, fresh plugin ids, refusals, the next steps, and the created app launched, doctored and driven (Delete grayed out by `useCan`). Terminal and browser.
+- [Starting a new app with create-thixo-app](./create-app.md): the template copy, checkout links, fresh plugin ids, refusals, the next steps, and the created app launched, doctored and driven (the hello plugin's endpoint call and saved nickname). Terminal and browser.
 - [The shell, slots and plugin host](./shell-and-plugins.md): slot loading and boxes, plugin code by address, refusals in a slot, the plugin browser, query refresh across plugins. Browser.
 - [Authoring agent](./authoring.md): `thixo agent` describe, check, submit (a new plugin, or a version with `--plugin`) and use (by slot path, a child's bare name resolved), then share, use, fork and promote in the plugin browser; the chat, scripted and for real. CLI and browser.
 - [The authoring chat with a real model](./authoring-chat.md): one message in `Ask for a plugin` as ana, the tool lines with their outcomes, a confirmed `use` at a slot path, the page updated without a reload, real buttons. Browser; spends model usage.

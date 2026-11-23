@@ -60,9 +60,9 @@ export interface DeployReport {
 export async function deployPlugins(app: RunningApp, paths: ProjectPaths, deps: Deps, io: Io, options: { strict: boolean; buildHash?: string }): Promise<DeployReport> {
   const thx = await deps.thx();
   const plugins = readPlugins(paths.pluginsDir);
-  const outcomes = compilePlugins(plugins, app.loaded.compileEnv, thx);
+  const outcomes = compilePlugins(plugins, app.loaded.compileEnv, thx, paths.pluginsDir);
   const failed = outcomes.filter((o) => !o.result.ok);
-  for (const outcome of failed) for (const line of reportOutcome(outcome)) io.err(line);
+  for (const outcome of failed) for (const line of reportOutcome(outcome, io.cwd)) io.err(line);
   if (failed.length && options.strict) throw new CliError(`${failed.length} plugin${failed.length === 1 ? "" : "s"} failed to compile. Run \`thixo build\` and fix them.`);
 
   // A folder the layout names but that did not compile would make the deploy refuse it as missing, which reads like

@@ -1,27 +1,33 @@
-// An app create-thixo-app made: the list shows the seeded todos, and Delete is grayed out for a user without
-// todos.delete (ana) and works for one with it (ben). That is the optional-endpoint pattern: the template's todo list
-// imports deleteTodo from @app/sdk/optional and asks useCan(deleteTodo).
-//   launch.mjs --run <id> --dir examples-tmp/<app>, then drive.mjs --as ana (or ben) --script .../created-app.mjs
+// An app create-thixo-app made: the hello plugin greets the signed-in user with a message from the app's own endpoint,
+// a nickname saved through useStore is plugin data that survives a reload and belongs to one user, and the shell has
+// the plugin browser and the authoring chat.
+//   launch.mjs --run <id> --app examples-tmp/<app>, then drive.mjs --as ana (or ben) --script .../created-app.mjs
+// Drive ana first: ana saves a nickname, and ben must not see it.
 
 export default async function ({ page, step, expect, as }) {
-  const list = page.getByRole("region", { name: "Todo list (main)" });
-  await list.getByRole("button", { name: "Write the first page", exact: true }).waitFor();
-  const del = list.getByRole("button", { name: "Delete" }).first();
-  const grayed = await del.isDisabled();
-  await step("list");
+  const hello = page.getByRole("region", { name: "Hello (main)" });
+  await hello.getByText("Hello from the app's API.").waitFor();
+  expect(true, "the message came from the app's API");
+  await step("hello");
+
   if (as === "ana") {
-    expect(grayed, "ana's Delete is grayed out: she lacks todos.delete, an optional scope of the list");
-    return;
+    const nickname = `Annie ${Date.now()}`;
+    await hello.getByRole("textbox").fill(nickname);
+    await hello.getByRole("button", { name: "Save nickname" }).click();
+    await hello.getByText(`Hello, ${nickname}`).waitFor();
+    await page.reload();
+    await hello.getByText(`Hello, ${nickname}`).waitFor();
+    expect(true, "the nickname is saved and survives a reload");
+    await step("nickname");
+  } else {
+    await hello.getByText(`Hello, ${as}`).waitFor();
+    expect(true, `the plugin greets ${as} by name, not by ana's nickname`);
   }
-  expect(!grayed, `${as}'s Delete is enabled`);
-  const title = `Delete me (${as} ${Date.now()})`;
-  await list.getByRole("textbox").fill(title);
-  await list.getByRole("textbox").press("Enter");
-  const row = list.getByRole("button", { name: title, exact: true });
-  await row.waitFor();
-  await step("added");
-  await row.locator("xpath=..").getByRole("button", { name: "Delete", exact: true }).click();
-  await row.waitFor({ state: "detached" });
-  expect(true, `${as} deleted the todo they added`);
-  await step("deleted");
+
+  await page.getByRole("button", { name: "Plugins" }).click();
+  await page.getByRole("region", { name: "Plugin browser" }).waitFor();
+  await page.getByRole("button", { name: "Ask for a plugin" }).click();
+  await page.getByRole("region", { name: "Authoring chat" }).waitFor();
+  expect(true, "the plugin browser and the authoring chat open");
+  await step("panels");
 }

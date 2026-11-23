@@ -1,9 +1,9 @@
 import { mkdirSync, statSync, writeFileSync, readFileSync } from "node:fs";
-import { basename, join, resolve } from "node:path";
-import type { SourceFiles } from "thixo-thx/contract";
+import { basename, dirname, join, resolve } from "node:path";
+import type { SourceFiles, ThxError } from "thixo-thx/contract";
 import { buildServerBundle, closeAdapters, loadServerBundle } from "./bundle.js";
 import type { Deps } from "./deps.js";
-import { CliError, formatThxErrors } from "./errors.js";
+import { CliError, formatThxErrors, locateThxErrors } from "./errors.js";
 import type { Io } from "./io.js";
 import { compileFolder, readPluginFolder, summarizeManifest } from "./plugins.js";
 import { findProjectRoot, openProject } from "./project.js";
@@ -47,11 +47,15 @@ export async function runCompile(options: CompileOptions, io: Io, deps: Deps): P
   closeAdapters(loaded.config);
 
   const thx = await deps.thx();
+  const isFolder = statSync(target).isDirectory();
+  const base = { cwd: io.cwd, dir: isFolder ? target : dirname(target) };
+  // A single file is compiled as the plugin's `plugin.thx`; its errors name the file it came from.
+  const named = (errors: ThxError[]) => (isFolder ? errors : errors.map((e) => (e.file === "plugin.thx" ? { ...e, file: basename(target) } : e)));
   const result = compileFolder(files, loaded.compileEnv, thx, label);
 
   if (!result.ok) {
-    if (options.json) io.out(JSON.stringify({ ok: false, errors: result.errors }, null, 2));
-    else for (const line of formatThxErrors(result.errors)) io.err(line);
+    if (options.json) io.out(JSON.stringify({ ok: false, errors: locateThxErrors(named(result.errors), base) }, null, 2));
+    else for (const line of formatThxErrors(named(result.errors), base)) io.err(line);
     return 1;
   }
 
@@ -64,7 +68,7 @@ export async function runCompile(options: CompileOptions, io: Io, deps: Deps): P
   if (!verified.ok) {
     const errors = verified.errors.map((message) => ({ file: "(output)", line: 0, column: 0, code: "thx/output-rejected", message }));
     if (options.json) io.out(JSON.stringify({ ok: false, errors }, null, 2));
-    else for (const line of formatThxErrors(errors)) io.err(line);
+    else for (const line of formatThxErrors(errors, base)) io.err(line);
     return 1;
   }
 

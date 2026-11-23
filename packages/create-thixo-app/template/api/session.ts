@@ -1,20 +1,18 @@
 // The app's own login, standing in for whatever you use. It answers one question for Thixo: who is calling, and which
-// scopes do they hold? Pick a user with the `thixo-user` cookie: ana or ben. ana can't delete todos; ben holds every
-// scope.
+// scopes do they hold? Pick a user with the `thixo-user` cookie: ana or ben. Both can use the hello plugin and write
+// plugins of their own. ben also holds every scope Thixo defines.
 
 import { THIXO_SCOPES } from "thixo";
-
-const everything = ["todos.read", "todos.write", "todos.delete", ...Object.keys(THIXO_SCOPES)];
 
 type Session = { userId: string; scopes: string[]; groups: string[] };
 
 const users: Record<string, Session> = {
   ana: {
     userId: "ana",
-    scopes: ["todos.read", "todos.write", "thixo.data.read", "thixo.data.write", "thixo.plugins.author", "thixo.plugins.share"],
+    scopes: ["hello.read", "thixo.data.read", "thixo.data.write", "thixo.plugins.author", "thixo.plugins.share"],
     groups: ["design"],
   },
-  ben: { userId: "ben", scopes: everything, groups: ["ops"] },
+  ben: { userId: "ben", scopes: ["hello.read", ...Object.keys(THIXO_SCOPES)], groups: ["ops"] },
 };
 
 export async function readSession(request: Request): Promise<Session | null> {

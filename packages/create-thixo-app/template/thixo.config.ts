@@ -20,7 +20,6 @@ export default defineConfig({
 
   // Which default plugin fills which slot for a new user.
   layout: {
-    main: "todo-list",
-    "todo-detail": "todo-info",
+    main: "hello",
   },
 });

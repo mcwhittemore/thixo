@@ -23,7 +23,7 @@ library.
 | `packages/thixo-node` | `thixo-node` | Local adapters: files for code, `node:sqlite` for data, an in-process build, a Node HTTP server, a Claude Code model adapter. |
 | `packages/thixo-anthropic` | `thixo-anthropic` | The model adapter for the Claude API. |
 | `packages/cli` | `thixo-cli` | The `thixo` command. |
-| `packages/create-thixo-app` | `create-thixo-app` | Starts a new app from a template. Run from a checkout, it links the packages and React from it with `file:` deps, since they are not on npm yet. |
+| `packages/create-thixo-app` | `create-thixo-app` | Starts a new app from a neutral template: one endpoint, one slot, one `hello` plugin that calls it and keeps a nickname as plugin data. Run from a checkout, it links the packages and React from it with `file:` deps, since they are not on npm yet. |
 
 ## The language is called thx
 

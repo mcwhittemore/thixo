@@ -211,10 +211,33 @@ test("compile: inside a project it uses the real env and prints manifest, summar
     writeFileSync(join(w.root, "bad.thx"), "window");
     const bad = testIo(w.root);
     assert.equal(await run(["compile", "bad.thx"], { io: bad, deps: fakeDeps() }), 1);
-    assert.match(bad.stderr.join("\n"), /^plugin\.thx:3:7 thx\/no-global window does not exist\.\n {2}hint: /);
+    assert.match(bad.stderr.join("\n"), /^bad\.thx:3:7 thx\/no-global window does not exist\.\n {2}hint: /);
     const badJson = testIo(w.root);
     assert.equal(await run(["compile", "bad.thx", "--json"], { io: badJson, deps: fakeDeps() }), 1);
     assert.equal(JSON.parse(badJson.stdout.join("\n")).errors[0].code, "thx/no-global");
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("compile and build print the same error the same way, from where the command was run", async () => {
+  const w = workdir();
+  try {
+    writeFileSync(join(w.root, "plugins/hello/plugin.thx"), "const x = window;");
+    const line = /^plugins\/hello\/plugin\.thx:3:7 thx\/no-global window does not exist\.\n {2}hint: Plugins cannot reach the page\./m;
+    const build = testIo(w.root);
+    await run(["build", w.root], { io: build, deps: fakeDeps() });
+    assert.match(build.stdout.join("\n").replace(/^ {6}/gm, ""), line);
+    const compile = testIo(w.root);
+    assert.equal(await run(["compile", "plugins/hello"], { io: compile, deps: fakeDeps() }), 1);
+    assert.match(compile.stderr.join("\n"), line);
+    // The same from another folder: the path moves with the working directory, and --json says it too.
+    const inner = testIo(join(w.root, "plugins"));
+    await run(["compile", "hello", "--project", w.root], { io: inner, deps: fakeDeps() });
+    assert.match(inner.stderr.join("\n"), /^hello\/plugin\.thx:3:7 /);
+    const json = testIo(w.root);
+    await run(["compile", "plugins/hello", "--json"], { io: json, deps: fakeDeps() });
+    assert.equal(JSON.parse(json.stdout.join("\n")).errors[0].file, "plugins/hello/plugin.thx");
   } finally {
     w.cleanup();
   }
