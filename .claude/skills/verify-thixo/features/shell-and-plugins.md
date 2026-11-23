@@ -47,4 +47,4 @@ Preconditions:
 - happy-dom runs without React's `act()`; the DOM tests poll with `waitFor`.
 - A `Card` with a `title` is a region named by that title. A plugin whose Card title starts with a word its own `Select` is labelled with (`Priority: <todo>` beside a `Priority` select) makes `getByLabel("Priority")` match both. Use roles: `getByRole("combobox", { name: "Priority" })`.
 - The DOM test `the authoring chat streams the agent's events …` sends with an Enter keydown, which proves Enter sends.
-- The authoring chat needs a model. The todo config uses `claudeCode()`, which runs the local `claude` command and spends usage; a routine run does not send chat messages.
+- The authoring chat needs a model. The todo config uses `anthropic()` from `thixo-anthropic/node`, which with no key runs the local `claude` command and spends usage; a routine run does not send chat messages.

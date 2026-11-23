@@ -5,7 +5,7 @@ import { closeAdapters } from "./bundle.js";
 import type { Deps, Served } from "./deps.js";
 import { CliError } from "./errors.js";
 import { createHandler } from "./handler.js";
-import { untilAborted, type Io } from "./io.js";
+import { untilAborted, withNodeEnv, type Io } from "./io.js";
 import type { ProjectPaths } from "./project.js";
 import { activateApp, deployPlugins } from "./runtime.js";
 
@@ -48,9 +48,11 @@ export async function startServer(paths: ProjectPaths, options: { port: number; 
 }
 
 export async function runStart(paths: ProjectPaths, options: { port: number }, io: Io, deps: Deps): Promise<number> {
-  const started = await startServer(paths, options, io, deps);
-  io.out(`thixo start  ready on ${started.url}`);
-  await untilAborted(io.signal);
-  await started.close();
-  return 0;
+  return withNodeEnv("production", async () => {
+    const started = await startServer(paths, options, io, deps);
+    io.out(`thixo start  ready on ${started.url}`);
+    await untilAborted(io.signal);
+    await started.close();
+    return 0;
+  });
 }

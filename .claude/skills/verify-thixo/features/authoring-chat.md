@@ -1,6 +1,6 @@
 # The authoring chat with a real model
 
-A person types what they want into `Ask for a plugin`, and Thixo's agent finds, forks or writes a plugin, checks it until it builds, stores it, and puts it in their layout. The log shows each tool call and what it came to. When the agent's `use` is confirmed, the page shows the new plugin at once, without a reload. This recipe runs the app's real model adapter (in the examples, `claudeCode()`: the local `claude` command), so it spends model usage.
+A person types what they want into `Ask for a plugin`, and Thixo's agent finds, forks or writes a plugin, checks it until it builds, stores it, and puts it in their layout. The log shows each tool call and what it came to. When the agent's `use` is confirmed, the page shows the new plugin at once, without a reload. This recipe runs the app's real model adapter (in the examples, `anthropic()` from `thixo-anthropic/node`: the Claude API with a key, else the local `claude` command), so it spends model usage.
 
 ## Sub-features
 
@@ -21,7 +21,7 @@ A person types what they want into `Ask for a plugin`, and Thixo's agent finds, 
 Preconditions:
 
 - `npm run build` has run. `node .claude/skills/verify-thixo/bin/launch.mjs --run <id>` (or `--app <folder>` for another app) printed its state and `doctor.mjs --run <id>` printed `healthy`.
-- The `claude` command is installed and signed in (for `claudeCode()`), or the app's config names another model adapter with its key.
+- With no `ANTHROPIC_API_KEY`, the `claude` command is installed and signed in. `dev.log` then has the line `thixo-anthropic: no API key, so using the local `claude` login (development only).` once the first message is sent. With a key set, the line says `using the Claude API`.
 - `C` is `node .claude/skills/verify-thixo/bin/cli.mjs --run <id> --`.
 
 - **One turn.** Run `ASK="Add a star button to each todo row that marks the todo as important. Clicking it toggles the star." EXPECT_USE=1 WAIT_MS=300000 node .claude/skills/verify-thixo/bin/drive.mjs --run <id> --as ana --script .claude/skills/verify-thixo/journeys/chat.mjs --name chat`. It prints `ok Enter sent the message and the status says the agent is working`, `ok the turn ended with Done`, a `tools:` line with each outcome, and `ok a use the layout confirmed: use put plg_…@<n> in main/todo-row (confirmed in your layout)`. Any `failed tool calls:` line lists what the model had to recover from.

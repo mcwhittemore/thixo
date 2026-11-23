@@ -7,6 +7,14 @@ import type { Route, ServerContext } from "../context.js";
 
 const AUTHOR_SCOPE = "thixo.plugins.author";
 
+function inProduction(): boolean {
+  try {
+    return (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.NODE_ENV === "production";
+  } catch {
+    return false;
+  }
+}
+
 /** Compares sha256 digests without stopping at the first difference, so the time does not depend on the lengths or on
  * how much of the key matched. */
 async function sameKey(given: string, expected: string): Promise<boolean> {
@@ -54,7 +62,7 @@ export function routes(ctx: ServerContext): Route[] {
         if (body.conversation !== undefined && typeof body.conversation !== "string") fail(ctx, 400, "conversation must be a string", "bad_request");
         const model = ctx.config.model;
         if (!model) {
-          const event: AuthoringEvent = { type: "error", message: "No model adapter is configured. Set `model` in the Thixo config, such as anthropic() from thixo-anthropic or claudeCode() from thixo-node." };
+          const event: AuthoringEvent = { type: "error", message: "No model adapter is configured. Set `model` in the Thixo config, such as anthropic() from thixo-anthropic/node." };
           return new Response(`${JSON.stringify(event)}\n`, { headers: ndjson });
         }
         return new Response(lines(runAuthoring(ctx, { user, conversation: body.conversation, message: body.message, model })), { headers: ndjson });
@@ -66,6 +74,8 @@ export function routes(ctx: ServerContext): Route[] {
       async handler({ request }) {
         const expected = ctx.config.agentKey;
         if (!expected) fail(ctx, 404, "The tool route is off: this server has no agent key.", "not_found");
+        // Even with a key configured, a production server never serves it: the route is for `thixo dev`.
+        if (inProduction()) fail(ctx, 404, "The tool route is off: it is for development only.", "not_found");
         const given = request.headers.get("x-thixo-agent-key");
         if (!given) fail(ctx, 401, "Send the agent key in the x-thixo-agent-key header.", "agent_key_missing");
         if (!(await sameKey(given, expected))) fail(ctx, 403, "The agent key is wrong.", "agent_key_wrong");

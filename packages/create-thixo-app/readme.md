@@ -36,7 +36,8 @@ A small app that shows each part once, with nothing in it you will have to delet
 - `app/shell.tsx`: the base app. It has one `<Slot is={main} />`, the plugin browser and the authoring chat.
 - `plugins/hello/`: the default plugin for `main`. It calls `hello` and keeps a nickname as plugin data (`data.thx`),
   private to each user.
-- `thixo.config.ts`: `local()` adapters, `claudeCode()` as the model, and the layout (`main` is `hello`).
+- `thixo.config.ts`: `local()` adapters, `anthropic()` from `thixo-anthropic/node` as the model (the Claude API with a
+  key, your local `claude` login without one, in development), and the layout (`main` is `hello`).
 - `package.json`: `dev`, `build` and `start` scripts.
 
 ## Try these next

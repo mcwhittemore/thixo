@@ -4,7 +4,7 @@ import { classifyChange, hasImpact, mergeImpact, noImpact, type Impact } from ".
 import type { Deps, Served } from "./deps.js";
 import { CliError, messageOf } from "./errors.js";
 import { createHandler } from "./handler.js";
-import { untilAborted, type Io } from "./io.js";
+import { untilAborted, withNodeEnv, type Io } from "./io.js";
 import { writeAgentKey } from "./keys.js";
 import type { ProjectPaths } from "./project.js";
 import { activateApp, deployPlugins, type RunningApp } from "./runtime.js";
@@ -159,10 +159,12 @@ export async function startDev(paths: ProjectPaths, options: { port: number; hos
 }
 
 export async function runDev(paths: ProjectPaths, options: { port: number }, io: Io, deps: Deps): Promise<number> {
-  const dev = await startDev(paths, options, io, deps);
-  io.out(`thixo dev  ready on ${dev.url}`);
-  io.out(`  agent key in .thixo/agent-key; try \`thixo agent describe --as <user>\``);
-  await untilAborted(io.signal);
-  await dev.close();
-  return 0;
+  return withNodeEnv("development", async () => {
+    const dev = await startDev(paths, options, io, deps);
+    io.out(`thixo dev  ready on ${dev.url}`);
+    io.out(`  agent key in .thixo/agent-key; \`thixo agent\` is for a coding agent to use the authoring tools as a user here; try \`thixo agent describe --as <user>\``);
+    await untilAborted(io.signal);
+    await dev.close();
+    return 0;
+  });
 }

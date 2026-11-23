@@ -1,5 +1,6 @@
 import { defineConfig } from "thixo";
-import { local, claudeCode } from "thixo-node";
+import { local } from "thixo-node";
+import { anthropic } from "thixo-anthropic/node";
 import { readSession, scopesOf } from "./api/session.js";
 
 export default defineConfig({
@@ -20,9 +21,10 @@ export default defineConfig({
   // data in SQLite, under .thixo/.
   adapters: local(),
 
-  // Which model runs the authoring agent (U6). This one runs the local
-  // `claude` command and needs no key.
-  model: claudeCode(),
+  // Which model runs the authoring agent (U6). With ANTHROPIC_API_KEY set it
+  // calls the Claude API. With no key, in development, it uses the local
+  // `claude` login. In production it needs the key.
+  model: anthropic(),
 
   // Which default plugins fill which slots for a new user (S9).
   layout: {

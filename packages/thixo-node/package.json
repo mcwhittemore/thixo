@@ -9,5 +9,5 @@
     "test": "node --import tsx --test \"test/**/*.test.ts\""
   },
   "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
-  "dependencies": { "thixo": "0.0.1", "thixo-sql": "0.0.1", "thixo-thx": "0.0.1" }
+  "dependencies": { "thixo": "0.0.1", "thixo-anthropic": "0.0.1", "thixo-sql": "0.0.1", "thixo-thx": "0.0.1" }
 }

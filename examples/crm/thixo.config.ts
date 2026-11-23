@@ -1,5 +1,6 @@
 import { defineConfig } from "thixo";
-import { local, claudeCode } from "thixo-node";
+import { local } from "thixo-node";
+import { anthropic } from "thixo-anthropic/node";
 import { readSession, scopesOf } from "./api/session.js";
 import { FORMAT_DTS } from "./lib/format-types.js";
 
@@ -13,7 +14,7 @@ export default defineConfig({
   },
 
   adapters: local(),
-  model: claudeCode(),
+  model: anthropic(),
 
   // A library the implementor chooses to expose (L3). A plugin imports it as `@app/format`; the shell bundle imports
   // the module and hands plugins its exports, wrapped at the boundary.

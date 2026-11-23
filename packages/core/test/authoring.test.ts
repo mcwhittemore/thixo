@@ -198,6 +198,21 @@ test("the tool route is off without an agent key, and refuses a missing or wrong
   assert.equal(w.adapters.build.builds, 0);
 });
 
+test("the tool route is off in production even when a key is configured", async () => {
+  const saved = process.env.NODE_ENV;
+  process.env.NODE_ENV = "production";
+  try {
+    const w = authoringWorld({ agentKey: "secret-key" });
+    const response = await w.thixo.fetch(
+      new Request(`${ORIGIN}/_thixo/authoring/tool`, { method: "POST", headers: { "content-type": "application/json", "x-thixo-agent-key": "secret-key" }, body: JSON.stringify({ tool: "describe_app", as: "ana", input: {} }) }),
+    );
+    assert.equal(response.status, 404);
+  } finally {
+    if (saved === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = saved;
+  }
+});
+
 test("the tool route runs the same tools as one user, with that user's scopes", async () => {
   const w = authoringWorld({ agentKey: "secret-key" });
   const tool = async (as: string, name: string, input: unknown) => {

@@ -20,7 +20,7 @@ Open http://127.0.0.1:4310 and pick a user in **Signed in as**. The login is a s
 | `cy` | `todos.read`, `thixo.data.read` | A message in place of the list, which needs `todos.write` |
 
 Click a todo's title for the detail panel (due dates), press **Plugins** for the plugin browser, and **Ask for a
-plugin** for the authoring chat. The chat's model is `claudeCode()`, which runs your local `claude` command.
+plugin** for the authoring chat. The chat's model is `anthropic()` from `thixo-anthropic/node`: with `ANTHROPIC_API_KEY` set it calls the Claude API, and with no key (in development) it runs your local `claude` command.
 
 `thixo dev` keeps plugin data, the registry and the layout in `.thixo/` here (git-ignored); delete it to start over.
 The todos themselves are in memory (`api/db.ts`) and reset when the server restarts or `api/` changes.
