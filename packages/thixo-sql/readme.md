@@ -67,7 +67,7 @@ adapterSuite("My database", async () => ({
 
 `breakField` is the one thing that is not portable: a test fails a patch part-way to check that it rolls back, and each
 database spells a failing trigger differently. The suite never lists the adapter's tables, so a new table needs no
-change in a driver.
+change in a driver. It covers the authoring guard's tables too, so refusals and blocks are tested on every driver.
 
 ## How it stores plugin data
 

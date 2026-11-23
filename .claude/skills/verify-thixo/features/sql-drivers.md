@@ -4,7 +4,7 @@ Thixo's data adapter, `thixo-sql`, runs on a small driver interface, and there a
 
 ## Sub-features
 
-- `adapter-suite` runs the same 29 or so tests (driver contract, plugin data, registry, releases, layouts, users) against any driver, from `thixo-sql/testing`.
+- `adapter-suite` runs the same 30 or so tests (driver contract, plugin data, registry, releases, layouts, users, the authoring guard's refusals and blocks) against any driver, from `thixo-sql/testing`.
 - `postgres-driver` runs the suite on a real Postgres in a throwaway Docker container, and skips with a reason when there is no Docker.
 - `d1-driver` runs the suite on D1 through Miniflare.
 - `app-on-postgres` runs the todo example with its data in Postgres and reads a plugin's data back after a restart.
@@ -21,9 +21,9 @@ Preconditions:
 - `npm install` and `npm run build` have run in the repo root. Docker is running, and the image `postgres:17` is local or can be pulled.
 - A scratch Postgres: `docker run -d --rm --name thixo-pg -e POSTGRES_PASSWORD=thixo -e POSTGRES_DB=todo -p 127.0.0.1:54555:5432 postgres:17`. Wait about five seconds.
 
-- **The suites.** Run `npm test -w thixo-sql -w thixo-postgres -w thixo-d1 -w thixo-node`. Each package ends with `# fail 0`. Postgres reports `# skipped 0` with Docker up; `thixo-postgres` run without Docker prints `Postgres (skipped: no Postgres: Docker is not running ...)`. thixo-d1 and thixo-postgres each report 28 or 29 passing tests, the same names as thixo-sql's.
+- **The suites.** Run `npm test -w thixo-sql -w thixo-postgres -w thixo-d1 -w thixo-node`. Each package ends with `# fail 0`. Postgres reports `# skipped 0` with Docker up; `thixo-postgres` run without Docker prints `Postgres (skipped: no Postgres: Docker is not running ...)`. thixo-d1 and thixo-postgres each report 30 or 31 passing tests, the same names as thixo-sql's.
 - **The todo app on Postgres.** Run `node .claude/skills/verify-thixo/bin/launch.mjs --run pg --postgres postgres://postgres:thixo@127.0.0.1:54555/todo`, then `node .claude/skills/verify-thixo/bin/doctor.mjs --run pg` (prints `healthy`), then `node .claude/skills/verify-thixo/bin/drive.mjs --run pg --as ana --script .claude/skills/verify-thixo/journeys/todo-basics.mjs --name todo-app`. It prints the same `ok` lines as `todo-app.md`, ending `ok the due date reads 2026-12-24 after reload`. The copy's `.thixo/` has `code/` and no `data.sqlite`.
-- **The rows are in Postgres.** Run `docker exec thixo-pg psql -U postgres todo -c "select kind, scope, bucket, id, plugin, field, value from thixo_data"`. One row: `annotation | todo | g:design | todo-1 | plg_due_dates | dueOn | {"$date":"2026-12-24T00:00:00.000Z"}`. `\dt` lists `thixo_data`, `thixo_layouts`, `thixo_plugins`, `thixo_releases`, `thixo_schema`, `thixo_users` and `thixo_versions`.
+- **The rows are in Postgres.** Run `docker exec thixo-pg psql -U postgres todo -c "select kind, scope, bucket, id, plugin, field, value from thixo_data"`. One row: `annotation | todo | g:design | todo-1 | plg_due_dates | dueOn | {"$date":"2026-12-24T00:00:00.000Z"}`. `\dt` lists `thixo_authoring_blocks`, `thixo_data`, `thixo_layouts`, `thixo_plugins`, `thixo_refusals`, `thixo_releases`, `thixo_schema`, `thixo_users` and `thixo_versions`.
 - **Restart, data still there.** Run `node .claude/skills/verify-thixo/bin/launch.mjs --run pg --restart` (it stops the server and starts it again in the same copy), then `node .claude/skills/verify-thixo/bin/drive.mjs --run pg --as ana --script .claude/skills/verify-thixo/journeys/due-date-kept.mjs --name after-restart`. It prints `ok the due date reads 2026-12-24 after the restart`. `select count(*) from thixo_releases` is still 1: the restart did not deploy a second release, because the same default plugins hash to the same versions.
 - **Proof.** Keep the suite output, `artifacts/verify/pg/todo-app/`, `artifacts/verify/pg/after-restart/`, the `psql` output and `dev.log`. Run `node .claude/skills/verify-thixo/bin/cleanup.mjs --run pg` and `docker rm -f thixo-pg`.
 

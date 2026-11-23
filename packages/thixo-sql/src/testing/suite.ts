@@ -4,6 +4,7 @@ import type { SqlDriver } from "../driver.js";
 import type { DataAdapter } from "thixo/contract";
 import { registerDataTests } from "./data-tests.js";
 import { registerDriverTests } from "./driver-tests.js";
+import { registerGuardTests } from "./guard-tests.js";
 import { registerRegistryTests } from "./registry-tests.js";
 
 /** A database for one test: empty, and not shared with any other test. */
@@ -43,5 +44,6 @@ export function adapterSuite(name: string, open: () => Promise<Opened>, options:
     registerDriverTests(fresh);
     registerDataTests(fresh);
     registerRegistryTests(fresh);
+    registerGuardTests(fresh);
   });
 }

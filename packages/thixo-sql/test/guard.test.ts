@@ -1,62 +1,54 @@
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import type { AuthoringRefusal } from "thixo/contract";
-import { sqlDataAdapter } from "../src/index.js";
-import { freshAdapter, memoryDriver } from "./helpers.js";
+import { sqlDataAdapter, syncDriver } from "../src/index.js";
 
-const refusal = (over: Partial<AuthoringRefusal> = {}): AuthoringRefusal => ({
-  id: `ref_${Math.random().toString(36).slice(2)}`,
+// The round-trip and block tests run for every driver in thixo-sql/testing (guard-tests.ts). This one needs a file
+// that outlives the connection, so it is SQLite's own.
+
+const require = createRequire(import.meta.url);
+
+function fileDriver(file: string) {
+  const original = process.emitWarning;
+  process.emitWarning = () => {};
+  const { DatabaseSync } = require("node:sqlite") as typeof import("node:sqlite");
+  process.emitWarning = original;
+  const db = new DatabaseSync(file);
+  const driver = syncDriver({
+    run: (sql, params) => void db.prepare(sql).run(...params),
+    all: (sql, params) => db.prepare(sql).all(...params) as Record<string, unknown>[],
+  });
+  return { db, driver };
+}
+
+const refusal = {
+  id: "ref_1",
   user: "ana",
   conversation: "c1",
-  category: "credentials",
+  category: "credentials" as const,
   reason: "It asks for a password.",
   trigger: "make a login box",
-  from: "user",
-  source: "agent",
+  from: "user" as const,
+  source: "agent" as const,
   at: "2026-11-22T10:00:00.000Z",
-  ...over,
-});
-
-test("refusals round-trip, oldest first, filtered by user and by time", async () => {
-  const { data } = await freshAdapter();
-  const a = refusal({ at: "2026-11-22T10:00:00.000Z", quote: "a password" });
-  const b = refusal({ at: "2026-11-22T11:00:00.000Z", conversation: null, from: "data", source: "check" });
-  const c = refusal({ at: "2026-11-22T09:00:00.000Z", user: "ben", category: "override" });
-  for (const r of [a, b, c]) await data.addRefusal(r);
-
-  assert.deepEqual(await data.listRefusals(), [c, a, b]);
-  assert.deepEqual(await data.listRefusals({ user: "ana" }), [a, b]);
-  assert.deepEqual(await data.listRefusals({ user: "ana", since: "2026-11-22T10:00:00.000Z" }), [b], "since is strictly after");
-  assert.equal("quote" in (await data.listRefusals({ user: "ana" }))[1], false);
-});
-
-test("a block per user: put replaces, lifting keeps the record, list is newest first", async () => {
-  const { data } = await freshAdapter();
-  assert.equal(await data.getAuthoringBlock("ana"), null);
-  await data.putAuthoringBlock({ user: "ana", at: "2026-11-22T10:00:00.000Z", reason: "three", refusals: ["r1", "r2", "r3"] });
-  await data.putAuthoringBlock({ user: "ben", at: "2026-11-22T11:00:00.000Z", reason: "three", refusals: [] });
-  assert.deepEqual(await data.getAuthoringBlock("ana"), { user: "ana", at: "2026-11-22T10:00:00.000Z", reason: "three", refusals: ["r1", "r2", "r3"] });
-  await data.putAuthoringBlock({ user: "ana", at: "2026-11-22T10:00:00.000Z", reason: "three", refusals: ["r1", "r2", "r3"], liftedAt: "2026-11-22T12:00:00.000Z", liftedBy: "implementor" });
-  assert.equal((await data.getAuthoringBlock("ana"))?.liftedBy, "implementor");
-  assert.deepEqual((await data.listAuthoringBlocks()).map((b) => b.user), ["ben", "ana"]);
-});
+};
 
 test("refusals and blocks survive closing and reopening the database, and migrating twice", async () => {
   const dir = mkdtempSync(join(tmpdir(), "thixo-sql-guard-"));
   const file = join(dir, "data.sqlite");
   try {
-    const first = memoryDriver(file);
-    const data = sqlDataAdapter(first);
+    const first = fileDriver(file);
+    const data = sqlDataAdapter(first.driver);
     await data.migrate();
-    await data.addRefusal(refusal({ id: "ref_1" }));
+    await data.addRefusal(refusal);
     await data.putAuthoringBlock({ user: "ana", at: "2026-11-22T10:00:00.000Z", reason: "three", refusals: ["ref_1"] });
     first.db.close();
 
-    const second = memoryDriver(file);
-    const again = sqlDataAdapter(second);
+    const second = fileDriver(file);
+    const again = sqlDataAdapter(second.driver);
     await again.migrate();
     assert.deepEqual((await again.listRefusals()).map((r) => r.id), ["ref_1"]);
     assert.deepEqual((await again.getAuthoringBlock("ana"))?.refusals, ["ref_1"]);
