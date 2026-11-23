@@ -160,3 +160,69 @@ test("localBuild fetches through the fetcher it is given, and the guarded one by
   const refused = await guarded.fetchAsset!("https://127.0.0.1/x.gif", LIMITS);
   assert.equal(refused.ok, false, "the default refuses loopback without connecting");
 });
+
+test("the timeout covers the host lookup: a resolver that never answers can't hold the fetch", async () => {
+  // Red team r3: guardedFetch({ timeoutMs: 1000, resolve: () => new Promise(() => {}) }) never settled.
+  let connected = false;
+  const fetchAsset = guardedFetch({
+    timeoutMs: 100,
+    resolve: () => new Promise<string[]>(() => {}),
+    get: async () => ((connected = true), reply(200, { "content-type": "image/gif" }, [GIF])),
+  });
+  const started = Date.now();
+  const got = await fetchAsset("https://stuck.example.com/x.gif", LIMITS);
+  assert.equal(got.ok, false);
+  if (!got.ok) assert.equal(got.message, "it took longer than 0.1 seconds.", "the real time, not rounded to 0 seconds");
+  assert.ok(Date.now() - started < 1000, "it gave up at its own time");
+  assert.equal(connected, false);
+});
+
+test("a get or a body that ignores the signal can't hold the fetch either", async () => {
+  const hanging = guardedFetch({ timeoutMs: 30, resolve: async () => ["93.184.216.34"], get: () => new Promise<RawResponse>(() => {}) });
+  const a = await hanging("https://cdn.example.com/x.gif", LIMITS);
+  assert.equal(a.ok, false);
+  if (!a.ok) assert.match(a.message, /took longer than/);
+  const trickle = guardedFetch({
+    timeoutMs: 30,
+    resolve: async () => ["93.184.216.34"],
+    get: async () => ({
+      status: 200,
+      headers: { "content-type": "image/gif" },
+      body: (async function* () {
+        yield GIF;
+        await new Promise(() => {});
+      })(),
+      destroy() {},
+    }),
+  });
+  const b = await trickle("https://cdn.example.com/x.gif", LIMITS);
+  assert.equal(b.ok, false);
+  if (!b.ok) assert.match(b.message, /took longer than/);
+});
+
+test("lookups are capped across fetches, and the build's signal stops a fetch", async () => {
+  let running = 0;
+  let most = 0;
+  const fetchAsset = guardedFetch({
+    maxLookups: 2,
+    resolve: async () => {
+      running++;
+      most = Math.max(most, running);
+      await new Promise((done) => setTimeout(done, 10));
+      running--;
+      return ["93.184.216.34"];
+    },
+    get: async () => reply(200, { "content-type": "image/gif" }, [GIF]),
+  });
+  const all = await Promise.all(Array.from({ length: 6 }, (_, i) => fetchAsset(`https://h${i}.example.com/x.gif`, LIMITS)));
+  assert.ok(all.every((r) => r.ok));
+  assert.equal(most, 2);
+
+  const controller = new AbortController();
+  const slow = guardedFetch({ resolve: () => new Promise<string[]>(() => {}) });
+  const pending = slow("https://cdn.example.com/x.gif", { ...LIMITS, signal: controller.signal });
+  controller.abort();
+  const stopped = await pending;
+  assert.equal(stopped.ok, false);
+  if (!stopped.ok) assert.match(stopped.message, /build stopped copying/);
+});

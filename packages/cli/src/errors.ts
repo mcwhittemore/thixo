@@ -1,4 +1,4 @@
-import { relative, resolve, sep } from "node:path";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 import type { Message } from "esbuild";
 import type { ThxError } from "thixo-thx/contract";
 
@@ -16,10 +16,14 @@ export interface ErrorBase {
   dir: string;
 }
 
-/** An error's file as a path relative to where the command was run. `(output)` and other non-files are left alone. */
+/** An error's file as a path relative to where the command was run, or its full path when it is outside that folder,
+ * since `../../../var/...` is harder to read than the path itself. `(output)` and other non-files are left alone. */
 export function errorPath(file: string, base: ErrorBase): string {
   if (file.startsWith("(")) return file;
-  return relative(base.cwd, resolve(base.dir, file)).split(sep).join("/") || file;
+  const full = resolve(base.dir, file);
+  const rel = relative(base.cwd, full);
+  if (rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel)) return full.split(sep).join("/");
+  return rel.split(sep).join("/") || file;
 }
 
 /** The one way every command prints a plugin error: `path:line:column code message`, then the hint on its own line.

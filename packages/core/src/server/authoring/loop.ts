@@ -3,7 +3,7 @@ import type { AgentMessage, AgentTool } from "../../contract.js";
 import type { ServerContext } from "../context.js";
 import { conversationsOf, remember } from "./conversations.js";
 import { defaultSystemPrompt } from "./prompt.js";
-import { blockedMessage, guardOf } from "./guard.js";
+import { blockedMessage, guardOf, isCategory } from "./guard.js";
 import { createAuthoringTools, type AuthoringTools, type ToolContext } from "./tools.js";
 import { DEFAULT_MAX_TURNS, type AuthoringEvent, type AuthoringRequest } from "./types.js";
 
@@ -40,6 +40,54 @@ function refusalIn(result: unknown): ToolRefusal | undefined {
   if (!refusal || typeof refusal !== "object") return undefined;
   const r = refusal as ToolRefusal;
   return { category: r.category, from: r.from, message: r.message, count: r.count, limit: r.limit, blocked: r.blocked };
+}
+
+/** Every JSON object written in `text`, outermost first. */
+function objectsIn(text: string): unknown[] {
+  const found: unknown[] = [];
+  for (let start = text.indexOf("{"); start >= 0; start = text.indexOf("{", start + 1)) {
+    let depth = 0;
+    let quoted = false;
+    for (let i = start; i < text.length; i++) {
+      const ch = text[i];
+      if (quoted) {
+        if (ch === "\\") i++;
+        else if (ch === '"') quoted = false;
+      } else if (ch === '"') quoted = true;
+      else if (ch === "{") depth++;
+      else if (ch === "}" && --depth === 0) {
+        try {
+          found.push(JSON.parse(text.slice(start, i + 1)));
+        } catch {
+          // Not JSON: keep looking.
+        }
+        break;
+      }
+    }
+  }
+  return found;
+}
+
+/** The input of a refuse call the model wrote as text, such as `{"type":"refuse","category":"credentials",...}` or
+ * `{"name":"refuse","input":{...}}`, when it names a category and a reason. */
+export function refusalInText(text: string): Record<string, unknown> | null {
+  if (!text.includes("refuse")) return null;
+  for (const value of objectsIn(text)) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+    const o = value as Record<string, unknown>;
+    const named = o.type === "refuse" || o.name === "refuse" || o.tool === "refuse";
+    if (!named) continue;
+    const inner = [o.input, o.arguments, o.parameters].find((x) => x && typeof x === "object" && !Array.isArray(x)) as Record<string, unknown> | undefined;
+    const fields = inner ?? o;
+    if (!isCategory(fields.category) || typeof fields.reason !== "string" || !fields.reason) continue;
+    return {
+      category: fields.category,
+      reason: fields.reason,
+      from: fields.from === "data" ? "data" : "user",
+      ...(typeof fields.quote === "string" && fields.quote ? { quote: fields.quote } : {}),
+    };
+  }
+  return null;
 }
 
 /** What a tool call comes back as, for the model: JSON, or the refusal as `{ error }`. */
@@ -136,6 +184,17 @@ export async function* runAuthoring(ctx: ServerContext, request: AuthoringReques
         if (conversation.messages.at(-1)?.role === "user") conversation.messages.pop();
         yield { type: "error", message: `The model failed: ${error instanceof Error ? error.message : String(error)}` };
         break turns;
+      }
+
+      // A model sometimes writes the refuse call out as JSON text instead of calling the tool. Run it as the call it
+      // meant, so the refusal is recorded and counted like any other.
+      if (!calls.length && tools.some((tool) => tool.name === "refuse")) {
+        const input = refusalInText(text);
+        if (input) {
+          const call = { id: `refuse-in-text-${turn}`, name: "refuse", input };
+          calls.push(call);
+          yield { type: "tool", ...call };
+        }
       }
 
       const assistant: AgentMessage = { role: "assistant", text, ...(calls.length ? { toolCalls: calls } : {}) };

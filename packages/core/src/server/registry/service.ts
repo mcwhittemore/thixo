@@ -4,6 +4,7 @@ import type { Plugin, PluginLoad, PluginSummary, PluginVersion, PluginVersionRef
 import type { ServerContext } from "../context.js";
 import { canSee, chainOf, latestVersion, versionOf, visiblePlugin } from "./access.js";
 import { ASSET_FILE, assetType, buildWithCopies, readAsset, storeAssets } from "./assets.js";
+import { assetQuotaError } from "./asset-quota.js";
 import { readCompiled, readSource, storeCompiled, storeSource } from "./code-store.js";
 import { fail, missingScopes } from "./errors.js";
 import { newId } from "./hash.js";
@@ -144,6 +145,13 @@ export function createRegistryServices(ctx: ServerContext): RegistryServices {
       if (existing?.visibility === "shared") {
         const holder = await nameHolder(existing, built.meta.name);
         if (holder) return { ok: false, errors: [{ file: "plugin.thx", line: 0, column: 0, code: "registry/name-taken", message: nameTakenMessage(built.meta.name, holder) }] };
+      }
+
+      // A new version stores its copies: check the caps first, so a refused submit stores nothing.
+      const stored = existing ? await data.findVersionByHash(existing.id, built.sourceHash) : null;
+      if (!stored) {
+        const over = await assetQuotaError(ctx, user, built.assets);
+        if (over) return { ok: false, errors: [over] };
       }
 
       let plugin: Plugin;

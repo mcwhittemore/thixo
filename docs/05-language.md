@@ -141,6 +141,16 @@ a plugin's source loads from outside, so there is no server to watch the choice.
 an image that changes on the outside server stops changing. The build builds like an npm install, with no outside
 file refs. A fetch that fails is a build error.
 
+What that means for whoever builds a plugin, in this build ([implementation](10-implementation.md#addresses)):
+
+- A build that copies needs the network. If the image's host is down, the whole plugin fails to build, with
+  `build/copy-failed` at the line. A version already stored keeps its copy.
+- Only images and fonts are copied: png, jpeg, gif, webp, avif, svg, woff, woff2, ttf and otf, over https on port
+  443. An SVG with script, an event handler or an address that leaves the file is refused.
+- One file may be 2 MiB, one version 8 MiB and 32 files. A fetch may take 10 seconds and follow 3 redirects, and
+  one build may spend 20 seconds on all its copies.
+- What one person's submits store is capped at 64 MiB, and everyone's at 1 GiB, unless the app sets other caps.
+
 A link the user clicks, `<a href>`, can't be copied. A written-out one may go to any https host. It leaks only which
 link the user chose to click, one bit a click, where they can see it, and the registry names the hosts.
 

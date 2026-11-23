@@ -125,7 +125,25 @@ because of something written in plugin source. The build builds like an npm inst
   https address that serves an image or a font, a `data:` address, or a `Url` the app hands in.
 - A file is stored through the code adapter under `assets/<sha256>`, and is at most 2 MiB; one version copies at
   most 8 MiB and 32 files. Only images and fonts are copied: png, jpeg, gif, webp, avif, svg, woff, woff2, ttf and
-  otf. An SVG with a `<script>`, a `<foreignObject>`, an `on...=` attribute or a `javascript:` address is refused.
+  otf.
+- One build's copies share one deadline, 20 seconds (`ASSET_LIMITS.buildMs`), run 4 at a time, and stop at the
+  first that fails: the build answers with that one error. The adapter's `fetchAsset` gets `limits.signal`, which
+  aborts at the deadline or when another copy failed, and the build stops waiting for it either way.
+- **An SVG is read as XML** (`svgProblem` in `registry/svg-check.ts`), not searched for words. It must be UTF-8 (no
+  UTF-16, no zero bytes), with one `<svg>` root, well formed. It is refused for: an element whose local name, any
+  prefix dropped, is `script`, `foreignObject`, `set`, `animate*`, `discard`, `handler`, `listener` or an HTML element
+  that embeds; an `on...` attribute; `xml:base`; an `href` or `src` that is not `#...` or a `data:` raster image
+  (an `<a>` may also link to http, https or mailto, since a link loads nothing until clicked); a `url()` to anywhere
+  else, in an attribute or a style; `@import`, `image-set()`, `src()` or a backslash escape in a style; a DOCTYPE with
+  an internal subset, or any entity but the five XML ones and character references; and any processing instruction
+  but the XML declaration. Entities are decoded before a value is checked. Some drawing programs write entities in
+  a DOCTYPE; such a file is refused and must be saved again as plain SVG. The asset route's CSP is the second wall,
+  and a test checks that every route serving a copy sends `assetHeaders`.
+- **Caps on what is stored** (`registry/asset-quota.ts`). A submit's new copies may not bring the files its author's
+  own submits have stored past `config.assetQuota.authorBytes` (64 MiB), nor everyone's past `totalBytes` (1 GiB).
+  Each file counts once by its hash. Deploys and a fork's first version store nothing new and do not count. The
+  check runs before anything is stored, so a refused submit stores nothing (`build/asset-quota`). The count reads
+  every version on each submit, and a file's size once per process. Copies of versions no one uses are not removed.
 - Copies are kept in memory for the process, by address, so `thixo dev` does not fetch again on every change. A
   stored version keeps its copy even if the outside file changes (U2).
 
@@ -134,7 +152,9 @@ because of something written in plugin source. The build builds like an npm inst
 443, no user name or password; the host resolved, and refused if any address it resolves to is loopback, private,
 shared, link-local (so `169.254.169.254`), multicast, reserved, documentation, or IPv6 that carries an IPv4 address;
 the connection pinned to the address that was checked, so a second lookup can't rebind it; every redirect checked
-the same way, at most 3; 10 seconds in all; the size cap enforced while it reads; and the content type checked.
+the same way, at most 3; 10 seconds in all, raced against every step so a lookup or a hook that never answers can't
+hold it; at most 4 lookups at once per fetcher; the size cap enforced while it reads; and the content type checked.
+An error names the real time ("longer than 0.3 seconds").
 `localBuild(compiler, { fetchAsset })` and `local({ fetchAsset })` take another fetcher, so tests never touch the
 network. A build adapter with no `fetchAsset` can't build a plugin that loads from outside.
 
@@ -296,13 +316,28 @@ default. It refuses text that tells it to skip or loosen its rules, from the cha
   `implementor` is never blocked.
 - **A blocked user** is refused the chat route and every tool, on the chat and on the tool route, with 403
   `authoring_blocked` and a message saying they can still use and install plugins. The registry, layout and data
-  routes do not look at blocks. `<AuthoringChat />` reads `/_thixo/authoring/status` and shows the message in place
+  routes do not look at blocks. So the plugin browser's Fork button (`POST /_thixo/registry/plugins/:id/fork`) still
+  works: it is installing an unchanged copy. A blocked user can't change or submit it, since that goes through a
+  tool, and can't share it, since it keeps its parent's name (`name_taken`). The `fork` tool is refused like every
+  tool. `<AuthoringChat />` reads `/_thixo/authoring/status` and shows the message in place
   of the input.
 - **The check** in `check` and `submit` (`flagSource`) flags source that says what a sign-in says, or that has a
-  field to type into and asks for a secret word. A flag is a refusal with `source: "check"`, returned as a build
-  error `guard/credentials` with a `refusal` field, and it ends the turn like `refuse`. Deploys and `thixo compile`
-  do not run it: they are the implementor's.
-- **Lifting** keeps the block on record with `liftedAt` and `liftedBy`, and the count starts after it.
+  field to type into and asks for a secret word (a password, a code, a key, a card number, a `PIN`, login details).
+  It matches text folded as a person reads it: NFKC, zero-width characters and soft hyphens dropped, odd spaces made
+  plain, Cyrillic and Greek look-alikes made Latin, and `"pass" + "word"` joined. It points at the source as written.
+  A flag is a refusal with `source: "check"`, returned as a build error `guard/credentials` with a `refusal` field,
+  and it ends the turn like `refuse`. Deploys and `thixo compile` do not run it: they are the implementor's.
+- **Forked words.** The check prefers a match on a line the person wrote. When it matches only lines that were
+  already in a version another author wrote, one the person's plugins were forked from, the source is still refused,
+  but the refusal is `from: "data"` and does not count. It still reads comments as text, so a credential word in a
+  comment the person wrote counts.
+- **A refusal written as text.** A model sometimes prints `{"type":"refuse","category":...}` instead of calling the
+  tool. When a turn has no tool calls and its text holds such an object, with a category and a reason, the loop runs
+  it as the `refuse` call, so it is recorded and counted.
+- **Builds at once.** One user may have 2 `check` or `submit` calls running (`MAX_BUILDS_PER_USER`); a third is 429
+  `too_many_builds`. An optional string a model sends as `""` or `null` is taken as left out.
+- **Lifting** keeps the block on record with `liftedAt` and `liftedBy`, and the count starts at it. A new block
+  replaces that record, so while a block stands, status reports the block's own refusals as the count.
   `thixo.services.authoring` has `status`, `refusals`, `blocks` and `unblock` for the host. `thixo dev` prints a line
   for each refusal and block.
 

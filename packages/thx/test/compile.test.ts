@@ -47,6 +47,11 @@ describe("bundling", () => {
     const e = errs.find((x) => x.code === "thx/missing-file")!;
     assert.match(e.hint!, /plugin\.thx/);
   });
+  test("a missing file's hint says a plugin's files end in .thx, for an author who wrote data.ts", () => {
+    const errs = errorsOf({ "plugin.thx": `import { x } from "./data";\n${wrapBody("")}` });
+    const e = errs.find((x) => x.code === "thx/missing-file")!;
+    assert.match(e.hint!, /Every file of a plugin ends in \.thx, so `\.\/data` is read from data\.thx; a \.ts or \.tsx file is not part of the plugin\./);
+  });
   test("a plugin needs plugin.thx with a default export", () => {
     assert.ok(errorsOf({ "data.thx": "export const x = 1;\n" }).some((e) => e.code === "thx/file"));
     assert.ok(errorsOf({ "plugin.thx": "export const x = 1;\n" }).some((e) => e.code === "thx/define-plugin"));

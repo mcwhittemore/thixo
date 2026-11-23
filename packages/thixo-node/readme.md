@@ -65,8 +65,9 @@ await served.close();
   plugin's source loads, for copy at build.
 - `guardedFetch(options?)`: that fetch. https on port 443 only; a host that resolves to a loopback, private,
   link-local or metadata address is refused, after every redirect too (at most 3); the connection goes to the address
-  that was checked; 10 seconds; the size and type limits it is given. `resolve` and `get` can be replaced, so tests
-  never touch the network. `isPublicAddress(ip)` is its address check.
+  that was checked; 10 seconds over every step, the host lookup too, and it stops early when the build's signal
+  (`limits.signal`) aborts; at most 4 lookups at once (`maxLookups`); the size and type limits it is given. `resolve`
+  and `get` can be replaced, so tests never touch the network. `isPublicAddress(ip)` is its address check.
 - `parseClaudeOutput`, `parseReply` and `renderPrompt`: the parts of `claudeCode()` that turn a turn into a prompt and
   the reply back into events.
 

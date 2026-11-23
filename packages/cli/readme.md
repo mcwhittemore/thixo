@@ -38,7 +38,7 @@ npx thixo agent use --as ana <id>@1 --slot main/todo-row   # a slot path; a chil
 A failed check prints each error once, as `file:line:col code message`, and exits 1.
 
 Every command that compiles a plugin (`build`, `compile`, `dev` and `start`) prints its errors the same way: the path
-is relative to where you ran the command, then `line:column`, the code, the message, and the hint on its own line.
+is relative to where you ran the command (or the full path, when the file is outside that folder), then `line:column`, the code, the message, and the hint on its own line.
 `thixo compile` with `--json` gives the same paths in `errors[].file`.
 
 A fork is a new plugin with its own id. Forking does not put it in your layout: `use` does that, so a fork never
