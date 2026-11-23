@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { AuthoringChat, PluginBrowser, Shell, Slot, useThixo } from "thixo/shell";
-import { main, todoDetail } from "./slots.js";
+import { main } from "./slots.js";
 
 const USERS = ["ana", "ben"];
 
@@ -41,7 +41,6 @@ function Header(props: { browser: boolean; chat: boolean; toggleBrowser: () => v
 }
 
 export default function App() {
-  const [todoId, setTodoId] = useState<string | null>(null);
   const [browser, setBrowser] = useState(false);
   const [chat, setChat] = useState(false);
 
@@ -50,20 +49,12 @@ export default function App() {
       <Header browser={browser} chat={chat} toggleBrowser={() => setBrowser((b) => !b)} toggleChat={() => setChat((c) => !c)} />
 
       <div style={{ display: "flex", gap: 20, padding: 20, alignItems: "flex-start" }}>
-        <main style={{ flex: 2, minWidth: 0, height: "70vh" }}>
-          <Slot is={main} on={{ select: ({ todoId }) => setTodoId(todoId) }} />
+        <main style={{ flex: 2, minWidth: 0 }}>
+          <Slot is={main} />
         </main>
 
-        {(todoId || browser || chat) && (
+        {(browser || chat) && (
           <aside style={{ flex: 1, minWidth: 280, display: "flex", flexDirection: "column", gap: 16 }}>
-            {todoId && (
-              <section aria-label="Selected todo" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <button type="button" className="thixo-button" onClick={() => setTodoId(null)} style={{ alignSelf: "flex-end" }}>
-                  Close
-                </button>
-                <Slot is={todoDetail} context={{ todoId }} />
-              </section>
-            )}
             {browser && <PluginBrowser />}
             {chat && <AuthoringChat />}
           </aside>

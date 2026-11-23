@@ -34,7 +34,7 @@ test("copies the template into a new folder and names the app", async () => {
     assert.match(shell, />my-app</);
     assert.doesNotMatch(shell, /__APP_NAME__/);
 
-    for (const file of ["thixo.config.ts", "api/todos.ts", "api/session.ts", "app/slots.ts", "app/shell.tsx"]) {
+    for (const file of ["thixo.config.ts", "api/hello.ts", "api/session.ts", "app/slots.ts", "app/shell.tsx"]) {
       await readFile(join(cwd, "my-app", file));
     }
     assert.ok(result.files.includes(".gitignore"));
@@ -48,15 +48,13 @@ test("gives each default plugin a fresh plg_ id, distinct from another app's", a
     const first = await createApp({ name: "one", cwd });
     const second = await createApp({ name: "two", cwd });
 
-    assert.equal(first.pluginIds.length, 2);
-    assert.equal(new Set([...first.pluginIds, ...second.pluginIds]).size, 4);
+    assert.equal(first.pluginIds.length, 1);
+    assert.equal(new Set([...first.pluginIds, ...second.pluginIds]).size, 2);
     for (const id of [...first.pluginIds, ...second.pluginIds]) assert.match(id, /^plg_[0-9a-f]{18}$/);
 
-    const list = await readFile(join(cwd, "one", "plugins", "todo-list", "plugin.thx"), "utf8");
-    const info = await readFile(join(cwd, "one", "plugins", "todo-info", "plugin.thx"), "utf8");
-    const written = [list, info].map((text) => text.match(/id: "(plg_[^"]+)"/)?.[1]);
-    assert.deepEqual(written.slice().sort(), first.pluginIds.slice().sort());
-    assert.doesNotMatch(list + info, /plg_todo_/);
+    const hello = await readFile(join(cwd, "one", "plugins", "hello", "plugin.thx"), "utf8");
+    assert.deepEqual([hello.match(/id: "(plg_[^"]+)"/)?.[1]], first.pluginIds);
+    assert.doesNotMatch(hello, /plg_hello"/);
   });
 });
 
@@ -64,7 +62,7 @@ test("uses the random source for plugin ids in order", async () => {
   await withTempDir(async (cwd) => {
     const random = sequence(["aaaaaaaaaaaaaaaaaa", "bbbbbbbbbbbbbbbbbb"]);
     const result = await createApp({ name: "fixed", cwd, random });
-    assert.deepEqual(result.pluginIds, ["plg_aaaaaaaaaaaaaaaaaa", "plg_bbbbbbbbbbbbbbbbbb"]);
+    assert.deepEqual(result.pluginIds, ["plg_aaaaaaaaaaaaaaaaaa"]);
   });
 });
 
@@ -82,7 +80,7 @@ test("writes into an empty folder that already exists", async () => {
   await withTempDir(async (cwd) => {
     await mkdir(join(cwd, "empty"));
     const result = await createApp({ name: "empty", cwd });
-    assert.equal(result.pluginIds.length, 2);
+    assert.equal(result.pluginIds.length, 1);
   });
 });
 
@@ -110,9 +108,25 @@ test("freshPluginId uses plg_ and the random hex", () => {
   assert.equal(freshPluginId(() => "0123456789abcdef01"), "plg_0123456789abcdef01");
 });
 
-test("the template exists and has the default plugins", async () => {
-  const plugins = await readdir(join(TEMPLATE, "plugins"));
-  assert.deepEqual(plugins.sort(), ["todo-info", "todo-list"]);
+test("the template is a neutral starter: one endpoint, one slot, one hello plugin, no todos", async () => {
+  assert.deepEqual((await readdir(join(TEMPLATE, "plugins"))).sort(), ["hello"]);
+  assert.deepEqual((await readdir(join(TEMPLATE, "plugins", "hello"))).sort(), ["data.thx", "plugin.thx"]);
+  assert.deepEqual((await readdir(join(TEMPLATE, "api"))).sort(), ["hello.ts", "scopes.ts", "session.ts"]);
+  const slots = await readFile(join(TEMPLATE, "app", "slots.ts"), "utf8");
+  assert.equal(slots.match(/slot\.(page|panel|row|child)/g)?.length, 1);
+  const hello = await readFile(join(TEMPLATE, "plugins", "hello", "plugin.thx"), "utf8");
+  assert.match(hello, /import \{ hello \} from "@app\/sdk"/);
+  assert.match(hello, /useStore\(prefs\)/);
+  const shell = await readFile(join(TEMPLATE, "app", "shell.tsx"), "utf8");
+  assert.match(shell, /<AuthoringChat \/>/);
+  const all = [slots, hello, shell, await readFile(join(TEMPLATE, "thixo.config.ts"), "utf8")].join("\n");
+  assert.doesNotMatch(all, /todo/i);
+});
+
+test("the readme tells a newcomer three things to try next", async () => {
+  const readme = await readFile(fileURLToPath(new URL("../readme.md", import.meta.url)), "utf8");
+  const section = readme.split("## Try these next")[1]?.split("\n## ")[0] ?? "";
+  assert.equal(section.match(/^\d\. /gm)?.length, 3);
 });
 
 test("run from a Thixo checkout, package.json links the packages and React from it, so npm install needs no registry", async () => {

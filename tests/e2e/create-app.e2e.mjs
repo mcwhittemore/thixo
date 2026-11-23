@@ -1,7 +1,6 @@
 // An app made by create-thixo-app, end to end, the way its readme says: create it outside the repo, `npm install`
 // with no registry (the Thixo packages and React are linked from this checkout), `thixo dev`, then drive it as the
-// template's two users. ana can't delete, so the list's Delete is grayed out (useCan on an optional endpoint); ben
-// can. Run it with `npm run e2e` after `npm run build`.
+// template's two users. Run it with `npm run e2e` after `npm run build`.
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -36,12 +35,14 @@ after(async () => {
   removeCopy(base);
 });
 
+const hello = (page) => page.getByRole("region", { name: "Hello (main)" });
+
 async function as(user) {
   const context = await browser.newContext();
   await context.addCookies([{ name: "thixo-user", value: user, url: dev.url }]);
   const page = await context.newPage();
   await page.goto(dev.url);
-  await page.getByRole("region", { name: "Todo list (main)" }).getByRole("button", { name: "Write the first page", exact: true }).waitFor();
+  await hello(page).getByText("Hello from the app's API.").waitFor();
   return page;
 }
 
@@ -52,46 +53,61 @@ test("create-thixo-app says it links the checkout, and npm install worked withou
   assert.equal(pkg.dependencies.react, `file:${join(ROOT, "node_modules/react")}`);
 });
 
-test("ana gets the list with Delete grayed out; ben can delete", async () => {
+test("the hello plugin calls the endpoint as the signed-in user", async () => {
   const ana = await as("ana");
-  const list = ana.getByRole("region", { name: "Todo list (main)" });
-  assert.equal(await list.getByRole("button", { name: "Delete" }).first().isDisabled(), true);
+  await hello(ana).getByText("Hello, ana").waitFor();
+  assert.equal(await ana.getByRole("heading", { name: "notes-app" }).count(), 1, "the app's name is in the shell");
   await ana.context().close();
-
   const ben = await as("ben");
-  const bens = ben.getByRole("region", { name: "Todo list (main)" });
-  assert.equal(await bens.getByRole("button", { name: "Delete" }).first().isDisabled(), false);
-  await bens.getByRole("textbox").fill("Throw this away");
-  await bens.getByRole("textbox").press("Enter");
-  const row = bens.getByRole("button", { name: "Throw this away", exact: true });
-  await row.waitFor();
-  const deleted = ben.waitForResponse((r) => r.request().method() === "DELETE" && new URL(r.url()).pathname.startsWith("/api/todos/"));
-  await row.locator("xpath=..").getByRole("button", { name: "Delete", exact: true }).click();
-  assert.equal((await deleted).status(), 204);
-  await row.waitFor({ state: "detached" });
+  await hello(ben).getByText("Hello, ben").waitFor();
   await ben.context().close();
 });
 
+test("the nickname is plugin data: saved, kept across a reload, and private to the user", async () => {
+  const ana = await as("ana");
+  const saved = ana.waitForResponse((r) => r.request().method() === "POST" && new URL(r.url()).pathname === "/_thixo/data/patch");
+  await hello(ana).getByRole("textbox").fill("Annie");
+  await hello(ana).getByRole("button", { name: "Save nickname" }).click();
+  assert.equal((await saved).status(), 204);
+  await hello(ana).getByText("Hello, Annie").waitFor();
+  await ana.reload();
+  await hello(ana).getByText("Hello, Annie").waitFor();
+  await ana.context().close();
+
+  const ben = await as("ben");
+  await hello(ben).getByText("Hello, ben").waitFor();
+  await ben.context().close();
+});
+
+test("the shell has the plugin browser and the authoring chat wired", async () => {
+  const ana = await as("ana");
+  await ana.getByRole("button", { name: "Plugins" }).click();
+  await ana.getByRole("region", { name: "Plugin browser" }).getByText("Hello", { exact: true }).first().waitFor();
+  await ana.getByRole("button", { name: "Ask for a plugin" }).click();
+  await ana.getByRole("region", { name: "Authoring chat" }).waitFor();
+  await ana.context().close();
+});
+
 test("thixo new plugin prints the layout line with the slot's real path", () => {
-  const made = thixo(["new", "plugin", "notes", "--slot", "todo-detail"], { cwd: app });
+  const made = thixo(["new", "plugin", "notes", "--slot", "main"], { cwd: app });
   assert.equal(made.code, 0, made.stderr);
-  assert.match(made.stdout, /Add it to the layout in thixo\.config\.ts to make it a default: "todo-detail": "notes"/);
+  assert.match(made.stdout, /Add it to the layout in thixo\.config\.ts to make it a default: "main": "notes"/);
   assert.match(readFileSync(join(app, "plugins/notes/plugin.thx"), "utf8"), /id: "plg_[0-9a-f]{18}"/);
   rmSync(join(app, "plugins/notes"), { recursive: true });
 });
 
 test("a default plugin the layout names that stops compiling is reported as that, and the last release stays", async () => {
-  const file = join(app, "plugins/todo-info/plugin.thx");
+  const file = join(app, "plugins/hello/plugin.thx");
   const good = readFileSync(file, "utf8");
   const before = dev.output().length;
-  writeFileSync(file, good.replace("useQuery(getTodo", "window.fetch(getTodo"));
+  writeFileSync(file, good.replace("useQuery(hello", "window.fetch(hello"));
   try {
     const deadline = Date.now() + 20_000;
     while (!/not deployed/.test(dev.output().slice(before)) && Date.now() < deadline) await new Promise((ok) => setTimeout(ok, 100));
     const said = dev.output().slice(before);
-    assert.match(said, /FAILED {2}todo-info/);
-    assert.match(said, /not deployed: the layout names plugins\/todo-info, which did not compile \(see above\)\. The app keeps the last release until it compiles\./);
-    assert.doesNotMatch(said, /there is no plugins\/todo-info/);
+    assert.match(said, /FAILED {2}hello/);
+    assert.match(said, /not deployed: the layout names plugins\/hello, which did not compile \(see above\)\. The app keeps the last release until it compiles\./);
+    assert.doesNotMatch(said, /there is no plugins\/hello/);
   } finally {
     writeFileSync(file, good);
   }
