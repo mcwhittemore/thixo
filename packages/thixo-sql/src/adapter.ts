@@ -221,8 +221,11 @@ export function sqlDataAdapter(driver: SqlDriver): DataAdapter {
     },
 
     async addVersion(version) {
+      // Two writers can read the same MAX(number); the loser hits the primary key and tries again. Each round has a
+      // winner, so N writers at once need up to N tries: allow plenty, with a short random wait to spread them out.
       let last: unknown;
-      for (let attempt = 0; attempt < 5; attempt++) {
+      for (let attempt = 0; attempt < 32; attempt++) {
+        if (attempt) await new Promise((done) => setTimeout(done, Math.random() * Math.min(attempt, 8) * 2));
         try {
           const rows = await driver.all(
             `INSERT INTO thixo_versions (plugin, number, source, source_hash, compiled, manifest, created_by, created_at)
