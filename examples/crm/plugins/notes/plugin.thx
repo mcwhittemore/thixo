@@ -1,0 +1,39 @@
+// An annotation on contacts that is private to each user.
+//
+// Derived by the build (P2):
+//   required: contacts.read, thixo.data.read, thixo.data.write
+//   data:     annotation on contact { note: string }
+
+import { definePlugin, useAnnotation, useState } from "thixo/plugin";
+import { Button, Card, Stack, Text, TextInput } from "thixo/ui";
+import { contactNotes } from "@app/slots";
+import { notes } from "./data";
+
+export default definePlugin(
+  contactNotes,
+  {
+    id: "plg_crm_notes",
+    name: "My notes",
+    description: "A private note on a contact. Only you see what you write.",
+  },
+  function Notes({ context }) {
+    const [saved, patchSaved] = useAnnotation(notes, context.contactId);
+    const [draft, setDraft] = useState("");
+
+    async function save() {
+      if (!draft) return;
+      await patchSaved({ note: draft });
+      setDraft("");
+    }
+
+    return (
+      <Card title="My notes">
+        <Stack gap="sm">
+          <Text>{saved?.note ? `Your note: ${saved.note}` : "No note yet."}</Text>
+          <TextInput label="Note" value={draft} onChange={setDraft} onSubmit={save} />
+          <Button onClick={save}>Save note</Button>
+        </Stack>
+      </Card>
+    );
+  },
+);

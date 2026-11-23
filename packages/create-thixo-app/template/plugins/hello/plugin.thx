@@ -1,0 +1,38 @@
+// The default plugin for the main slot. It calls the app's `hello` endpoint and keeps one small thing of its own:
+// the name you want to be greeted by.
+//
+// The build reads what it needs from the imports, not from anything written here:
+//   required: hello.read, thixo.data.read, thixo.data.write   (hello, and the store)
+//   data:     private store prefs { nickname: string }
+
+import { definePlugin, useQuery, useState, useStore } from "thixo/plugin";
+import { Button, Card, Stack, Text, TextInput } from "thixo/ui";
+import { main } from "@app/slots";
+import { hello } from "@app/sdk";
+import { prefs } from "./data";
+
+export default definePlugin(
+  main,
+  {
+    id: "plg_hello",
+    name: "Hello",
+    description: "Greets you with a message from the app's API and the nickname you saved.",
+  },
+  function Hello() {
+    const greeting = useQuery(hello);
+    const [saved, patch] = useStore(prefs);
+    const [draft, setDraft] = useState("");
+
+    return (
+      <Card title={`Hello, ${saved?.nickname ?? greeting.data?.user ?? "there"}`}>
+        <Stack gap="md">
+          {greeting.loading && <Text tone="muted">Loading…</Text>}
+          {greeting.error && <Text tone="danger">{greeting.error.message}</Text>}
+          {greeting.data && <Text>{greeting.data.message}</Text>}
+          <TextInput value={draft} onChange={setDraft} onSubmit={() => patch({ nickname: draft })} placeholder="What should it call you?" />
+          <Button onClick={() => patch({ nickname: draft })}>Save nickname</Button>
+        </Stack>
+      </Card>
+    );
+  },
+);

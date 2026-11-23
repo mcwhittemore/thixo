@@ -1,5 +1,3 @@
-// Sketch. Nothing here runs yet. See ../readme.md.
-//
 // The app's scopes, each with the words the registry uses when it describes
 // a plugin to a person ("reads todos, deletes todos").
 

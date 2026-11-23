@@ -2,3 +2,10 @@ node_modules
 .DS_Store
 .env
 dist
+.thixo
+*.tsbuildinfo
+artifacts
+
+# Scratch apps made by create-thixo-app while testing
+examples-tmp
+.wrangler/

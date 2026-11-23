@@ -1,0 +1,8 @@
+// A note on a contact. The app says who sees an annotation on a contact (A11): the one user who wrote it, so these
+// are private notes without this plugin doing anything about it.
+
+import { annotate } from "thixo/data";
+import { t } from "thixo/schema";
+import { Contact } from "@app/sdk";
+
+export const notes = annotate(Contact, { note: t.string() });

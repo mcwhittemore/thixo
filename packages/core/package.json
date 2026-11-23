@@ -1,0 +1,55 @@
+{
+  "name": "thixo",
+  "version": "0.0.1",
+  "description": "Thixo core: API layer, schema, server, registry, plugin data, shell, plugin host and UI. No provider code.",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "tsc -b && node --import tsx --test \"test/**/*.test.ts\""
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./api": {
+      "types": "./dist/api/index.d.ts",
+      "default": "./dist/api/index.js"
+    },
+    "./schema": {
+      "types": "./dist/schema/index.d.ts",
+      "default": "./dist/schema/index.js"
+    },
+    "./server": {
+      "types": "./dist/server/index.d.ts",
+      "default": "./dist/server/index.js"
+    },
+    "./slots": {
+      "types": "./dist/slots/index.d.ts",
+      "default": "./dist/slots/index.js"
+    },
+    "./shell": {
+      "types": "./dist/shell/index.d.ts",
+      "node": "./dist/slots/index.js",
+      "default": "./dist/shell/index.js"
+    },
+    "./contract": {
+      "types": "./dist/contract.d.ts",
+      "default": "./dist/contract.js"
+    }
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "dependencies": {
+    "thixo-thx": "0.0.1"
+  },
+  "devDependencies": {
+    "happy-dom": "^21.0.4",
+    "typescript": "^7.0.2"
+  }
+}

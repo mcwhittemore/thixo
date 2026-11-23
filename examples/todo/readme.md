@@ -2,73 +2,123 @@
 
 A basic todo app written the way a Thixo app should read.
 
-> **This is a sketch. It does not run.** The `thixo` packages it imports don't exist. The example is here to test
-> the [requirements](../../docs/02-requirements.md): if something is awkward to write here, the requirement behind it
-> is wrong. Every name in it is open to change.
+It runs. From the repository root:
+
+```sh
+npm install
+npm run build
+npx thixo dev examples/todo --port 4310
+```
+
+Open http://127.0.0.1:4310 and pick a user in **Signed in as**. The login is a stand-in (`api/session.ts`): the
+`thixo-user` cookie names the user.
+
+| User | Holds | Sees |
+| --- | --- | --- |
+| `ana` | `todos.read`, `todos.write`, `people.read`, plugin data, `thixo.plugins.author`, `thixo.plugins.share` | The list, Delete grayed out, can ask for and share plugins |
+| `ben` | everything, including `todos.delete` and `thixo.plugins.promote` | The list with Delete, can promote |
+| `cy` | `todos.read`, `thixo.data.read` | A message in place of the list, which needs `todos.write` |
+
+Click a todo's title for the detail panel (due dates), press **Plugins** for the plugin browser, and **Ask for a
+plugin** for the authoring chat. The chat's model is `anthropic()` from `thixo-anthropic/node`: with `ANTHROPIC_API_KEY` set it calls the Claude API, and with no key (in development) it runs your local `claude` command.
+
+`thixo dev` keeps plugin data, the registry and the layout in `.thixo/` here (git-ignored); delete it to start over.
+The todos themselves are in memory (`api/db.ts`) and reset when the server restarts or `api/` changes.
+
+Who sees which plugin data, by design:
+
+- An annotation (a field a plugin adds to a todo, such as `dueOn`) is shared by the record's group. `api/todos.ts`
+  groups a todo by the user's first group, and `ana` and `ben` are both in `design`. So when ana's personal plugin
+  stars a todo, ben sees the star too, if he uses a plugin that reads that field. `cy` is in `ops` and does not.
+- A store (`store("prefs", ...)`) is private to each user.
+- A plugin that is only ana's is hidden from ben. Its data is not: it follows the rules above.
+
+An outside coding agent can write a plugin while `thixo dev` runs:
+
+```sh
+cd examples/todo
+npx thixo agent describe --as ana                       # the SDK, slots and language reference
+npx thixo agent check --as ana --dir /path/to/my-plugin # build without storing
+npx thixo agent submit --as ana --dir /path/to/my-plugin
+npx thixo agent use --as ana <plugin id>@1 --slot todo-detail
+```
+
+`use` takes a slot path: a child slot has its parent in front, such as `main/todo-row`. `thixo agent describe` lists
+each slot with its path.
+
+`npm run e2e` at the root drives all of this in headless Chromium on a throwaway copy of this folder.
 
 ## The files
 
 ```
 api/
   scopes.ts        the app's scopes, in words
-  todos.ts         the endpoints, each with its scopes
+  todos.ts         the endpoints, each with its scopes, and the Todo record
   session.ts       the app's own login (stand-in)
-  db.ts            the app's own storage (stand-in)
+  db.ts            the app's own storage (stand-in, in memory)
 app/
-  slots.ts         where plugins go
+  slots.ts         where plugins go: main, its child todo-row, and todo-detail
   shell.tsx        the base app
 plugins/
-  todo-list/       a default plugin: the list itself
-  due-dates/       a plugin of the kind a user would ask for
-thixo.config.ts   identity, adapters and the default layout
+  todo-list/       a default plugin: the list itself, placing a todo-row slot in each row
+  done-badge/      a default plugin for todo-row: Open or Done
+  due-dates/       a plugin of the kind a user would ask for: an annotation and a private store
+thixo.config.ts   identity, adapters, the model and the default layout
 ```
 
 ## What each file shows
 
 | File | Shows | Requirements |
 | --- | --- | --- |
-| [api/todos.ts](api/todos.ts) | Endpoints with their scopes. Endpoints needing two scopes. A record. Data that needs another scope as its own endpoint. | A2, A3, A10, A12 |
-| [app/slots.ts](app/slots.ts) | Two slots with contracts: context in, events out. One plugin fills each. | S5, S10, S12 |
+| [api/todos.ts](api/todos.ts) | Endpoints with their scopes. Endpoints needing two scopes. A record, with `canRead` and a group. Data that needs another scope as its own endpoint. Telling Thixo a record was deleted. | A2, A3, A10, A11, A12, A13 |
+| [app/slots.ts](app/slots.ts) | Slots with contracts: context in, events out, and a child slot. One plugin fills each. | S5, S10, S12, S13 |
 | [app/shell.tsx](app/shell.tsx) | An ordinary React app. No code to wire up plugins. | S1, S7 |
-| [plugins/todo-list/plugin.tsx](plugins/todo-list/plugin.tsx) | Scopes derived from imports. Required and optional endpoints. A grayed-out action. | P2, P4 |
-| [plugins/due-dates/data.ts](plugins/due-dates/data.ts) | An annotation and a private store, declared as literals. | D1, D2, D3, U7 |
-| [plugins/due-dates/plugin.tsx](plugins/due-dates/plugin.tsx) | Reading and patching plugin data. | D6 |
+| [plugins/todo-list/plugin.thx](plugins/todo-list/plugin.thx) | Scopes derived from imports. Required and optional endpoints. A grayed-out action. A child slot per row. | P2, P4, S13 |
+| [plugins/done-badge/plugin.thx](plugins/done-badge/plugin.thx) | A plugin for a slot inside a slot, and `css()`. | S13 |
+| [plugins/due-dates/data.thx](plugins/due-dates/data.thx) | An annotation and a private store, declared as literals. | D1, D2, D3, U7 |
+| [plugins/due-dates/plugin.thx](plugins/due-dates/plugin.thx) | Reading and patching plugin data. | D6 |
 | [thixo.config.ts](thixo.config.ts) | The implementor's own identity adapter. Adapters in one place. | A8, X4, U6, S9 |
 
-## What the build would derive
+## What the build derives
 
-Nobody writes these. They are what the registry would record for each plugin.
+Nobody writes these. `npx thixo compile examples/todo/plugins/<folder>` prints them, and the registry records them.
 
 **todo-list**
 
 | | |
 | --- | --- |
 | Slot | `main` |
-| Required scopes | `todos.read`, `todos.write` |
-| Optional scopes | `todos.delete`, `people.read` |
+| Required endpoints | `createTodo`, `listTodos`, `updateTodo` (scopes `todos.read`, `todos.write`) |
+| Optional endpoints | `deleteTodo`, `listAssignees` (scopes `todos.delete`, `people.read`) |
 | Data | none |
-| Summary | Reads todos. Creates and changes todos. Can delete todos and show who they're assigned to, if you're allowed. |
+| Summary | Reads todos. Creates and changes todos. If you can, deletes todos. If you can, sees who a todo is assigned to. |
+
+**done-badge**
+
+| | |
+| --- | --- |
+| Slot | `todo-row` (placed at `main/todo-row`) |
+| Required endpoints | `getTodo` (scope `todos.read`) |
+| Data | none |
 
 **due-dates**
 
 | | |
 | --- | --- |
 | Slot | `todo-detail` |
-| Required scopes | `todos.read` |
-| Optional scopes | none |
-| Data | Annotation on `todo`: `dueOn` (date). Private store `prefs`: `warnDaysBefore` (number). |
-| Summary | Reads todos. Adds a due date to todos. Keeps a private setting. |
-
-The stand-in login gives a user `todos.read`, `todos.write` and `people.read`. That user is offered both plugins, and
-sees the Delete button grayed out.
+| Required endpoints | `getTodo` (scope `todos.read`) |
+| Optional endpoints | none |
+| Data | Annotation on `todo`: `dueOn` (date). Private store `prefs`: `warnDaysBefore` (number). Needs `thixo.data.read` and `thixo.data.write`. |
+| Summary | Reads todos. Adds 1 field to todo: dueOn (date). Keeps a private store: prefs. Reads its own data. Writes its own data. |
 
 ## A walk through a fork
 
-What should happen when a user changes someone else's plugin. No code for this exists in the example.
+What happens when a user changes someone else's plugin. The plugin browser and the agent's tools do each step; the
+chat-driven version below has not been run with a real model.
 
 1. Ana uses due-dates, which Ben wrote and shared. She asks the chat: "also let me set a reminder time".
 2. The agent searches the registry, finds due-dates and forks its current version.
-3. It adds `remindAt` to the annotation in `data.ts` and a field to the panel.
+3. It adds `remindAt` to the annotation in `data.thx` and a field to the panel.
 4. The build passes. The registry reports: one field added, nothing hidden. Scopes unchanged.
 5. Ana's fork reads through to the data of Ben's plugin. Every due date already set is there.
 6. Ben, still on his own version, never sees `remindAt` and can't overwrite it.

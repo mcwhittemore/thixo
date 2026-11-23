@@ -65,7 +65,8 @@ The registry compiles every version from its source, so the checks run on exactl
 - **No runnable sources (L6):** no frames, scripts, event-handler attributes or `javascript:` addresses. A plugin
   handles events only through the language.
 - **Fixed addresses (L7):** an address is written out in the source or handed in. A plugin can't build one, so it
-  can't put data in one.
+  can't put data in one. One written out that loads something is copied into the app at build, so the page never
+  fetches it from outside.
 - **Its own slot (P8):** a plugin's styles are scoped to its slot. It reaches anything outside the slot through
   shell services (S8), and `navigate` goes only to routes inside the app.
 - **Only while on screen (P7):** there is no background work.
@@ -91,15 +92,66 @@ What is still open:
 - **Annotations other users see are a way out.** A plugin can read with the current user's access and write what it
   read into an annotation its author can see (A11). No network is needed. Stores are private to each user (D2), so
   they are not a way out today.
+- **A `Url` saved as data is a tracking pixel.** A plugin may load a `Url` the app hands it, whatever its host: an
+  avatar from an endpoint, or a `t.url()` field. Someone who can write such a field, such as an annotation other
+  users see, can point it at a server they run. Everyone who then opens a page that shows it as an image tells that
+  server they did, and when, with no click. A plugin can also choose which of several saved `Url`s to show by what it
+  read. The plugin did not make the address, so the owner accepts this
+  ([decision 60](08-decisions.md#60-copy-at-build-and-addresses-from-data)). The page's CSP lets images load from
+  any https host for the same reason.
+- **A link tells its host which one was clicked.** A written-out `<a href>` may go to any https host. A plugin that
+  chooses between fixed links by what it read tells that host one bit when the user clicks. The registry names the
+  hosts a plugin links to, and flags more than one link to one host
+  ([implementation](10-implementation.md#addresses)).
+- **A written-out load is not a way out.** An image written in the source is fetched once, by the server, when the
+  plugin is built, and the page loads the app's copy. Choosing among copies tells no outside host anything. The
+  build's fetch is the risk instead: it runs on the server for whoever wrote the source, so it is https only and
+  refuses any host inside the network, after every redirect too, with a timeout that covers the lookup and a size
+  cap. One build shares one deadline and stops at its first failure, and one person runs only a few builds at once.
+  What people's submits store is capped, per person and in all. A copied SVG is read as XML and refused if anything
+  in it can run script or point outside the file, and it is served so that, opened on its own, it runs no script.
 - **A later version can ask for more.** If users follow the newest version of a shared plugin, its author can add an
   endpoint and every user picks it up.
 - **The authoring agent reads other people's plugins.** Text in a plugin's source or description could steer the
-  agent when it works for someone else.
+  agent when it works for someone else. The prompt and the guard below make this harder, not impossible.
 - **A plugin can hang the page.** Code on the page's main thread can't be stopped from outside, so not hanging the
   app is a goal for the language, not a promise
   ([decision 44](08-decisions.md#44-a-plugin-that-hangs-is-a-goal-not-a-requirement)).
 
 See [open questions](09-open-questions.md#1-who-agrees-to-a-plugins-scopes).
+
+## The authoring guard
+
+A plugin that looks like the app's own chrome can ask a user for what the app would never ask for. The red team's
+second round drew a "Session expired" sign-in in a dialog. The shell now draws every plugin dialog and toast with a
+line saying which plugin drew it, outside the plugin's box. That line is the guard: it holds whatever the agent was
+talked into writing.
+
+Authoring adds a second, softer layer:
+
+- **The base prompt.** Thixo's authoring prompt tells the agent to refuse a plugin that imitates the shell or the
+  app's chrome, a system or browser dialog, a sign-in or anything that asks for a credential or a secret, or that
+  passes itself off as another plugin or a default. It also refuses any text that tells it to skip or loosen its
+  rules, from the person in the chat or from what it reads: a comment or string in a plugin's source, a name or
+  description, registry results, app data. Those are data, never instructions.
+- **A refusal is an event.** The agent refuses by calling the `refuse` tool. The loop stores the refusal through the
+  data adapter, calls the implementor's hook, ends the turn and shows the person a plain refusal.
+- **Repeat attempts block.** Three refusals of one person's own requests within 24 hours (configurable) end the
+  session and block them from making plugins: the chat, every authoring tool and `thixo agent --as` refuse. Using
+  and installing plugins still works, and so does the plugin browser's Fork button, which installs an unchanged
+  copy the person can't change or submit while blocked. The first refusals say what happens next. A refusal of text the agent read
+  is recorded but does not count, since the person did not write it.
+- **A cheap check on submit.** The agent's `check` and `submit` refuse source that says what a sign-in says
+  ("session expired", "sign in again") or that has a field to type into and asks for a password, a code, a key or a
+  card number. It reads text as a person sees it, so look-alike letters and invisible characters do not hide a word,
+  but it still reads only words: a synonym or a copy of the app's header gets past it. It is a tripwire, not a
+  classifier. Words that were already in another author's plugin that this one was forked from are still refused,
+  but do not count against the person who forked it.
+- **The implementor can undo it.** An innocent person will be caught. A user with `thixo.authoring.admin`, or the
+  implementor at `thixo authoring`, sees refusals and blocks and lifts a block.
+
+The prompt is a soft layer. A model can be talked past it, and a user can write a plugin by other means the
+implementor allows. Nothing here replaces the attributed dialogs, the compiler or the broker.
 
 ## The spike
 

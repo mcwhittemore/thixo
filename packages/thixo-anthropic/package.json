@@ -1,0 +1,27 @@
+{
+  "name": "thixo-anthropic",
+  "version": "0.0.1",
+  "description": "A model adapter for the authoring agent, on the Claude API.",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "node --import tsx --test \"test/**/*.test.ts\""
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "default": "./dist/node.js"
+    }
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.12.0",
+    "thixo": "0.0.1"
+  }
+}

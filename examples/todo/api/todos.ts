@@ -1,11 +1,10 @@
-// Sketch. Nothing here runs yet. See ../readme.md.
-//
 // The app's API. Each endpoint carries its scopes (A2). Thixo generates the
 // SDK that plugins import from this file, one function per endpoint (A9).
 
-import { endpoint, record } from "thixo/api";
+import { endpoint, record, HttpError } from "thixo/api";
+import { recordDeleted } from "thixo/server";
 import { t } from "thixo/schema";
-import { db } from "./db";
+import { db } from "./db.js";
 
 // A record is a type of thing in the app that plugins can attach annotations
 // to (A10). It names the scopes needed to read one.
@@ -16,6 +15,11 @@ export const Todo = record("todo", {
     title: t.string(),
     done: t.boolean(),
   },
+  // Thixo can't see the app's storage, so it asks (A13): does this todo
+  // exist, and may this user read it?
+  canRead: async (id, user) => user.scopes.includes("todos.read") && (await db.todos.find(id)) !== undefined,
+  // An annotation on a todo is shared with the user's team (A11).
+  group: (_id, user) => user.groups?.[0] ?? null,
 });
 
 export const listTodos = endpoint({
@@ -32,7 +36,11 @@ export const getTodo = endpoint({
   scopes: ["todos.read"],
   input: t.object({ id: t.string() }),
   output: Todo,
-  handler: async ({ input }) => db.todos.get(input.id),
+  handler: async ({ input }) => {
+    const todo = await db.todos.find(input.id);
+    if (!todo) throw new HttpError(404, `No todo ${input.id}`);
+    return todo;
+  },
 });
 
 // Scopes are about which calls can be made, not which data comes back (A12).
@@ -66,7 +74,12 @@ export const updateTodo = endpoint({
     done: t.optional(t.boolean()),
   }),
   output: Todo,
-  handler: async ({ input }) => db.todos.update(input.id, input),
+  handler: async ({ input }) => {
+    const { id, ...changes } = input;
+    const todo = await db.todos.update(id, changes);
+    if (!todo) throw new HttpError(404, `No todo ${id}`);
+    return todo;
+  },
 });
 
 export const deleteTodo = endpoint({
@@ -74,5 +87,9 @@ export const deleteTodo = endpoint({
   path: "/todos/:id",
   scopes: ["todos.read", "todos.delete"],
   input: t.object({ id: t.string() }),
-  handler: async ({ input }) => db.todos.remove(input.id),
+  handler: async ({ input }) => {
+    await db.todos.remove(input.id);
+    // Thixo can't see the app's storage, so the app says when a record goes (A13): its annotations go with it.
+    await recordDeleted("todo", input.id);
+  },
 });

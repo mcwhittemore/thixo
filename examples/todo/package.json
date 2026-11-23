@@ -1,0 +1,19 @@
+{
+  "name": "thixo-example-todo",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "thixo dev",
+    "build": "thixo build",
+    "start": "thixo start"
+  },
+  "dependencies": {
+    "thixo": "0.0.1",
+    "thixo-cli": "0.0.1",
+    "thixo-anthropic": "0.0.1",
+    "thixo-node": "0.0.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}

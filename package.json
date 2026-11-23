@@ -1,0 +1,29 @@
+{
+  "name": "thixo-monorepo",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "examples/*"
+  ],
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "build": "tsc -b packages/thx packages/core packages/thixo-sql packages/thixo-postgres packages/thixo-d1 packages/thixo-anthropic packages/thixo-node packages/cli",
+    "test": "npm run test -w thixo-thx -w thixo -w thixo-sql -w thixo-postgres -w thixo-d1 -w thixo-node -w thixo-anthropic -w thixo-cli -w create-thixo-app",
+    "typecheck": "tsc -b packages/thx packages/core packages/thixo-sql packages/thixo-postgres packages/thixo-d1 packages/thixo-anthropic packages/thixo-node packages/cli && tsc -p packages/core/test",
+    "e2e": "node --test --test-concurrency=1 \"tests/e2e/*.e2e.mjs\""
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "esbuild": "^0.28.2",
+    "playwright": "^1.65.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}

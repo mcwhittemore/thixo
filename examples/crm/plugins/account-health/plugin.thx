@@ -1,0 +1,40 @@
+// Derived by the build (P2):
+//   required: companies.read, thixo.data.read, thixo.data.write
+//   data:     annotation on company { status: string }
+
+import { definePlugin, useAnnotation, useQuery } from "thixo/plugin";
+import { Card, Select, Stack, Text } from "thixo/ui";
+import { companyDetail } from "@app/slots";
+import { getCompany } from "@app/sdk";
+import { health } from "./data";
+
+export default definePlugin(
+  companyDetail,
+  {
+    id: "plg_crm_account_health",
+    name: "Account health",
+    description: "How the account is doing, set by anyone and seen by everyone.",
+  },
+  function AccountHealth({ context }) {
+    const company = useQuery(getCompany, { id: context.companyId });
+    const [saved, patchSaved] = useAnnotation(health, context.companyId);
+    return (
+      <Card title={company.data?.name ?? "Company"}>
+        <Stack gap="sm">
+          <Text tone="muted">{company.data?.industry ?? ""}</Text>
+          <Select
+            label="Account health"
+            value={saved?.status}
+            placeholder="Not set"
+            options={[
+              { value: "good", label: "Good" },
+              { value: "watch", label: "Watch" },
+              { value: "at-risk", label: "At risk" },
+            ]}
+            onChange={(status) => patchSaved({ status })}
+          />
+        </Stack>
+      </Card>
+    );
+  },
+);

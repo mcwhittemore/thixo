@@ -1,0 +1,51 @@
+// The kind of plugin a user would ask the authoring chat for: "let me put a due date on a todo". It fills the panel
+// beside the selected todo.
+//
+// Derived by the build (P2):
+//   required: todos.read    (getTodo, and annotating Todo)
+//   data:     annotation on todo { dueOn: date }
+//             private store prefs { warnDaysBefore: number }
+
+import { definePlugin, useAnnotation, useQuery, useStore } from "thixo/plugin";
+import { Card, DateInput, NumberInput, Stack, Text } from "thixo/ui";
+import { todoDetail } from "@app/slots";
+import { getTodo } from "@app/sdk";
+import { due, prefs } from "./data";
+
+export default definePlugin(
+  todoDetail,
+  {
+    id: "plg_due_dates",
+    name: "Due dates",
+    description: "Give a todo a due date and see a warning when it is close.",
+  },
+  function DueDate({ context }) {
+    const todo = useQuery(getTodo, { id: context.todoId });
+    const [dates, patchDates] = useAnnotation(due, context.todoId);
+    const [settings, patchSettings] = useStore(prefs);
+
+    const warnDays = settings?.warnDaysBefore ?? 2;
+    const close = dates?.dueOn !== undefined && daysUntil(dates.dueOn) <= warnDays;
+
+    return (
+      <Card title={todo.data?.title ?? "Todo"}>
+        <Stack gap="md">
+          {/* A patch: only dueOn is written (D6). */}
+          <DateInput label="Due" value={dates?.dueOn} onChange={(dueOn) => patchDates({ dueOn })} />
+          {close && <Text tone="warning">Due soon</Text>}
+
+          <NumberInput
+            label="Warn me this many days before"
+            value={warnDays}
+            min={0}
+            onChange={(warnDaysBefore) => patchSettings({ warnDaysBefore })}
+          />
+        </Stack>
+      </Card>
+    );
+  },
+);
+
+function daysUntil(date: Date) {
+  return Math.ceil((date.getTime() - Date.now()) / 86_400_000);
+}

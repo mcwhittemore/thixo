@@ -1,0 +1,23 @@
+{
+  "name": "thixo-cli",
+  "version": "0.0.1",
+  "description": "The thixo command: dev, build, start, compile, new, agent.",
+  "type": "module",
+  "files": [
+    "bin",
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "node --import tsx --test \"test/**/*.test.ts\""
+  },
+  "bin": {
+    "thixo": "./bin/thixo.js"
+  },
+  "dependencies": {
+    "thixo": "0.0.1",
+    "thixo-thx": "0.0.1",
+    "thixo-node": "0.0.1",
+    "esbuild": "^0.28.2"
+  }
+}

@@ -117,32 +117,45 @@ What this buys:
   allowed.
 - The build can list every outside address a plugin names, and the registry can show them (P2).
 
+A `Url` handed in may be shown, loaded and linked whatever its host. The process of making the plugin did not make
+it: if people put outside addresses into the app's data, that is theirs to do.
+
 **Writing an address back** is part of the rule. If a plugin could save a string to a record and read it back as
 an address, the rule would be empty. So a field that holds an address is declared as one, and a plugin can only
 write a `Url` to it, never a string. Where a user types an address in, the shell is what turns it into one.
 
 ### Choosing between fixed addresses
 
-Open. The rule stops a plugin putting data into an address. It does not stop a plugin choosing which address to
-load, and the choice is itself a message.
+Decided on 2026-11-22 ([decision 60](08-decisions.md#60-copy-at-build-and-addresses-from-data)). The rule stops a
+plugin putting data into an address. It does not stop a plugin choosing which address to load, and the choice is
+itself a message.
 
 Say a plugin has 256 image addresses written out in its source, all on a server its author runs:
 `.../0.png` to `.../255.png`. It reads one byte of something it can see, such as a character of a customer's
-name, and shows the image with that number. The author's server sees which image was asked for and now knows the
-byte. A row of images, or one image changed on a timer, sends the whole name.
+name, and shows the image with that number. If the page loaded that image from the author's server, the server would
+know the byte.
 
-Every address is fixed and none was built, so L7 is kept and the data still leaves.
+So the build copies. It fetches every outside address a plugin's source writes out for an image, font or style,
+once, and stores the file with the plugin's version. At run time the page loads it from the app. Nothing written in
+a plugin's source loads from outside, so there is no server to watch the choice. It fits versions being fixed (U2):
+an image that changes on the outside server stops changing. The build builds like an npm install, with no outside
+file refs. A fetch that fails is a build error.
 
-Options:
+What that means for whoever builds a plugin, in this build ([implementation](10-implementation.md#addresses)):
 
-| Option | Effect |
-| --- | --- |
-| Copy at build. The build fetches every outside address a plugin names for an image, font or style, and stores the file with the plugin's version. At run time it loads from the app. | Nothing loads from outside, so there is no server to watch the choice. Fits versions being fixed (U2). An image that changes on the outside server stops changing. |
-| The implementor lists the outside hosts plugins may load from. None by default. | The leak is left open only to hosts the implementor chose. |
-| Show the addresses in the registry and accept it. | Relies on someone noticing 256 addresses on one host. |
+- A build that copies needs the network. If the image's host is down, the whole plugin fails to build, with
+  `build/copy-failed` at the line. A version already stored keeps its copy.
+- Only images and fonts are copied: png, jpeg, gif, webp, avif, svg, woff, woff2, ttf and otf, over https on port
+  443. An SVG with script, an event handler or an address that leaves the file is refused.
+- One file may be 2 MiB, one version 8 MiB and 32 files. A fetch may take 10 seconds and follow 3 redirects, and
+  one build may spend 20 seconds on all its copies.
+- What one person's submits store is capped at 64 MiB, and everyone's at 1 GiB, unless the app sets other caps.
 
-**Lean:** copy at build. A link the user clicks, `<a href>`, can't be copied and is left as it is: it leaks only
-which link the user chose to click, where they can see it.
+A link the user clicks, `<a href>`, can't be copied. A written-out one may go to any https host. It leaks only which
+link the user chose to click, one bit a click, where they can see it, and the registry names the hosts.
+
+A `Url` handed in is not copied. It loads from wherever it points, so a `Url` someone saved as data is a tracking
+pixel for whoever opens the page. See [the security model](04-security-model.md#what-p1-does-not-cover).
 
 ## Styles
 
@@ -201,9 +214,7 @@ out while running. Class names from the implementor are a library they can expos
   (L6): no `<script>`, `<iframe>`, `<object>` or `<embed>`, and no attribute that takes code. The full list is
   not written, and neither is who can extend it. `<link>`, `<meta>` and `<base>` don't run code themselves, but
   each can load or redirect what the page does, so they probably belong on it.
-- **Addresses.** See the section below. The rule is decided (L7), and three parts of it are open.
-- **Links.** Whether `<a href>` can point outside the app. It loads nothing into the plugin, but the address can
-  carry data out when the user clicks.
+- **Addresses.** See [Addresses](#addresses). The rule is decided (L7), and so is choosing between fixed addresses.
 - **How an exposed library looks from inside the language.** It is JavaScript, so its values have prototypes. The
   boundary has to turn what it returns into the language's own values, or wrap it.
 - **Exposed libraries.** How an implementor exposes a library and how its types reach the agent. Whether it runs

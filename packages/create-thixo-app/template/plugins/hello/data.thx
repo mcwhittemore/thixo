@@ -1,0 +1,7 @@
+// A private store: what this user wants to be called. Nobody else sees it. The build reads this call as a literal, so
+// the registry can say the plugin keeps a `nickname`.
+
+import { store } from "thixo/data";
+import { t } from "thixo/schema";
+
+export const prefs = store("prefs", { fields: { nickname: t.string() } });

@@ -16,9 +16,9 @@ Vercel and AWS to follow ([decision 15](08-decisions.md#15-no-cloud-lock-in)). H
 
 | Adapter | What it does | Why it is pluggable |
 | --- | --- | --- |
-| **Code** | Stores and reads plugin source and compiled code, and opens changes in the implementor's project when a plugin is promoted to default (G3). | Required by X2. Each provider has its own object storage. |
+| **Code** | Stores and reads plugin source, compiled code and the files a build copied, and opens changes in the implementor's project when a plugin is promoted to default (G3). | Required by X2. Each provider has its own object storage. |
 | **Data** | Holds registry records, layouts, stores and annotations. | Each provider has a different database. |
-| **Build** | Compiles stored source and derives the manifest. | Build limits differ by runtime. |
+| **Build** | Compiles stored source and derives the manifest. Fetches the outside files a plugin's source loads, so they are copied at build, without reaching inside the network. | Build limits and outbound network rules differ by runtime. |
 | **Model** | Runs the authoring agent's model calls. | The implementor chooses the model (U6). |
 
 Identity is an adapter too, but not a cloud one (A8). Thixo ships identity adapters for services such as Clerk, WorkOS,
@@ -57,7 +57,10 @@ interface DataAdapter {
 also holds registry records and layouts. A plugin never changes the database schema. The adapter owns its schema
 and ships its own migrations with each Thixo release.
 
-Thixo's SQL adapter is [`thixo-sql`](../packages/thixo-sql/readme.md). A key-value adapter is possible. Reading
+Thixo's SQL adapter is [`thixo-sql`](../packages/thixo-sql/readme.md). It talks to a small driver, and each database
+has its own driver package, which is the provider code (X4): `thixo-node` for SQLite, `thixo-postgres` for Postgres
+and `thixo-d1` for Cloudflare D1. One suite of tests runs the adapter against every driver. A key-value adapter is
+possible. Reading
 through a chain costs a fetch per layer.
 
 Finding plugin data by value is not in the first version. Registry search ranks plugins by meaning, which plain

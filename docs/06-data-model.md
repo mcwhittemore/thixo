@@ -107,6 +107,9 @@ Nobody writes a manifest. The build derives it when it compiles a version (L8).
 | schemaHash | `string`, required | A stable hash of `data` (D3). |
 | shellServices | `ServiceName[]`, required, default `[]` | |
 | addresses | `Url[]`, required, default `[]` | Every outside address the source names (L7). |
+| loads | `Url[]`, required, default `[]` | The outside addresses the source loads. The build copies each one. |
+| links | `Url[]`, required, default `[]` | The outside addresses the source links to. |
+| assets | `Record<Url, string>`, required, default `{}` | Each load the build copied, to the stored file's name: its sha256 and extension. The code storage adapter keeps the file under `assets/<sha256>`. |
 
 The manifest records endpoints, not scopes. Scopes are looked up from the endpoints when a call is checked or a
 search is filtered, so a change to an endpoint's scopes takes effect without rebuilding any plugin. Context fields of
@@ -209,7 +212,7 @@ The other side of A1: the endpoints every app gets.
 | Registry | Search, get a plugin, list its versions, submit a version, fork, share, promote |
 | Plugin data | Read through a chain, read many, patch, delete a field's data |
 | Layouts | Get the current user's layout, set a slot, reset a slot to the default |
-| Authoring | Start and continue a chat with the authoring agent |
+| Authoring | Start and continue a chat with the authoring agent. See its refusals and blocks, and lift a block (`thixo.authoring.admin`) |
 | Tokens | Trade the user's session for a token (A4) |
 
 Promoting goes through the promotion adapter, which says who may (W2). Plugin data needs the read and write scopes

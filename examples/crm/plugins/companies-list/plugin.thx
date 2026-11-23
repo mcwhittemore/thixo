@@ -1,0 +1,74 @@
+// The companies page, in raw elements and css().
+//
+// Derived by the build (P2):
+//   required: companies.read, contacts.read   (listCompanies, listContacts)
+//   optional: companies.write                 (updateCompany: the tier is read-only without it)
+
+import { css, definePlugin, useCan, useQuery } from "thixo/plugin";
+import { Badge, Button, Select } from "thixo/ui";
+import { companies } from "@app/slots";
+import { listCompanies, listContacts } from "@app/sdk";
+import { updateCompany } from "@app/sdk/optional";
+
+export default definePlugin(
+  companies,
+  {
+    id: "plg_crm_companies_list",
+    name: "Companies list",
+    description: "Every company with its industry, tier and how many contacts it has.",
+  },
+  function CompaniesList({ emit }) {
+    const list = useQuery(listCompanies);
+    const people = useQuery(listContacts);
+    const canEdit = useCan(updateCompany);
+
+    const table = css({ width: "100%", borderCollapse: "collapse" });
+    const head = css({ textAlign: "left", padding: 6, borderBottom: "1px solid #8884" });
+    const data = css({ padding: 6, borderBottom: "1px solid #8882" });
+    const count = (id: string) => (people.data ?? []).filter((c) => c.companyId === id).length;
+
+    return (
+      <div>
+        {list.error && <p role="alert">{list.error.message}</p>}
+        <table className={table}>
+          <thead>
+            <tr>
+              <th className={head}>Company</th>
+              <th className={head}>Industry</th>
+              <th className={head}>Tier</th>
+              <th className={head}>Contacts</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(list.data ?? []).map((c) => (
+              <tr key={c.id}>
+                <td className={data}>
+                  <Button variant="secondary" onClick={() => emit.select({ companyId: c.id })}>
+                    {c.name}
+                  </Button>
+                </td>
+                <td className={data}>{c.industry}</td>
+                <td className={data}>
+                  {canEdit ? (
+                    <Select
+                      label={`Tier of ${c.name}`}
+                      value={c.tier}
+                      options={[
+                        { value: "standard", label: "Standard" },
+                        { value: "key", label: "Key account" },
+                      ]}
+                      onChange={(tier) => updateCompany({ id: c.id, tier }).then(list.refresh)}
+                    />
+                  ) : (
+                    <Badge tone={c.tier === "key" ? "success" : "muted"}>{c.tier}</Badge>
+                  )}
+                </td>
+                <td className={data}>{count(c.id)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  },
+);

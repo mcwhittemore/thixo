@@ -1,0 +1,7 @@
+// A company's annotation is seen by everyone (A11): the app's Company record says so.
+
+import { annotate } from "thixo/data";
+import { t } from "thixo/schema";
+import { Company } from "@app/sdk";
+
+export const health = annotate(Company, { status: t.string() });

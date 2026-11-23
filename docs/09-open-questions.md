@@ -191,6 +191,15 @@ The largest portability question. See [portability](07-portability.md#build).
 ## Security
 
 - What does Thixo check about a library the implementor exposes, if anything?
+- A `Url` saved as data is a tracking pixel for whoever opens the page
+  ([decision 60](08-decisions.md#60-copy-at-build-and-addresses-from-data)). Should the shell offer an implementor a
+  way to proxy or copy handed-in images too, or to mark which url fields may load?
+- Shell chrome a plugin fills. A dialog and a toast now carry a line, drawn by the shell, naming the plugin and its
+  author. Should a plugin also be refused form fields that look like a sign-in (a password-like label), or should
+  `openModal` stop taking a free-text title?
+- Look-alike names. Sharing refuses a name equal to a default's or another shared plugin's after folding case,
+  width, spaces and punctuation. Letters from other scripts that look the same ("Due dаtes" with a Cyrillic а) still
+  pass; the `Default` badge is what tells them apart. Should the registry fold confusable letters too?
 
 ## Project
 

@@ -1,0 +1,31 @@
+// Derived by the build (P2):
+//   required: deals.read, thixo.data.read, thixo.data.write
+//   data:     annotation on deal { score: number }
+
+import { definePlugin, useAnnotation } from "thixo/plugin";
+import { NumberInput } from "thixo/ui";
+import { dealCard } from "@app/slots";
+import { lead } from "./data";
+
+export default definePlugin(
+  dealCard,
+  {
+    id: "plg_crm_lead_score",
+    name: "Lead score",
+    description: "A score from 0 to 100 for a deal, shared with your team.",
+  },
+  function LeadScore({ context }) {
+    const [saved, patchSaved] = useAnnotation(lead, context.dealId);
+    return (
+      <NumberInput
+        label="Lead score"
+        value={saved?.score}
+        min={0}
+        max={100}
+        onChange={(score) => {
+          if (score !== undefined) patchSaved({ score });
+        }}
+      />
+    );
+  },
+);
