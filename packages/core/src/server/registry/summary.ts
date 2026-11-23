@@ -62,14 +62,21 @@ export function summarise(ctx: ServerContext, manifest: Manifest): string[] {
   }
   if (manifest.shellServices.length) push(`Uses: ${manifest.shellServices.map((s) => SERVICE_WORDS[s] ?? s).join(", ")}`);
   if (manifest.libraries.length) push(`Uses the app's libraries: ${manifest.libraries.join(", ")}`);
-  if (manifest.addresses.length) {
-    push(`Names outside addresses: ${[...new Set(manifest.addresses.map(host))].join(", ")}`);
-    // A plugin that picks which of several fixed addresses on one host to show, by what it read, tells whoever
-    // runs that host what it read: one load or click per choice (redteam rounds 1 and 2). Say so where it happens.
+  // A manifest stored before copy at build has only `addresses`: count each one as a link, which is what reaches out.
+  const loads = manifest.loads ?? [];
+  const links = manifest.links ?? manifest.addresses.filter((a) => !loads.includes(a));
+  if (loads.length) {
+    const hosts = [...new Set(loads.map(host))];
+    push(`Copied ${loads.length} file${loads.length > 1 ? "s" : ""} from ${hosts.join(", ")} when it was built: ${loads.length > 1 ? "they load" : "it loads"} from this app, never from ${hosts.length > 1 ? "those hosts" : hosts[0]}`);
+  }
+  if (links.length) {
+    push(`Links to ${[...new Set(links.map(host))].join(", ")}`);
+    // A plugin that picks which of several fixed links on one host to show, by what it read, tells whoever runs that
+    // host something about it when the user clicks (redteam round 1). The owner accepts it for a click; say so.
     const perHost = new Map<string, number>();
-    for (const address of new Set(manifest.addresses)) perHost.set(host(address), (perHost.get(host(address)) ?? 0) + 1);
+    for (const address of new Set(links)) perHost.set(host(address), (perHost.get(host(address)) ?? 0) + 1);
     for (const [name, count] of perHost)
-      if (count > 1) push(`Can choose among ${count} addresses on ${name}: which one it shows tells ${name} something about what it read`);
+      if (count > 1) push(`Can choose among ${count} links to ${name}: which one you click tells ${name} something about what it read`);
   }
   if (!out.length) push("Shows something in its slot and reads nothing");
   return out;

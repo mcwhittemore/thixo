@@ -86,7 +86,6 @@ export async function startDev(paths: ProjectPaths, options: { port: number; hos
     thixo: () => app?.thixo ?? null,
     problem: () => problem,
     clientDir: paths.clientDir,
-    addressHosts: () => app?.config.addressHosts ?? [],
   });
   let served: Served;
   try {

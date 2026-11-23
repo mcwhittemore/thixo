@@ -1,4 +1,5 @@
 import type { ThxError, SourceFiles } from "thixo-thx/contract";
+import { buildWithCopies } from "../registry/assets.js";
 import { HttpError } from "../../api/errors.js";
 import type { AgentTool, PluginSummary, User } from "../../contract.js";
 import type { ServerContext } from "../context.js";
@@ -196,7 +197,7 @@ export function createAuthoringTools(ctx: ServerContext): AuthoringTools {
     },
 
     async check(input) {
-      const result = await ctx.adapters.build.build(files(input), ctx.compileEnv);
+      const result = await buildWithCopies(ctx.adapters.build, ctx.compileEnv, files(input));
       if (!result.ok) return { ok: false, errors: result.errors, report: formatErrors(result.errors) };
       return {
         ok: true,
@@ -208,6 +209,8 @@ export function createAuthoringTools(ctx: ServerContext): AuthoringTools {
         optionalScopes: optionalScopes(ctx, result.manifest),
         data: result.manifest.data,
         addresses: result.manifest.addresses,
+        copied: result.manifest.assets,
+        links: result.manifest.links,
       };
     },
 

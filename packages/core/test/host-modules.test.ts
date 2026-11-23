@@ -107,7 +107,7 @@ test("emit checks the payload against the slot's emits before the shell sees it 
 
 test("css() scopes every rule under the plugin's class and drops what could load or break out (P8, L7)", () => {
   const r = rt();
-  const styles = new ScopedStyles(scopeClassFor("plg/x y", 3), { rt: r, allowed: new Set(["https://cdn.example.com/a.png"]) });
+  const styles = new ScopedStyles(scopeClassFor("plg/x y", 3), { rt: r, refused: new Set(["https://evil.test/copied.png"]) });
   assert.equal(styles.scopeClass, "thx-p-plg_x_y-3");
   const name = styles.className({
     paddingTop: 8,
@@ -116,6 +116,7 @@ test("css() scopes every rule under the plugin's class and drops what could load
     background: "url(https://evil.test/leak)",
     backgroundImage: r.url("https://cdn.example.com/a.png"),
     borderImage: r.url("https://evil.test/b.png"),
+    listStyle: r.url("https://evil.test/copied.png"),
     "--x": "1",
     "font-family": "x",
     content: "'\\41'",

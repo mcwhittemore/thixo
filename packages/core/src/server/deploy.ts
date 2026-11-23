@@ -1,6 +1,7 @@
 import { IMPLEMENTOR, type Plugin, type PluginVersion, type PluginVersionRef, type Release, type SlotPath } from "../contract.js";
 import type { SourceFiles, ThxError } from "thixo-thx/contract";
 import type { ServerContext } from "./context.js";
+import { buildWithCopies, storeAssets } from "./registry/assets.js";
 import { storeCompiled, storeSource } from "./registry/code-store.js";
 import { newId } from "./registry/hash.js";
 import { withoutPluginId } from "./registry/plugin-source.js";
@@ -49,6 +50,7 @@ export async function deploy(ctx: ServerContext, input: DeployInput): Promise<De
     code: string;
     sourceHash: string;
     manifest: PluginVersion["manifest"];
+    assets: Record<string, Uint8Array>;
     name: string;
     description: string;
   }
@@ -57,6 +59,7 @@ export async function deploy(ctx: ServerContext, input: DeployInput): Promise<De
 
   for (const folder of Object.keys(input.plugins).sort()) {
     const files = input.plugins[folder];
+    // The first build only reads the id; the second, without it, is the one stored, and copies what it loads.
     const first = await ctx.adapters.build.build(files, ctx.compileEnv);
     if (!first.ok) {
       problems.push({ folder, errors: first.errors });
@@ -77,7 +80,7 @@ export async function deploy(ctx: ServerContext, input: DeployInput): Promise<De
     idToFolder.set(id, folder);
 
     const source = withoutPluginId(files);
-    const result = await ctx.adapters.build.build(source, ctx.compileEnv);
+    const result = await buildWithCopies(ctx.adapters.build, ctx.compileEnv, source);
     if (!result.ok) {
       problems.push({ folder, errors: result.errors });
       continue;
@@ -87,7 +90,7 @@ export async function deploy(ctx: ServerContext, input: DeployInput): Promise<De
       problems.push({ folder, errors: verdict.errors.map((m) => problem(m, "thx/verify-output")) });
       continue;
     }
-    built.push({ folder, id, source, code: result.code, sourceHash: result.sourceHash, manifest: result.manifest, name: result.meta.name, description: result.meta.description });
+    built.push({ folder, id, source, code: result.code, sourceHash: result.sourceHash, manifest: result.manifest, assets: result.assets, name: result.meta.name, description: result.meta.description });
   }
 
   const byFolder = new Map(built.map((b) => [b.folder, b]));
@@ -137,6 +140,7 @@ export async function deploy(ctx: ServerContext, input: DeployInput): Promise<De
     }
     let version = await data.findVersionByHash(b.id, b.sourceHash);
     if (!version) {
+      await storeAssets(ctx.adapters.code, b.assets);
       version = await data.addVersion({
         plugin: b.id,
         source: await storeSource(ctx, b.source),

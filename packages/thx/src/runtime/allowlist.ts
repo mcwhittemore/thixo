@@ -405,6 +405,9 @@ const OTHER_PROPS = [
 export const STYLE_LENGTH = new Set(LENGTH_PROPS);
 export const STYLE_UNITLESS = new Set(UNITLESS_PROPS);
 export const STYLE_PROPS = new Set([...LENGTH_PROPS, ...UNITLESS_PROPS, ...OTHER_PROPS]);
+/** The name of a file the build copied into the app for a plugin version: its sha256, hex, and an extension for an
+ * image or a font. */
+export const ASSET_FILE = /^[0-9a-f]{64}\.(png|jpg|gif|webp|avif|svg|woff|woff2|ttf|otf)$/;
 /** Properties that may hold a Url, written out as `url("...")`. */
 export const STYLE_URL_PROPS = new Set(["backgroundImage", "background", "listStyle"]);
 /** Values `position` may take. `fixed` is left out: the slot's box contains it, and it is still not needed. */

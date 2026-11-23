@@ -11,6 +11,9 @@ export function manifest(partial: Partial<Manifest> & { slot: string }): Manifes
     schemaHash: "0".repeat(64),
     shellServices: [],
     addresses: [],
+    loads: [],
+    links: [],
+    assets: {},
     libraries: [],
     ...partial,
   };
@@ -23,6 +26,7 @@ export function pluginLoad(id: string, name: string, m: Manifest, extra: Partial
     version: 1,
     manifest: m,
     code: `/_thixo/plugins/${id}/1.js`,
+    assets: { path: `/_thixo/plugins/${id}/1/assets/`, query: "" },
     authorCan: endpoints,
     userCan: endpoints,
     authorData: { read: true, write: true },

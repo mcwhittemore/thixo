@@ -2,12 +2,15 @@ import { join, resolve } from "node:path";
 import type { Adapters, DataAdapter } from "thixo/contract";
 import { sqlDataAdapter } from "thixo-sql";
 import { fileCodeAdapter } from "./file-code-adapter.js";
+import type { AssetFetch } from "./guarded-fetch.js";
 import { localBuild } from "./local-build.js";
 import { sqliteDriver } from "./sqlite-driver.js";
 
 export interface LocalOptions {
   /** The implementor's project. Default: `THIXO_PROJECT_DIR`, or the current directory. */
   projectDir?: string;
+  /** Copy at build: what fetches an outside file a plugin loads. Default `guardedFetch()`. */
+  fetchAsset?: AssetFetch;
 }
 
 export interface LocalAdapters extends Adapters {
@@ -41,7 +44,7 @@ export function local(options: LocalOptions = {}): LocalAdapters {
   return {
     code: fileCodeAdapter({ dir: join(stateDir, "code"), projectDir }),
     data,
-    build: localBuild(),
+    build: localBuild(undefined, { fetchAsset: options.fetchAsset }),
     stateDir,
     close: () => driver.close(),
   };

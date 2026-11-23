@@ -124,7 +124,6 @@ export function todoEnv(overrides: Partial<CompileEnv> = {}): CompileEnv {
     slots: { main: { name: "main" }, todoDetail: { name: "todo-detail" }, todoRow: { name: "todo-row" } },
     services: ["navigate", "openModal", "copyToClipboard", "download", "toast"],
     libraries: ["@app/charts"],
-    addressHosts: [],
     ...overrides,
   };
 }

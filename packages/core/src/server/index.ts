@@ -25,6 +25,8 @@ export { runAuthoring, scriptedModel } from "./authoring/index.js";
 export type { AuthoringEvent, AuthoringRequest, ScriptedModel, ScriptedStep, ScriptedTurn } from "./authoring/index.js";
 export { recordDeleted } from "./registry/record-deleted.js";
 export { isAddress } from "./registry/plugin-data.js";
+export { buildWithCopies, ASSET_LIMITS, ASSET_TYPES } from "./registry/assets.js";
+export type { BuildOutcome, BuiltPlugin } from "./registry/assets.js";
 export { withPluginId, withoutPluginId, readPluginId } from "./registry/plugin-source.js";
 export { STORE_SINGLETON_ID } from "./registry/types.js";
 export type { DataServices, LayoutServices, PluginDetail, PromotionReply, SubmitResult, VersionInfo } from "./registry/types.js";

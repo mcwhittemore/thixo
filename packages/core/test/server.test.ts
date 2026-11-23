@@ -90,15 +90,7 @@ test("GET /_thixo/app describes the app, with Thixo's scopes added", async () =>
   assert.equal(addNote.input.kind, "object", "the broker validates a plugin's input against it");
   assert.equal(body.records[0].exportName, "Note");
   assert.ok(body.records[0].fields, "the broker resolves record schemas with it");
-  assert.deepEqual(body.addressHosts, [], "no outside load hosts unless the config lists them");
-});
-
-test("GET /_thixo/app carries the config's addressHosts, for the runtime to check handed-in loads against", async () => {
-  // redteam-language round 2: a Url from data rendered as <img src> could load from any host.
-  const listed = createThixo(app, defineConfig({ identity: () => null, adapters: memoryAdapters(), layout: {}, signingKey: "k", addressHosts: ["cdn.example.com"] }));
-  const { status, body } = await call(listed, "GET", "/_thixo/app");
-  assert.equal(status, 200);
-  assert.deepEqual(body.addressHosts, ["cdn.example.com"]);
+  assert.equal("addressHosts" in body, false, "no host list: a handed-in Url loads whatever its host");
 });
 
 test("/api: 401 without a token or with a bad one", async () => {

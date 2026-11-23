@@ -8,7 +8,8 @@ import type { Deps } from "./deps.js";
 import { CliError, messageOf } from "./errors.js";
 import type { Io } from "./io.js";
 import { ensureSigningKey } from "./keys.js";
-import { compilePlugins, readPlugins, reportOutcome } from "./plugins.js";
+import { buildPlugins, readPlugins, reportOutcome } from "./plugins.js";
+import { builderFor } from "./bundle.js";
 import type { ProjectPaths } from "./project.js";
 
 export interface RunningApp {
@@ -60,7 +61,7 @@ export interface DeployReport {
 export async function deployPlugins(app: RunningApp, paths: ProjectPaths, deps: Deps, io: Io, options: { strict: boolean; buildHash?: string }): Promise<DeployReport> {
   const thx = await deps.thx();
   const plugins = readPlugins(paths.pluginsDir);
-  const outcomes = compilePlugins(plugins, app.loaded.compileEnv, thx);
+  const outcomes = await buildPlugins(plugins, app.loaded.compileEnv, thx, builderFor(app.loaded, await deps.server()));
   const failed = outcomes.filter((o) => !o.result.ok);
   for (const outcome of failed) for (const line of reportOutcome(outcome)) io.err(line);
   if (failed.length && options.strict) throw new CliError(`${failed.length} plugin${failed.length === 1 ? "" : "s"} failed to compile. Run \`thixo build\` and fix them.`);

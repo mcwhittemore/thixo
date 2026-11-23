@@ -146,6 +146,8 @@ test("the summary is plain sentences from the manifest and the scopes' descripti
       stores: { prefs: [{ name: "warn", type: "number" }] },
       shellServices: ["copyToClipboard"],
       addresses: ["https://cdn.example.com/a.png", "https://cdn.example.com/b.png", "https://example.org/x"],
+      loads: ["https://cdn.example.com/a.png"],
+      links: ["https://cdn.example.com/b.png", "https://example.org/x"],
     }),
   });
   assert.deepEqual(reply.summary, [
@@ -157,8 +159,8 @@ test("the summary is plain sentences from the manifest and the scopes' descripti
     "Writes its own data",
     "If you can, sees who a todo is assigned to",
     "Uses: clipboard",
-    "Names outside addresses: cdn.example.com, example.org",
-    "Can choose among 2 addresses on cdn.example.com: which one it shows tells cdn.example.com something about what it read",
+    "Copied 1 file from cdn.example.com when it was built: it loads from this app, never from cdn.example.com",
+    "Links to cdn.example.com, example.org",
   ]);
   // The scope list beside it uses the same words: the app's from defineScopes, Thixo's for its own.
   assert.deepEqual(
@@ -168,17 +170,37 @@ test("the summary is plain sentences from the manifest and the scopes' descripti
 
 });
 
-test("the summary flags a plugin that chooses among fixed addresses on one host (redteam-exfil round 2)", async () => {
+test("the summary names the hosts a plugin links to, and flags a choice among links on one host (redteam-exfil round 1)", async () => {
   const w = world();
-  const one = await submitOk(w, "ana", { name: "One", manifest: manifest({ requiredEndpoints: ["listTodos"], addresses: ["https://cdn.example.com/logo.png"] }) });
-  assert.ok(!one.summary.some((line: string) => line.startsWith("Can choose among")), "one address is not a choice between addresses");
+  const one = await submitOk(w, "ana", { name: "One", manifest: manifest({ requiredEndpoints: ["listTodos"], addresses: ["https://docs.example.com/help"], links: ["https://docs.example.com/help"] }) });
+  assert.ok(one.summary.includes("Links to docs.example.com"));
+  assert.ok(!one.summary.some((line: string) => line.startsWith("Can choose among")), "one link is not a choice between links");
   const beacon = await submitOk(w, "ana", {
     name: "Beacon",
-    manifest: manifest({ requiredEndpoints: ["listTodos"], addresses: ["https://cdn.example.com/beacon/one.png", "https://cdn.example.com/beacon/zero.png"] }),
+    manifest: manifest({ requiredEndpoints: ["listTodos"], addresses: ["https://evil.example/bit0", "https://evil.example/bit1"], links: ["https://evil.example/bit0", "https://evil.example/bit1"] }),
   });
-  assert.ok(beacon.summary.includes("Can choose among 2 addresses on cdn.example.com: which one it shows tells cdn.example.com something about what it read"));
+  assert.ok(beacon.summary.includes("Links to evil.example"));
+  assert.ok(beacon.summary.includes("Can choose among 2 links to evil.example: which one you click tells evil.example something about what it read"));
   const found = (await w.thixo.services.registry.search({ user: w.users.ana, q: "beacon" }))[0];
-  assert.ok(found.summary.some((line: string) => line.startsWith("Can choose among 2 addresses")), "the registry shows it too");
+  assert.ok(found.summary.some((line: string) => line.startsWith("Can choose among 2 links")), "the registry shows it too");
+});
+
+test("choosing among copied images is not flagged: the page loads them from the app, so no outside host watches", async () => {
+  const w = world();
+  const loads = ["https://evil.example/bit0.png", "https://evil.example/bit1.png"];
+  const reply = await submitOk(w, "ana", { name: "Pictures", manifest: manifest({ requiredEndpoints: ["listTodos"], addresses: loads, loads }) });
+  assert.ok(reply.summary.includes("Copied 2 files from evil.example when it was built: they load from this app, never from evil.example"));
+  assert.ok(!reply.summary.some((line: string) => line.startsWith("Can choose among")));
+});
+
+test("a manifest stored before copy at build, with only addresses, still names its hosts", async () => {
+  const w = world();
+  const old = manifest({ addresses: ["https://docs.example.com/a"] }) as Partial<ReturnType<typeof manifest>>;
+  delete old.loads;
+  delete old.links;
+  delete old.assets;
+  const reply = await submitOk(w, "ana", { name: "Old", manifest: old as ReturnType<typeof manifest> });
+  assert.ok(reply.summary.includes("Links to docs.example.com"));
 });
 
 test("fork: a new personal plugin that points at its parent version and reuses its stored code (G4, D9)", async () => {

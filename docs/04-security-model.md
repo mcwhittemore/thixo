@@ -65,7 +65,8 @@ The registry compiles every version from its source, so the checks run on exactl
 - **No runnable sources (L6):** no frames, scripts, event-handler attributes or `javascript:` addresses. A plugin
   handles events only through the language.
 - **Fixed addresses (L7):** an address is written out in the source or handed in. A plugin can't build one, so it
-  can't put data in one.
+  can't put data in one. One written out that loads something is copied into the app at build, so the page never
+  fetches it from outside.
 - **Its own slot (P8):** a plugin's styles are scoped to its slot. It reaches anything outside the slot through
   shell services (S8), and `navigate` goes only to routes inside the app.
 - **Only while on screen (P7):** there is no background work.
@@ -91,12 +92,22 @@ What is still open:
 - **Annotations other users see are a way out.** A plugin can read with the current user's access and write what it
   read into an annotation its author can see (A11). No network is needed. Stores are private to each user (D2), so
   they are not a way out today.
-- **A listed outside host learns what a plugin shows.** A plugin may load from, or link to, a host the implementor
-  lists (`addressHosts`, `linkHosts`). Which of several fixed addresses on that host it shows, or whether it shows
-  one at all, is chosen by what it read, so each load or click tells whoever runs the host a little of that: one bit
-  a render for an image. The registry flags a plugin that chooses among addresses on one host
-  ([implementation](10-implementation.md#addresses)), but a listed host should be one whose logs the implementor
-  trusts. A host the implementor did not list can't be reached this way, by a written-out address or a handed-in one.
+- **A `Url` saved as data is a tracking pixel.** A plugin may load a `Url` the app hands it, whatever its host: an
+  avatar from an endpoint, or a `t.url()` field. Someone who can write such a field, such as an annotation other
+  users see, can point it at a server they run. Everyone who then opens a page that shows it as an image tells that
+  server they did, and when, with no click. A plugin can also choose which of several saved `Url`s to show by what it
+  read. The plugin did not make the address, so the owner accepts this
+  ([decision 60](08-decisions.md#60-copy-at-build-and-addresses-from-data)). The page's CSP lets images load from
+  any https host for the same reason.
+- **A link tells its host which one was clicked.** A written-out `<a href>` may go to any https host. A plugin that
+  chooses between fixed links by what it read tells that host one bit when the user clicks. The registry names the
+  hosts a plugin links to, and flags more than one link to one host
+  ([implementation](10-implementation.md#addresses)).
+- **A written-out load is not a way out.** An image written in the source is fetched once, by the server, when the
+  plugin is built, and the page loads the app's copy. Choosing among copies tells no outside host anything. The
+  build's fetch is the risk instead: it runs on the server for whoever wrote the source, so it is https only and
+  refuses any host inside the network, after every redirect too, with a timeout and a size cap. A copied SVG is
+  served so that, opened on its own, it runs no script.
 - **A later version can ask for more.** If users follow the newest version of a shared plugin, its author can add an
   endpoint and every user picks it up.
 - **The authoring agent reads other people's plugins.** Text in a plugin's source or description could steer the

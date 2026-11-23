@@ -3,7 +3,7 @@ import { test } from "node:test";
 import type { CompileEnv } from "thixo/contract";
 import { localBuild } from "../src/local-build.js";
 
-const env: CompileEnv = { modules: {}, endpoints: {}, records: {}, slots: {}, services: [], libraries: [], addressHosts: [] };
+const env: CompileEnv = { modules: {}, endpoints: {}, records: {}, slots: {}, services: [], libraries: [] };
 const okResult = { ok: true as const, code: "export default function (rt) {}", manifest: {} as never, meta: {} as never, sourceHash: "h" };
 
 test("a compile result passes through when the output verifies", async () => {

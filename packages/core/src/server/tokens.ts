@@ -95,20 +95,43 @@ export function userOf(claims: TokenClaims): User {
 
 export const CODE_TICKET_SECONDS = 5 * 60;
 
-function ticketInput(user: string, plugin: string, version: number, exp: number): string {
-  return `plugin-code\n${user}\n${plugin}\n${version}\n${exp}`;
+/** How long an asset ticket lasts. An image can render long after its slot loaded, so it outlives a code ticket. It
+ * grants reading one version's copied files and nothing else. */
+export const ASSET_TICKET_SECONDS = 12 * 60 * 60;
+
+type TicketPurpose = "plugin-code" | "plugin-assets";
+
+function ticketInput(purpose: TicketPurpose, user: string, plugin: string, version: number, exp: number): string {
+  return `${purpose}\n${user}\n${plugin}\n${version}\n${exp}`;
 }
 
 /** A short-lived address for one compiled plugin version, so the shell can `import()` it by address under a
  * `script-src 'self'` CSP. It is bound to the user, the plugin and the version, and grants nothing else. */
 export async function codeTicket(secret: string, user: string, plugin: string, version: number, now: number = Date.now()): Promise<string> {
-  const exp = Math.floor(now / 1000) + CODE_TICKET_SECONDS;
-  const signature = await crypto.subtle.sign("HMAC", await hmacKey(secret, "sign"), encoder.encode(ticketInput(user, plugin, version, exp)));
+  return ticket("plugin-code", CODE_TICKET_SECONDS, secret, user, plugin, version, now);
+}
+
+/** The same, for one version's copied files (`<img src>` can't carry a token either). */
+export async function assetTicket(secret: string, user: string, plugin: string, version: number, now: number = Date.now()): Promise<string> {
+  return ticket("plugin-assets", ASSET_TICKET_SECONDS, secret, user, plugin, version, now);
+}
+
+async function ticket(purpose: TicketPurpose, seconds: number, secret: string, user: string, plugin: string, version: number, now: number): Promise<string> {
+  const exp = Math.floor(now / 1000) + seconds;
+  const signature = await crypto.subtle.sign("HMAC", await hmacKey(secret, "sign"), encoder.encode(ticketInput(purpose, user, plugin, version, exp)));
   return new URLSearchParams({ u: user, e: String(exp), k: base64url(new Uint8Array(signature)) }).toString();
 }
 
 /** The user a ticket was made for, or null when it is missing, forged, for another version, or expired. */
 export async function checkCodeTicket(secret: string, query: URLSearchParams, plugin: string, version: number, now: number = Date.now()): Promise<string | null> {
+  return checkTicket("plugin-code", secret, query, plugin, version, now);
+}
+
+export async function checkAssetTicket(secret: string, query: URLSearchParams, plugin: string, version: number, now: number = Date.now()): Promise<string | null> {
+  return checkTicket("plugin-assets", secret, query, plugin, version, now);
+}
+
+async function checkTicket(purpose: TicketPurpose, secret: string, query: URLSearchParams, plugin: string, version: number, now: number): Promise<string | null> {
   const user = query.get("u");
   const exp = Number(query.get("e"));
   const k = query.get("k");
@@ -119,6 +142,6 @@ export async function checkCodeTicket(secret: string, query: URLSearchParams, pl
   } catch {
     return null;
   }
-  const ok = await crypto.subtle.verify("HMAC", await hmacKey(secret, "verify"), signature, encoder.encode(ticketInput(user, plugin, version, exp)));
+  const ok = await crypto.subtle.verify("HMAC", await hmacKey(secret, "verify"), signature, encoder.encode(ticketInput(purpose, user, plugin, version, exp)));
   return ok ? user : null;
 }

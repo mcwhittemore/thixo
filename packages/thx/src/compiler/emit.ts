@@ -4,7 +4,7 @@
 
 import ts from "typescript";
 import type { CompileEnv, FieldDecl, FieldType, ThxError } from "../contract.js";
-import { attrKind, isElementAllowed, type AttrKind } from "../runtime/allowlist.js";
+import { ASSET_FILE, attrKind, isElementAllowed, type AttrKind } from "../runtime/allowlist.js";
 import { BUILTIN_GLOBALS, CONSTRUCTIBLE } from "./lib-dts.js";
 import type { PluginProgram } from "./program.js";
 import { resolveRelative } from "./program.js";
@@ -83,6 +83,10 @@ export interface Facts {
   annotations: { record: string; fields: FieldDecl[]; node: ts.Node; file: string }[];
   stores: { name: string; fields: FieldDecl[]; node: ts.Node; file: string }[];
   addresses: Set<string>;
+  loads: Set<string>;
+  links: Set<string>;
+  /** Loads emitted as the app's copy, address to file. */
+  assets: Map<string, string>;
   slot?: string;
   meta?: { id?: string; name: string; description: string };
 }
@@ -135,7 +139,7 @@ const KIND_HINTS: Partial<Record<ts.SyntaxKind, string>> = {
 
 export class Emitter {
   readonly errors: ThxError[] = [];
-  readonly facts: Facts = { imports: [], annotations: [], stores: [], addresses: new Set() };
+  readonly facts: Facts = { imports: [], annotations: [], stores: [], addresses: new Set(), loads: new Set(), links: new Set(), assets: new Map() };
   private temp = 0;
   private fnStack: FnCtx[] = [];
   private sf!: ts.SourceFile;
@@ -1280,11 +1284,31 @@ export class Emitter {
 
   private addressLiteral(lit: ts.StringLiteral | ts.NoSubstitutionTemplateLiteral, kind: "link" | "load", tag: string, name: string): string {
     const text = lit.text;
-    const hosts = kind === "load" ? this.env.addressHosts : (this.env.linkHosts ?? []);
-    const check = checkAddress(text, kind, hosts);
-    if (check !== true) return this.error(lit, "thx/address", `\`<${tag} ${name}="${text.length > 60 ? text.slice(0, 57) + "..." : text}">\`: ${check}`, kind === "load" ? `A loaded address is a \`data:\` address or on one of the app's address hosts (${hosts.join(", ") || "none"}).` : `A written-out link is an http or https address on one of the app's link hosts (${hosts.join(", ") || "none"}). To link elsewhere, pass along a \`Url\` the app handed you.`);
-    if (!text.startsWith("data:")) this.facts.addresses.add(text);
-    return `rt.addr(${JSON.stringify(text)}, ${JSON.stringify(kind)})`;
+    const check = checkAddress(text, kind);
+    if (check !== true)
+      return this.error(
+        lit,
+        "thx/address",
+        `\`<${tag} ${name}="${text.length > 60 ? text.slice(0, 57) + "..." : text}">\`: ${check}`,
+        kind === "load"
+          ? "A loaded address is an `https://` address, which the build copies into the app, or a `data:` image or font."
+          : "A written-out link is an `https://` address. To link elsewhere, pass along a `Url` the app handed you.",
+      );
+    if (text.startsWith("data:")) return `rt.addr(${JSON.stringify(text)}, ${JSON.stringify(kind)})`;
+    this.facts.addresses.add(text);
+    if (kind === "link") {
+      this.facts.links.add(text);
+      return `rt.addr(${JSON.stringify(text)}, "link")`;
+    }
+    this.facts.loads.add(text);
+    // The build step fetched this address and stored the file with the version: load the app's copy. Without one the
+    // runtime refuses the outside address when it renders, so nothing written in the source loads from outside.
+    const copied = this.env.assets && Object.prototype.hasOwnProperty.call(this.env.assets, text) ? this.env.assets[text] : undefined;
+    if (typeof copied === "string" && ASSET_FILE.test(copied)) {
+      this.facts.assets.set(text, copied);
+      return `rt.asset(${JSON.stringify(copied)})`;
+    }
+    return `rt.addr(${JSON.stringify(text)}, "load")`;
   }
 
   private jsxChildren(children: ts.NodeArray<ts.JsxChild>): string {
@@ -1305,10 +1329,9 @@ export class Emitter {
   }
 }
 
-/** True when an address literal may stand where `kind` says, or the reason it may not. `hosts` are the outside
- * hosts allowed for that kind: `addressHosts` for a load, `linkHosts` for a link. A host not listed is refused for
- * both, since choosing among fixed addresses on a host is a message to whoever runs it. */
-export function checkAddress(text: string, kind: "link" | "load", hosts: string[]): true | string {
+/** True when an address literal may stand where `kind` says, or the reason it may not. Any `https://` host will do
+ * for both: a written-out load is copied into the app at build, and a written-out link waits for a click. */
+export function checkAddress(text: string, kind: "link" | "load"): true | string {
   if (kind === "load" && /^data:/i.test(text)) {
     if (!/^data:(image\/(png|jpeg|gif|webp|avif|svg\+xml)|font\/(woff2?|ttf|otf))[;,]/i.test(text)) return "a `data:` address here must be an image or a font.";
     return true;
@@ -1319,10 +1342,10 @@ export function checkAddress(text: string, kind: "link" | "load", hosts: string[
   } catch {
     return "this is not a full address. Write it with `https://`.";
   }
-  if (url.protocol !== "https:" && url.protocol !== "http:") return `\`${url.protocol}\` addresses are not allowed.`;
+  if (url.protocol === "http:") return kind === "load" ? "an address a plugin loads must be `https://`: the build copies it into the app, and copies only over https." : "a written-out link must be `https://`.";
+  if (url.protocol !== "https:") return `\`${url.protocol}\` addresses are not allowed.`;
   if (url.username || url.password) return "an address can't carry a user name or password.";
-  if (!hosts.map((h) => h.toLowerCase()).includes(url.hostname.toLowerCase()))
-    return kind === "load" ? `\`${url.hostname}\` is not one of the hosts the app lets plugins load from.` : `\`${url.hostname}\` is not one of the hosts the app lets plugins link to.`;
+  if (!url.hostname) return "this address has no host.";
   return true;
 }
 

@@ -24,20 +24,17 @@ const TYPES: Record<string, string> = {
   ".txt": "text/plain; charset=utf-8",
 };
 
-function source(host: string): string {
-  return host.includes("://") ? host : `https://${host}`;
-}
-
 /** Defence in depth behind the compiler (L7): the page loads script, connects and frames from itself only, and
- * loads images and fonts from itself, `data:` and the config's `addressHosts`. */
-export function contentSecurityPolicy(addressHosts: string[] = []): string {
-  const hosts = addressHosts.map(source);
+ * fonts from itself and `data:`. Images may come from any https host, because a `Url` the app hands a plugin (an
+ * avatar, a url field) may load wherever it points; an image written in a plugin's source was copied into the app at
+ * build, and the runtime refuses it from anywhere else. */
+export function contentSecurityPolicy(): string {
   return [
     "default-src 'self'",
     "script-src 'self'",
     "connect-src 'self'",
-    ["img-src 'self' data:", ...hosts].join(" "),
-    ["font-src 'self' data:", ...hosts].join(" "),
+    "img-src 'self' data: https:",
+    "font-src 'self' data:",
     "style-src 'self' 'unsafe-inline'",
     "frame-src 'none'",
     "object-src 'none'",
@@ -52,7 +49,6 @@ export interface HandlerOptions {
   /** Why there is no server, for the page. */
   problem?(): string | null;
   clientDir: string;
-  addressHosts(): string[];
 }
 
 function text(status: number, body: string): Response {
@@ -106,7 +102,7 @@ export function createHandler(options: HandlerOptions): (request: Request) => Pr
     const index = await readIfFile(join(options.clientDir, "index.html"));
     if (!index) return text(404, `The app has not built yet: ${options.problem?.() ?? "no index.html in the client build"}`);
     return new Response(index as BodyInit, {
-      headers: { ...common, "content-type": TYPES[".html"], "content-security-policy": contentSecurityPolicy(options.addressHosts()) },
+      headers: { ...common, "content-type": TYPES[".html"], "content-security-policy": contentSecurityPolicy() },
     });
   };
 }

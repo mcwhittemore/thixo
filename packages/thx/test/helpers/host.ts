@@ -45,8 +45,8 @@ export interface FakeOptions {
   todos?: Todo[];
   assignees?: { todoId: string; name: string }[];
   annotations?: Record<string, Record<string, unknown>>;
-  /** The runtime's `addressHosts`. */
-  addressHosts?: string[];
+  /** The runtime's `assetAddress`: where a copied file is served. */
+  assetAddress?: (file: string) => string;
   /** Extra people `listPeople` answers with, after Ana. */
   people?: { id: string; name: string; avatar: string }[];
 }
@@ -88,7 +88,7 @@ export async function fakeApp(code: string, opts: FakeOptions = {}): Promise<Fak
     Fragment: "Fragment",
     modules: {},
     budget: opts.budget,
-    addressHosts: opts.addressHosts,
+    assetAddress: opts.assetAddress,
     onError: (e) => errors.push(e),
     insertStyle: (cls, text) => styles.set(cls, text),
   };

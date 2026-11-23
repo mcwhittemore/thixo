@@ -10,6 +10,7 @@
 
 import type { CreateRuntime, PluginDefinition, PluginMeta, Runtime, RuntimeHost, Url } from "../contract.js";
 import {
+  ASSET_FILE,
   attrKind,
   isElementAllowed,
   MEDIA_RE,
@@ -69,6 +70,8 @@ interface Ctx {
 
 interface UrlInfo {
   address: string;
+  /** True when the compiler wrote it from the source (`rt.addr`, `rt.asset`), false when the host handed it in. */
+  written: boolean;
 }
 
 function isPrimitive(v: unknown): v is string | number | boolean | null | undefined {
@@ -96,29 +99,25 @@ function cssString(text: string): string {
   return `"${text.replace(/["\\\n\r\f]/g, (c) => `\\${c.charCodeAt(0).toString(16)} `)}"`;
 }
 
-/** The host of an http or https address, lower-cased, or undefined for anything else. */
-function outsideHost(address: string): string | undefined {
-  if (!/^https?:\/\/[^/]/i.test(address)) return undefined;
-  try {
-    return new URL(address).hostname.toLowerCase();
-  } catch {
-    return undefined;
-  }
-}
-
-/** Which addresses each kind of attribute may hold. A load (`<img src>`, a style's `url()`) fires with no click, so
- * an outside one must be on a host in `loadHosts`, the app's `addressHosts`, whether the compiler wrote the `Url` or
- * the app handed it in: a `Url` from data is not a way out to a host the implementor never listed (L4, L7). A link
- * waits for a click and may be any http or https `Url`; its written-out hosts were checked at build. */
-function addressAllowed(address: string, kind: "link" | "load" | "any", loadHosts?: ReadonlySet<string>): boolean {
+/** Which addresses each kind of attribute may hold. `written` is true for a `Url` the compiler wrote from the
+ * source, false for one the host handed in.
+ *
+ * - A load (`<img src>`, a style's `url()`) fires with no click. One written in the source is never an outside
+ *   address: the build copied it into the app (`rt.asset`), so the page never fetches from a host because of what a
+ *   plugin's author wrote. One the app handed in may be on any http or https host: the plugin did not make it.
+ * - A link waits for a click. One written in the source is any https address; one handed in is http, https or
+ *   mailto.
+ * - Nothing runs: `javascript:` and every other scheme are refused, as is a `data:` address that is not an image or a
+ *   font. */
+function addressAllowed(address: string, kind: "link" | "load" | "any", written: boolean): boolean {
   if (/[\u0000-\u001f\u007f\s]/.test(address)) return false;
   if (address.startsWith("/") && !address.startsWith("//")) return true;
   if (/^https?:\/\/[^/]/i.test(address)) {
-    if (kind !== "load") return true;
-    const host = outsideHost(address);
-    return host !== undefined && loadHosts !== undefined && loadHosts.has(host);
+    if (!written) return true;
+    if (kind === "load") return false;
+    return /^https:/i.test(address);
   }
-  if (kind !== "load" && /^mailto:/i.test(address)) return true;
+  if (kind !== "load" && /^mailto:/i.test(address)) return !written;
   if (kind !== "link" && /^data:(image\/(png|jpeg|gif|webp|avif|svg\+xml)|font\/(woff2?|ttf|otf))[;,]/i.test(address)) return true;
   return false;
 }
@@ -127,7 +126,6 @@ export const createRuntime: CreateRuntime = (host: RuntimeHost): Runtime => {
   const id = ++runtimeCount;
   const budget = host.budget ?? DEFAULT_BUDGET;
   const maxResumes = Math.max(1000, Math.floor(budget / 50));
-  const loadHosts: ReadonlySet<string> = new NativeSet((host.addressHosts ?? []).map((h) => String(h).toLowerCase()));
 
   const records = new WeakSet<object>();
   const errorRecords = new WeakSet<object>();
@@ -1328,16 +1326,33 @@ export const createRuntime: CreateRuntime = (host: RuntimeHost): Runtime => {
     return out;
   }
 
-  function url(address: string): Url {
-    if (typeof address !== "string" || !addressAllowed(address, "any")) fail(`url: "${String(address)}" is not an address a plugin may be handed: http(s), mailto, a path on this app, or a data: image or font.`);
+  function mint(address: string, written: boolean): Url {
     const u = freeze(create(null)) as Url;
-    urls.set(u, { address });
+    urls.set(u, { address, written });
     return u;
   }
 
+  function url(address: string): Url {
+    if (typeof address !== "string" || !addressAllowed(address, "any", false)) fail(`url: "${String(address)}" is not an address a plugin may be handed: http(s), mailto, a path on this app, or a data: image or font.`);
+    return mint(address, false);
+  }
+
+  /** An address written out in the source. */
   function addr(text: unknown, kind: unknown): Url {
-    if (typeof text !== "string" || (kind !== "link" && kind !== "load") || !addressAllowed(text, kind, loadHosts)) fail("This address is not allowed here.");
-    return url(text);
+    if (typeof text !== "string" || (kind !== "link" && kind !== "load")) return fail("This address is not allowed here.");
+    if (kind === "load" && /^https?:/i.test(text))
+      fail(`This plugin's code loads ${text} from outside the app. A plugin's own images and fonts are copied into the app when it is built (thixo build, thixo dev, or the authoring agent's submit), and this code was not.`);
+    if (!addressAllowed(text, kind, true)) fail("This address is not allowed here.");
+    return mint(text, true);
+  }
+
+  /** A file the build copied into the app for this version, by its name. The host says where it is served. */
+  function asset(file: unknown): Url {
+    if (typeof file !== "string" || !ASSET_FILE.test(file)) return fail("This is not the name of a copied file.");
+    if (!host.assetAddress) return fail("This app can't show a plugin's copied files here.");
+    const address = host.assetAddress(file);
+    if (typeof address !== "string" || !address.startsWith("/") || address.startsWith("//") || /[\u0000-\u001f\u007f\s]/.test(address)) return fail("A copied file must be served from a path on the app.");
+    return mint(address, true);
   }
 
   // ---- elements ----
@@ -1463,7 +1478,7 @@ export const createRuntime: CreateRuntime = (host: RuntimeHost): Runtime => {
           case "load": {
             const info = typeof v === "object" ? urls.get(v as object) : undefined;
             if (!info) fail(`${name} takes a Url: an address written out in the source or handed to the plugin. A plugin can't build one (L7).`);
-            if (!addressAllowed(info.address, kind, loadHosts)) fail(kind === "load" ? `${name} can't load that address: an outside address a plugin loads must be on one of the app's address hosts.` : `${name} can't hold that address.`);
+            if (!addressAllowed(info.address, kind, info.written)) fail(kind === "load" ? `${name} can't load that address: an address written in a plugin's source loads only from the app.` : `${name} can't hold that address.`);
             put(name, info.address);
             break;
           }
@@ -1538,8 +1553,8 @@ export const createRuntime: CreateRuntime = (host: RuntimeHost): Runtime => {
     }
     if (typeof v === "object" && v !== null && urls.has(v)) {
       if (!STYLE_URL_PROPS.has(prop)) fail(`${prop} can't hold a Url.`);
-      const address = urls.get(v)!.address;
-      if (!addressAllowed(address, "load", loadHosts)) fail(`${prop} can't load that address: an outside address a plugin loads must be on one of the app's address hosts.`);
+      const { address, written } = urls.get(v)!;
+      if (!addressAllowed(address, "load", written)) fail(`${prop} can't load that address: an address written in a plugin's source loads only from the app.`);
       return `url(${cssString(address)})`;
     }
     if (typeof v !== "string") return fail(`${prop} takes a string, a number or a Url, not ${describe(v)}.`);
@@ -1718,6 +1733,7 @@ export const createRuntime: CreateRuntime = (host: RuntimeHost): Runtime => {
       el,
       frag,
       addr,
+      asset,
       imp,
       nw: construct,
       plugin,

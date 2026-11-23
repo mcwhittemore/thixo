@@ -29,6 +29,7 @@ export const RT_NAMES: ReadonlySet<string> = new Set([
   "el",
   "frag",
   "addr",
+  "asset",
   "imp",
   "nw",
   "plugin",

@@ -45,7 +45,6 @@ const linkApp: AppInfo = {
   records: [{ name: "link", exportName: "Link", read: ["links.read"], fields: { id: { kind: "string" }, href: { kind: "url" }, seenAt: { kind: "date" } } }],
   slots: [],
   libraries: [],
-  addressHosts: [],
 };
 
 const linkManifest = manifest({

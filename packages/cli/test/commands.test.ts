@@ -6,7 +6,9 @@ import { run } from "../src/main.js";
 import { startDev } from "../src/dev.js";
 import { startServer } from "../src/start.js";
 import { readBuildManifest } from "../src/build.js";
-import { fakeDeps, testIo, workdir } from "./support/helpers.js";
+import { fakeDeps, fakeThx, testIo, workdir } from "./support/helpers.js";
+
+const fakeThxCompile = (files: Record<string, string>, env: Parameters<typeof fakeThx.compile>[1]) => fakeThx.compile(files, env);
 
 async function token(url: string, headers: Record<string, string> = {}) {
   return fetch(`${url}/_thixo/app`, { headers });
@@ -98,7 +100,7 @@ test("start needs a build, then serves api, static files, and index.html with a 
       assert.equal(route.status, 200);
       assert.match(await route.text(), /<div id="root">/);
       const csp = route.headers.get("content-security-policy")!;
-      assert.match(csp, /default-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data: https:\/\/cdn\.example\.com/);
+      assert.match(csp, /default-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data: https:; font-src 'self' data:;/);
       assert.equal((await fetch(`${started.url}/missing.png`)).status, 404);
       assert.equal((await fetch(`${started.url}/..%2f..%2fpackage.json`)).status === 200, false);
       assert.equal((await fetch(`${started.url}/_thixo/authoring/tool`, { method: "POST" })).status, 404, "no agent key, no route");
@@ -215,6 +217,44 @@ test("compile: inside a project it uses the real env and prints manifest, summar
     const badJson = testIo(w.root);
     assert.equal(await run(["compile", "bad.thx", "--json"], { io: badJson, deps: fakeDeps() }), 1);
     assert.equal(JSON.parse(badJson.stdout.join("\n")).errors[0].code, "thx/no-global");
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("compile and build go through the server's build step, which copies outside loads; a failed copy fails the build", async () => {
+  const w = workdir();
+  try {
+    const LOGO = "https://cdn.example.com/logo.png";
+    const file = `${"c".repeat(64)}.png`;
+    const bytes = Uint8Array.from([137, 80, 78, 71]);
+    const asked: string[] = [];
+    const base = fakeDeps();
+    const server = await base.server();
+    const copying = fakeDeps({
+      server: async () => ({
+        ...server,
+        async buildWithCopies(_build, env, files) {
+          asked.push(Object.keys(files).join(","));
+          const compiled = fakeThxCompile(files, env);
+          if (!compiled.ok) return compiled;
+          if ((files["plugin.thx"] ?? "").includes("broken.png"))
+            return { ok: false, errors: [{ file: "plugin.thx", line: 4, column: 13, code: "build/copy-failed", message: "Could not copy https://cdn.example.com/broken.png into the app: the host answered 404." }] };
+          return { ...compiled, manifest: { ...compiled.manifest, addresses: [LOGO], loads: [LOGO], assets: { [LOGO]: file } }, assets: { [file]: bytes } };
+        },
+      }),
+    });
+    const io = testIo(w.root);
+    const out = join(w.root, "out");
+    assert.equal(await run(["compile", "plugins/hello", "--out", out], { io, deps: copying }), 0, io.stderr.join("\n"));
+    assert.deepEqual(asked, ["plugin.thx"], "compile used the build step");
+    assert.deepEqual(new Uint8Array(readFileSync(join(out, "assets", file))), bytes, "--out writes the copied files");
+    assert.match(io.stdout.join("\n"), /Copies into the app at build, and loads from there: https:\/\/cdn\.example\.com\/logo\.png\./);
+
+    writeFileSync(join(w.root, "plugins/hello/plugin.thx"), readFileSync(join(w.root, "plugins/hello/plugin.thx"), "utf8") + "\n// broken.png\n");
+    const failed = testIo(w.root);
+    assert.equal(await run(["build"], { io: failed, deps: copying }), 1);
+    assert.match(failed.stdout.join("\n") + failed.stderr.join("\n"), /build\/copy-failed Could not copy https:\/\/cdn\.example\.com\/broken\.png into the app/);
   } finally {
     w.cleanup();
   }
