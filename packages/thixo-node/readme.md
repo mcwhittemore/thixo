@@ -22,7 +22,7 @@ export default defineConfig({
 
 ## `claudeCode(options?)`
 
-The model for the authoring chat. It runs the local `claude` command, so it needs no API key.
+The model for the authoring chat. It runs the local `claude` command, so it needs no API key. It is the same code as `claudeCode` in `thixo-anthropic/node`, re-exported here. Most apps use `anthropic()` from `thixo-anthropic/node` instead, which picks this when there is no key.
 
 ```ts
 import { claudeCode } from "thixo-node";

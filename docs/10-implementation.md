@@ -238,12 +238,19 @@ Forking does not put the copy in the user's layout. `use` does, so a fork never 
 
 Three ways to drive it:
 
-1. `<AuthoringChat />` in the shell, with a model adapter (U1). `thixo-anthropic` needs `ANTHROPIC_API_KEY`.
-   `claudeCode()` from `thixo-node` runs the local `claude` command and needs no key.
+1. `<AuthoringChat />` in the shell, with a model adapter (U1). `thixo-anthropic` is the one place an implementor
+   goes for Claude. `anthropic()` from `thixo-anthropic/node` calls the Claude API when `ANTHROPIC_API_KEY` is set. With
+   no key, in development, it runs the local `claude` command, so whoever is signed in to Claude Code needs nothing
+   else, and it logs one line saying which it chose. With no key in production it fails with a clear error. The part
+   that starts a process is Node-only (X3, X4), so it is the `thixo-anthropic/node` entry; the bare `thixo-anthropic`
+   entry is web-standard and calls the API only. `claudeCode()` is the same code, still exported from `thixo-node`.
+   `thixo dev` runs with `NODE_ENV` set to `development` and `thixo start` with `production`, unless it is already set.
 2. A scripted model adapter, for tests.
-3. `thixo agent <tool> --as <user>` from the command line, in development. An outside coding agent is the authoring
-   agent, and uses the same tools as a named user. `thixo dev` writes a key to `.thixo/agent-key`, and the tool route
-   refuses a request without it. A production server has no key, so the route is off.
+3. `thixo agent <tool> --as <user>` from the command line, in development. It is not a model adapter and does not
+   call a model. It lets an outside coding agent (Claude Code, say) use the authoring tools as a named user, so the
+   agent can write and check plugins itself. `thixo dev` writes a key to `.thixo/agent-key`, and the tool route
+   refuses a request without it. `thixo start` and a production build have no key, and the route also refuses when
+   `NODE_ENV` is `production`, so it is off even with a stale key file on disk.
 
 ## The command
 

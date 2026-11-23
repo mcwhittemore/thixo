@@ -54,6 +54,7 @@ async function ensureFreeFolder(dir, name) {
 export const CHECKOUT_PACKAGES = {
   thixo: "packages/core",
   "thixo-cli": "packages/cli",
+  "thixo-anthropic": "packages/thixo-anthropic",
   "thixo-node": "packages/thixo-node",
   react: "node_modules/react",
   "react-dom": "node_modules/react-dom",
@@ -81,7 +82,7 @@ export async function findCheckout(template = DEFAULT_TEMPLATE) {
 /** Whether the checkout's packages are built: `thixo dev` needs each one's dist/. */
 export async function checkoutBuilt(root) {
   try {
-    for (const path of ["packages/core", "packages/cli", "packages/thixo-node"]) await access(join(root, path, "dist"));
+    for (const path of ["packages/core", "packages/cli", "packages/thixo-node", "packages/thixo-anthropic"]) await access(join(root, path, "dist"));
     return true;
   } catch {
     return false;

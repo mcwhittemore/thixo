@@ -11,11 +11,12 @@ The config an app passes to the server and the build.
 
 ```ts
 import { defineConfig } from "thixo";
-import { local, claudeCode } from "thixo-node";
+import { local } from "thixo-node";
+import { anthropic } from "thixo-anthropic/node";
 
 export default defineConfig({
   adapters: local(),
-  model: claudeCode(),
+  model: anthropic(),
   layout: { main: "todo-list" },
 });
 ```

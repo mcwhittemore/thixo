@@ -78,6 +78,11 @@ refused, with the slots it has.
 registry gives a submitted plugin its own.`,
   agent: `thixo agent <tool> --as <user> [options]
 
+A development tool, not a model adapter. It lets an outside coding agent (Claude Code, say) use the authoring
+tools as a named user, the way the authoring chat's own model does. It does not call a model and has nothing to do
+with thixo-anthropic or an API key. It works only against \`thixo dev\`: \`thixo start\` and production builds have
+no agent key, so the route is off.
+
 Calls one authoring tool on the running \`thixo dev\` as <user>. Sends POST /_thixo/authoring/tool with
 { tool, as, input } and the key in .thixo/agent-key.
 

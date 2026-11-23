@@ -10,9 +10,9 @@
     "node": ">=22.13"
   },
   "scripts": {
-    "build": "tsc -b packages/thx packages/core packages/thixo-sql packages/thixo-node packages/thixo-anthropic packages/cli",
+    "build": "tsc -b packages/thx packages/core packages/thixo-sql packages/thixo-anthropic packages/thixo-node packages/cli",
     "test": "npm run test -w thixo-thx -w thixo -w thixo-sql -w thixo-node -w thixo-anthropic -w thixo-cli -w create-thixo-app",
-    "typecheck": "tsc -b packages/thx packages/core packages/thixo-sql packages/thixo-node packages/thixo-anthropic packages/cli && tsc -p packages/core/test",
+    "typecheck": "tsc -b packages/thx packages/core packages/thixo-sql packages/thixo-anthropic packages/thixo-node packages/cli &&tsc -p packages/core/test",
     "e2e": "node --test --test-concurrency=1 \"tests/e2e/*.e2e.mjs\""
   },
   "devDependencies": {

@@ -14,7 +14,7 @@ The local adapters are what a developer gets when Thixo runs on their machine wi
 ## How to get to it (user POV)
 
 - Start an app with `npx thixo dev examples/todo`. The CLI builds `local()` from `THIXO_PROJECT_DIR` (default: the current directory) and serves it with `serve()`.
-- Open the app in a browser and open the authoring chat. With no API key set, the chat uses `claudeCode()`.
+- Open the app in a browser and open the authoring chat. With no API key set, the chat uses the local `claude` command through `anthropic()` from `thixo-anthropic/node`; `claudeCode()` is the same adapter, still exported from `thixo-node`.
 - Look in `<project>/.thixo/`. `data.sqlite` appears after the first request that touches data, and `code/` after the first plugin is submitted.
 - Promote a plugin. Its files appear under `<project>/plugins/<name>/` in the working tree.
 

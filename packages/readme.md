@@ -9,7 +9,7 @@ one's tests. [docs/10](../docs/10-implementation.md) is the build spec; `thx/src
 | `thx` | `thixo-thx` | The plugin language, thx: compiler, output verifier, in-page runtime. The wall. | Built |
 | `core` | `thixo` | `thixo`, `thixo/api`, `thixo/schema`, `thixo/slots`, `thixo/server` (API, token, registry, plugin data, layouts, deploy, authoring agent), `thixo/shell` (shell, slots, broker, plugin host, `thixo/ui`). No provider code. | Built |
 | `thixo-sql` | `thixo-sql` | The data adapter, on a small SQL driver interface. See [its readme](thixo-sql/readme.md). | Built, run on SQLite only |
-| `thixo-node` | `thixo-node` | Local adapters: `local()` (files for code, `node:sqlite` for data, an in-process build), `serve()`, and `claudeCode()`, a model adapter on the local `claude` command. | Built |
+| `thixo-node` | `thixo-node` | Local adapters: `local()` (files for code, `node:sqlite` for data, an in-process build), `serve()`, and `claudeCode()` (re-exported from `thixo-anthropic/node`). | Built |
 | `thixo-anthropic` | `thixo-anthropic` | The model adapter for the Claude API. | Built, tested against a local fake of the API |
 | `cli` | `thixo-cli` | The `thixo` command: dev, build, start, compile, new plugin, agent, registry list, release. | Built |
 | `create-thixo-app` | `create-thixo-app` | Starts a new app from the todo example. | Not written |

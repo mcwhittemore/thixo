@@ -34,7 +34,7 @@ or must be empty. If it has files in it, the command stops and writes nothing.
 - `app/slots.ts`: one page slot, `main`, and one panel slot, `todo-detail`.
 - `app/shell.tsx`: the base app.
 - `plugins/todo-list/` and `plugins/todo-info/`: one default plugin for each slot.
-- `thixo.config.ts`: `local()` adapters, `claudeCode()` as the model, and the default layout.
+- `thixo.config.ts`: `local()` adapters, `anthropic()` from `thixo-anthropic/node` as the model (the Claude API with a key, your local `claude` login without one, in development), and the default layout.
 - `package.json`: `dev`, `build` and `start` scripts.
 
 ## Graying out an action

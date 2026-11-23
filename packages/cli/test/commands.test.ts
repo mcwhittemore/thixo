@@ -187,6 +187,64 @@ test("dev passes the agent key to createThixo through config.agentKey, and start
   }
 });
 
+test("thixo agent works only under thixo dev: start and a production build refuse the tool route, even with a stale key file", async () => {
+  const w = workdir();
+  try {
+    const deps = fakeDeps();
+    const dev = await startDev(w.paths, { port: 0, watch: false }, testIo(w.root), deps);
+    try {
+      const key = readFileSync(w.paths.agentKeyFile, "utf8").trim();
+      const call = (url: string) =>
+        fetch(`${url}/_thixo/authoring/tool`, { method: "POST", headers: { "content-type": "application/json", "x-thixo-agent-key": key }, body: JSON.stringify({ tool: "describe_app", as: "ana", input: {} }) });
+      assert.equal(((await (await call(dev.url)).json()) as { error: { code: string } }).error.code, "unknown_user", "dev serves the route: it got as far as looking for the user");
+      await run(["build", w.root], { io: testIo(w.root), deps });
+      assert.doesNotMatch(readFileSync(w.paths.serverBundle, "utf8"), new RegExp(key), "the build holds no key");
+      // The key file from dev is still on disk. start does not read it, and `thixo agent` against start is refused.
+      const started = await startServer(w.paths, { port: 0 }, testIo(w.root), deps);
+      try {
+        const refused = await call(started.url);
+        assert.equal(refused.status, 404);
+        assert.match(((await refused.json()) as { error: { message: string } }).error.message, /tool route is off/);
+        const io = testIo(w.root);
+        const port = Number(new URL(started.url).port);
+        assert.equal(await run(["agent", "describe", "--as", "ana", "--port", String(port)], { io, deps }), 1);
+        assert.match(io.stderr.join("\n"), /describe_app failed \(404/);
+        assert.match(io.stderr.join("\n"), /needs `thixo dev`/);
+      } finally {
+        await started.close();
+      }
+    } finally {
+      await dev.close();
+    }
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("thixo agent --help says what it is for and that only thixo dev serves it", async () => {
+  const io = testIo(process.cwd());
+  assert.equal(await run(["agent", "--help"], { io, deps: fakeDeps() }), 0);
+  const text = io.stdout.join("\n");
+  assert.match(text, /outside coding agent/);
+  assert.match(text, /not a model adapter/);
+  assert.match(text, /only against `thixo dev`/);
+});
+
+test("runStart and runDev set NODE_ENV for the app they load, and put it back", async () => {
+  const { withNodeEnv } = await import("../src/io.js");
+  const saved = process.env.NODE_ENV;
+  delete process.env.NODE_ENV;
+  try {
+    assert.equal(await withNodeEnv("production", async () => process.env.NODE_ENV), "production");
+    assert.equal(process.env.NODE_ENV, undefined);
+    process.env.NODE_ENV = "test";
+    assert.equal(await withNodeEnv("production", async () => process.env.NODE_ENV), "test", "an explicit value wins");
+  } finally {
+    if (saved === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = saved;
+  }
+});
+
 test("compile: inside a project it uses the real env and prints manifest, summary and size", async () => {
   const w = workdir();
   try {

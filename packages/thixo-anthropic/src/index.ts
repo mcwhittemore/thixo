@@ -13,9 +13,9 @@ export const DEFAULT_MODEL = "claude-opus-5-5";
 export const DEFAULT_MAX_TOKENS = 16000;
 
 export const MISSING_KEY_MESSAGE =
-  "The Claude API key is missing. Set ANTHROPIC_API_KEY, or pass apiKey to anthropic(), and try again.";
+  "The Claude API key is missing. Set ANTHROPIC_API_KEY, or pass apiKey to anthropic(), and try again. To use the local claude login in development, import anthropic from thixo-anthropic/node instead.";
 
-function envKey(): string | undefined {
+export function envKey(): string | undefined {
   try {
     return typeof process === "undefined" ? undefined : process.env?.ANTHROPIC_API_KEY || undefined;
   } catch {

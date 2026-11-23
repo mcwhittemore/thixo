@@ -1,5 +1,6 @@
 import { defineConfig } from "thixo";
-import { local, claudeCode } from "thixo-node";
+import { local } from "thixo-node";
+import { anthropic } from "thixo-anthropic/node";
 import { readSession, scopesOf } from "./api/session.js";
 
 export default defineConfig({
@@ -15,8 +16,9 @@ export default defineConfig({
   // `local()` keeps code in files and data in SQLite, under .thixo/.
   adapters: local(),
 
-  // The authoring chat runs the local `claude` command and needs no key.
-  model: claudeCode(),
+  // The authoring chat's model. With ANTHROPIC_API_KEY it calls the Claude API; with no key, in development, it uses
+  // the local `claude` login. In production it needs the key.
+  model: anthropic(),
 
   // Which default plugin fills which slot for a new user.
   layout: {

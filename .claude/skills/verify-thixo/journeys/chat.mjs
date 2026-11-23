@@ -1,5 +1,5 @@
 // Sends one message to the authoring chat and waits for the agent to finish. It runs the app's model adapter (in the
-// examples, claudeCode(): the local `claude` command), so it costs usage: run it only when a real turn is the point.
+// examples, anthropic() from thixo-anthropic/node: the API with a key, else the local `claude` command), so it costs usage: run it only when a real turn is the point.
 //   ASK="Add a star to each todo row ..." node .../drive.mjs --run <id> --as ana --script .../journeys/chat.mjs --name chat
 // Enter in the Message box sends (Shift+Enter is a new line). While the agent works, a status reads "The agent is
 // working…" and each tool call adds a "Using <tool>" line to the log, which becomes the tool's outcome when it

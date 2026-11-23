@@ -12,7 +12,7 @@ export function nextSteps(name, { checkout = null, built = true } = {}) {
   const lines = [`Created ${name}.`, ""];
   if (checkout) {
     lines.push(
-      `thixo, thixo-cli and thixo-node are not on npm yet, so package.json links them, and React, from the Thixo checkout`,
+      `thixo, thixo-cli, thixo-node and thixo-anthropic are not on npm yet, so package.json links them, and React, from the Thixo checkout`,
       `at ${checkout}.`,
     );
     if (!built) lines.push(`Build it first: cd ${checkout} && npm install && npm run build`);
