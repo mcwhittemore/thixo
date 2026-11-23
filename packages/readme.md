@@ -8,7 +8,9 @@ one's tests. [docs/10](../docs/10-implementation.md) is the build spec; `thx/src
 | --- | --- | --- | --- |
 | `thx` | `thixo-thx` | The plugin language, thx: compiler, output verifier, in-page runtime. The wall. | Built |
 | `core` | `thixo` | `thixo`, `thixo/api`, `thixo/schema`, `thixo/slots`, `thixo/server` (API, token, registry, plugin data, layouts, deploy, authoring agent), `thixo/shell` (shell, slots, broker, plugin host, `thixo/ui`). No provider code. | Built |
-| `thixo-sql` | `thixo-sql` | The data adapter, on a small SQL driver interface. See [its readme](thixo-sql/readme.md). | Built, run on SQLite only |
+| `thixo-sql` | `thixo-sql` | The data adapter, on a small SQL driver interface, and the adapter's tests for any driver (`thixo-sql/testing`). See [its readme](thixo-sql/readme.md). | Built, run on SQLite, Postgres and D1 |
+| `thixo-postgres` | `thixo-postgres` | The Postgres driver for `thixo-sql`. See [its readme](thixo-postgres/readme.md). | Built, tested on real Postgres |
+| `thixo-d1` | `thixo-d1` | The Cloudflare D1 driver for `thixo-sql`. See [its readme](thixo-d1/readme.md). | Built, tested on Miniflare's D1 |
 | `thixo-node` | `thixo-node` | Local adapters: `local()` (files for code, `node:sqlite` for data, an in-process build), `serve()`, and `claudeCode()` (re-exported from `thixo-anthropic/node`). | Built |
 | `thixo-anthropic` | `thixo-anthropic` | The model adapter for the Claude API. | Built, tested against a local fake of the API |
 | `cli` | `thixo-cli` | The `thixo` command: dev, build, start, compile, new plugin, agent, registry list, release. | Built |

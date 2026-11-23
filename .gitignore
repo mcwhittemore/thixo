@@ -8,3 +8,4 @@ artifacts
 
 # Scratch apps made by create-thixo-app while testing
 examples-tmp
+.wrangler/

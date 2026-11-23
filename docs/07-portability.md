@@ -57,7 +57,10 @@ interface DataAdapter {
 also holds registry records and layouts. A plugin never changes the database schema. The adapter owns its schema
 and ships its own migrations with each Thixo release.
 
-Thixo's SQL adapter is [`thixo-sql`](../packages/thixo-sql/readme.md). A key-value adapter is possible. Reading
+Thixo's SQL adapter is [`thixo-sql`](../packages/thixo-sql/readme.md). It talks to a small driver, and each database
+has its own driver package, which is the provider code (X4): `thixo-node` for SQLite, `thixo-postgres` for Postgres
+and `thixo-d1` for Cloudflare D1. One suite of tests runs the adapter against every driver. A key-value adapter is
+possible. Reading
 through a chain costs a fetch per layer.
 
 Finding plugin data by value is not in the first version. Registry search ranks plugins by meaning, which plain

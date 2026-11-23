@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { sqlDataAdapter } from "thixo-sql";
+import { adapterSuite } from "thixo-sql/testing";
 import { sqliteDriver } from "../src/sqlite-driver.js";
 
 const scratch = () => mkdtempSync(join(tmpdir(), "thixo-node-"));
@@ -43,4 +44,15 @@ test("loading the driver prints no experimental warning, and other warnings stil
   `;
   const out = execFileSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], cwd: new URL("..", import.meta.url).pathname });
   assert.equal(out, "");
+});
+
+adapterSuite("sqliteDriver on node:sqlite", async () => {
+  const driver = sqliteDriver(":memory:");
+  return {
+    driver,
+    breakField: async (field) => {
+      await driver.run(`CREATE TRIGGER fail_on_field BEFORE INSERT ON thixo_data WHEN NEW.field = '${field}' BEGIN SELECT RAISE(ABORT, 'boom'); END`);
+    },
+    close: async () => driver.close(),
+  };
 });
