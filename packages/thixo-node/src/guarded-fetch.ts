@@ -2,7 +2,8 @@
 // it must not be a way to reach inside the network the server sits in: https only, on port 443; every host resolved
 // and refused when any of its addresses is loopback, private, link-local, a cloud metadata address or otherwise not on
 // the public internet; the connection pinned to the address that was checked (no second lookup to rebind); the same
-// again after each redirect, of which there are few; a timeout; a size cap; and images and fonts only.
+// again after each redirect, of which there are few; one timeout over every step, the lookup too; a size cap; and
+// images and fonts only.
 
 import { lookup as dnsLookup } from "node:dns/promises";
 import { request as httpsRequest } from "node:https";
@@ -28,11 +29,77 @@ export interface GuardedFetchOptions {
   timeoutMs?: number;
   /** Default 3. */
   maxRedirects?: number;
+  /** How many host lookups run at once, across every fetch this fetcher makes. Default 4. A lookup that waits for a
+   * turn counts against the fetch's time like any other step. */
+  maxLookups?: number;
 }
 
 export type AssetFetch = (address: string, limits: AssetLimits) => Promise<FetchedAsset>;
 
 class Refused extends Error {}
+
+class Stopped extends Error {}
+
+/** `work`, or a `Stopped` rejection as soon as `signal` aborts: a step that ignores the signal (a lookup, an injected
+ * hook) can't hold the fetch past its time. */
+function untilAborted<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(new Stopped());
+  return new Promise<T>((ok, fail) => {
+    const stop = () => fail(new Stopped());
+    signal.addEventListener("abort", stop, { once: true });
+    work.then(
+      (value) => {
+        signal.removeEventListener("abort", stop);
+        ok(value);
+      },
+      (error) => {
+        signal.removeEventListener("abort", stop);
+        fail(error);
+      },
+    );
+  });
+}
+
+/** A count of turns: at most `size` holders at once, the rest wait in order. A wait gives up when its signal aborts. */
+function turns(size: number) {
+  let free = size;
+  const waiting: (() => void)[] = [];
+  function release() {
+    const next = waiting.shift();
+    if (next) next();
+    else free++;
+  }
+  return async function take(signal: AbortSignal): Promise<() => void> {
+    if (free > 0) free--;
+    else {
+      let wake!: () => void;
+      const turn = new Promise<void>((ok) => (wake = ok));
+      waiting.push(wake);
+      try {
+        await untilAborted(turn, signal);
+      } catch (error) {
+        const at = waiting.indexOf(wake);
+        // Still waiting: leave the queue. Already woken: the turn was handed over, so hand it on.
+        if (at >= 0) waiting.splice(at, 1);
+        else release();
+        throw error;
+      }
+    }
+    let done = false;
+    return () => {
+      if (done) return;
+      done = true;
+      release();
+    };
+  };
+}
+
+/** "10 seconds", "0.3 seconds". */
+function inSeconds(ms: number): string {
+  const s = ms / 1000;
+  const text = Number.isInteger(s) ? String(s) : s >= 10 ? String(Math.round(s)) : s.toFixed(1).replace(/\.0$/, "");
+  return `${text} ${text === "1" ? "second" : "seconds"}`;
+}
 
 // ---- Which addresses are on the public internet ----
 
@@ -158,8 +225,18 @@ export function guardedFetch(options: GuardedFetchOptions = {}): AssetFetch {
   const get = options.get ?? systemGet;
   const timeoutMs = options.timeoutMs ?? 10_000;
   const maxRedirects = options.maxRedirects ?? 3;
+  const lookup = turns(Math.max(1, options.maxLookups ?? 4));
 
-  async function pinned(url: URL): Promise<string> {
+  async function resolveWithin(host: string, signal: AbortSignal): Promise<string[]> {
+    const release = await lookup(signal);
+    try {
+      return await untilAborted(resolve(host), signal);
+    } finally {
+      release();
+    }
+  }
+
+  async function pinned(url: URL, signal: AbortSignal): Promise<string> {
     if (url.protocol !== "https:") throw new Refused(`only https addresses are copied, and this one ${url.protocol === "http:" ? "is" : "goes to"} ${url.protocol}//.`);
     if (url.username || url.password) throw new Refused("an address with a user name or password is not copied.");
     if (url.port && url.port !== "443") throw new Refused(`only the standard https port is copied from, not port ${url.port}.`);
@@ -172,8 +249,9 @@ export function guardedFetch(options: GuardedFetchOptions = {}): AssetFetch {
     if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".internal")) throw new Refused(`${host} is not a public host.`);
     let addresses: string[];
     try {
-      addresses = await resolve(host);
-    } catch {
+      addresses = await resolveWithin(host, signal);
+    } catch (error) {
+      if (error instanceof Stopped) throw error;
       throw new Refused(`${host} could not be found.`);
     }
     if (!addresses.length) throw new Refused(`${host} could not be found.`);
@@ -185,6 +263,12 @@ export function guardedFetch(options: GuardedFetchOptions = {}): AssetFetch {
   return async function fetchAsset(address, limits) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
+    // The build's own signal: its deadline passed, or another copy in the same build failed.
+    const outer = limits.signal;
+    const stopForBuild = () => controller.abort();
+    if (outer?.aborted) controller.abort();
+    else outer?.addEventListener("abort", stopForBuild, { once: true });
+    const signal = controller.signal;
     let response: RawResponse | undefined;
     try {
       let url: URL;
@@ -194,8 +278,8 @@ export function guardedFetch(options: GuardedFetchOptions = {}): AssetFetch {
         throw new Refused("it is not a full address.");
       }
       for (let redirects = 0; ; redirects++) {
-        const ip = await pinned(url);
-        response = await get(url, ip, controller.signal);
+        const ip = await pinned(url, signal);
+        response = await untilAborted(get(url, ip, signal), signal);
         if (response.status >= 300 && response.status < 400 && response.headers.location) {
           response.destroy();
           if (redirects >= maxRedirects) throw new Refused(`it redirected more than ${maxRedirects} times.`);
@@ -215,11 +299,18 @@ export function guardedFetch(options: GuardedFetchOptions = {}): AssetFetch {
       if (Number.isFinite(declared) && declared > limits.maxBytes) throw new Refused(`it is ${declared} bytes, more than the ${limits.maxBytes} a plugin may still copy.`);
       const chunks: Uint8Array[] = [];
       let size = 0;
-      for await (const chunk of response.body) {
-        size += chunk.byteLength;
-        if (size > limits.maxBytes) throw new Refused(`it is larger than the ${limits.maxBytes} bytes a plugin may still copy.`);
-        chunks.push(chunk);
-      }
+      const body = response.body;
+      await untilAborted(
+        (async () => {
+          for await (const chunk of body) {
+            if (signal.aborted) throw new Stopped();
+            size += chunk.byteLength;
+            if (size > limits.maxBytes) throw new Refused(`it is larger than the ${limits.maxBytes} bytes a plugin may still copy.`);
+            chunks.push(chunk);
+          }
+        })(),
+        signal,
+      );
       const bytes = new Uint8Array(size);
       let at = 0;
       for (const chunk of chunks) {
@@ -230,10 +321,12 @@ export function guardedFetch(options: GuardedFetchOptions = {}): AssetFetch {
     } catch (error) {
       response?.destroy();
       if (error instanceof Refused) return { ok: false, message: error.message };
-      if (controller.signal.aborted) return { ok: false, message: `it took longer than ${Math.round(timeoutMs / 1000)} seconds.` };
+      if (outer?.aborted) return { ok: false, message: "the build stopped copying: it ran out of time, or another file failed." };
+      if (signal.aborted) return { ok: false, message: `it took longer than ${inSeconds(timeoutMs)}.` };
       return { ok: false, message: `the fetch failed: ${error instanceof Error ? error.message : String(error)}.` };
     } finally {
       clearTimeout(timer);
+      outer?.removeEventListener("abort", stopForBuild);
     }
   };
 }

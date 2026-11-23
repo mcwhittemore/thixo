@@ -106,8 +106,10 @@ What is still open:
 - **A written-out load is not a way out.** An image written in the source is fetched once, by the server, when the
   plugin is built, and the page loads the app's copy. Choosing among copies tells no outside host anything. The
   build's fetch is the risk instead: it runs on the server for whoever wrote the source, so it is https only and
-  refuses any host inside the network, after every redirect too, with a timeout and a size cap. A copied SVG is
-  served so that, opened on its own, it runs no script.
+  refuses any host inside the network, after every redirect too, with a timeout that covers the lookup and a size
+  cap. One build shares one deadline and stops at its first failure, and one person runs only a few builds at once.
+  What people's submits store is capped, per person and in all. A copied SVG is read as XML and refused if anything
+  in it can run script or point outside the file, and it is served so that, opened on its own, it runs no script.
 - **A later version can ask for more.** If users follow the newest version of a shared plugin, its author can add an
   endpoint and every user picks it up.
 - **The authoring agent reads other people's plugins.** Text in a plugin's source or description could steer the
@@ -136,11 +138,15 @@ Authoring adds a second, softer layer:
   data adapter, calls the implementor's hook, ends the turn and shows the person a plain refusal.
 - **Repeat attempts block.** Three refusals of one person's own requests within 24 hours (configurable) end the
   session and block them from making plugins: the chat, every authoring tool and `thixo agent --as` refuse. Using
-  and installing plugins still works. The first refusals say what happens next. A refusal of text the agent read
+  and installing plugins still works, and so does the plugin browser's Fork button, which installs an unchanged
+  copy the person can't change or submit while blocked. The first refusals say what happens next. A refusal of text the agent read
   is recorded but does not count, since the person did not write it.
 - **A cheap check on submit.** The agent's `check` and `submit` refuse source that says what a sign-in says
   ("session expired", "sign in again") or that has a field to type into and asks for a password, a code, a key or a
-  card number. It reads words and is easy to get past. It is a tripwire, not a classifier.
+  card number. It reads text as a person sees it, so look-alike letters and invisible characters do not hide a word,
+  but it still reads only words: a synonym or a copy of the app's header gets past it. It is a tripwire, not a
+  classifier. Words that were already in another author's plugin that this one was forked from are still refused,
+  but do not count against the person who forked it.
 - **The implementor can undo it.** An innocent person will be caught. A user with `thixo.authoring.admin`, or the
   implementor at `thixo authoring`, sees refusals and blocks and lifts a block.
 

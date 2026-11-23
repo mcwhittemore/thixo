@@ -430,7 +430,7 @@ export class Emitter {
     const files = Object.fromEntries([...this.p.files.keys()].map((k) => [k, ""]));
     if (relative) {
       if (resolveRelative(this.path, spec, files) === undefined)
-        return this.error(stmt.moduleSpecifier, "thx/missing-file", `\`${spec}\` is not one of this plugin's files.`, `The plugin has: ${Object.keys(files).join(", ")}.`);
+        return this.error(stmt.moduleSpecifier, "thx/missing-file", `\`${spec}\` is not one of this plugin's files.`, `The plugin has: ${Object.keys(files).join(", ")}. Every file of a plugin ends in .thx, so \`${spec}\` is read from ${spec.replace(/^\.\//, "").replace(/\.thx$/, "")}.thx; a .ts or .tsx file is not part of the plugin.`);
     } else if (!Object.prototype.hasOwnProperty.call(this.env.modules, spec)) {
       const known = Object.keys(this.env.modules).join(", ");
       const hint = spec === "react" ? "Hooks come from `thixo/plugin`: `import { useState } from \"thixo/plugin\"`." : `A plugin can import: ${known}.`;

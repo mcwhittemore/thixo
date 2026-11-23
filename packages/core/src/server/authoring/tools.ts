@@ -1,5 +1,6 @@
 import type { ThxError, SourceFiles } from "thixo-thx/contract";
 import { buildWithCopies } from "../registry/assets.js";
+import { readSource } from "../registry/code-store.js";
 import { HttpError } from "../../api/errors.js";
 import type { AgentTool, PluginSummary, User } from "../../contract.js";
 import type { ServerContext } from "../context.js";
@@ -13,6 +14,9 @@ import { REFUSAL_CATEGORIES, guardOf, isCategory, type RefusalOutcome } from "./
 import { flagSource } from "./source-check.js";
 
 const AUTHOR_SCOPE = "thixo.plugins.author";
+
+/** How many of `check` and `submit` one user may have running at once. */
+export const MAX_BUILDS_PER_USER = 2;
 
 export const TOOL_DEFINITIONS: AgentTool[] = [
   {
@@ -150,7 +154,8 @@ function str(input: Record<string, unknown>, key: string, required: true): strin
 function str(input: Record<string, unknown>, key: string, required?: false): string | undefined;
 function str(input: Record<string, unknown>, key: string, required = false): string | undefined {
   const value = input[key];
-  if (value === undefined && !required) return undefined;
+  // A model often sends "" or null for an optional field it means to leave out.
+  if ((value === undefined || value === null || value === "") && !required) return undefined;
   if (typeof value !== "string" || !value) bad(`${key} must be a non-empty string.`);
   return value;
 }
@@ -201,18 +206,47 @@ export function createAuthoringTools(ctx: ServerContext): AuthoringTools {
 
   const guard = guardOf(ctx);
 
-  /** The submit path's own check: an obvious case is a refusal, recorded like the agent's own. */
+  /** The source files someone else wrote that this user's plugins were forked from: the version each fork copied,
+   * up the chain to the first plugin by another author. A check that matches only on their lines does not count
+   * against this user, who did not write them. */
+  const inheritedSources = async (user: User): Promise<string[]> => {
+    const data = ctx.adapters.data;
+    const texts: string[] = [];
+    const seen = new Set<string>();
+    for (const own of (await data.listPlugins({ author: user.id })).slice(0, 200)) {
+      let ref = own.forkedFrom;
+      for (let depth = 0; ref && depth < 16; depth++) {
+        const key = `${ref.plugin}@${ref.number}`;
+        if (seen.has(key)) break;
+        seen.add(key);
+        const parent = await data.getPlugin(ref.plugin);
+        const version = parent ? await data.getVersion(ref) : null;
+        if (!parent || !version) break;
+        if (parent.author !== user.id) {
+          texts.push(...Object.values(await readSource(ctx, version.source)));
+          break;
+        }
+        ref = parent.forkedFrom;
+      }
+    }
+    return texts;
+  };
+
+  /** The submit path's own check: an obvious case is a refusal, recorded like the agent's own. Words that were
+   * already in another author's plugin this one was forked from are still refused, but recorded as `data`, so
+   * nobody is blocked for what someone else wrote. */
   const flagged = async (source: SourceFiles, user: User, context: ToolContext) => {
-    const flag = flagSource(source);
-    if (!flag) return null;
+    // The plain check first: most sources match nothing, and need no look at the forks.
+    if (!flagSource(source)) return null;
+    const flag = flagSource(source, { inherited: await inheritedSources(user) })!;
     const outcome = await guard.refuse({
       user,
       conversation: context.conversation,
       category: flag.category,
-      reason: flag.reason,
+      reason: flag.inherited ? `${flag.reason} Those words were already in the plugin it was forked from, which someone else wrote.` : flag.reason,
       trigger: context.message ?? flag.match,
       quote: flag.match,
-      from: "user",
+      from: flag.inherited ? "data" : "user",
       source: "check",
     });
     const error: ThxError = {
@@ -381,13 +415,29 @@ export function createAuthoringTools(ctx: ServerContext): AuthoringTools {
     },
   };
 
+  /** Builds each user has running now. A build may fetch outside files for up to its deadline, so one person can't
+   * start many at once. */
+  const building = new Map<string, number>();
+
   return {
     definitions: TOOL_DEFINITIONS,
     async run(name, input, user, context = { conversation: null }) {
       const tool = implementations[name];
       if (!tool) throw new HttpError(404, `There is no tool named ${name}. The tools are ${Object.keys(implementations).join(", ")}.`, { code: "unknown_tool" });
       await guard.assertAllowed(user);
-      return tool(object(input), user, context);
+      if (name !== "check" && name !== "submit") return tool(object(input), user, context);
+      const running = building.get(user.id) ?? 0;
+      if (running >= MAX_BUILDS_PER_USER) {
+        throw new HttpError(429, `You already have ${running} builds running. Wait for one to finish, then try again.`, { code: "too_many_builds" });
+      }
+      building.set(user.id, running + 1);
+      try {
+        return await tool(object(input), user, context);
+      } finally {
+        const left = (building.get(user.id) ?? 1) - 1;
+        if (left) building.set(user.id, left);
+        else building.delete(user.id);
+      }
     },
   };
 }

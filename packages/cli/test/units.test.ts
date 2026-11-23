@@ -83,6 +83,11 @@ test("errors print as file:line:col code message, with the hint under", () => {
   assert.equal(formatThxError(FAKE_ERROR, { cwd: "/app/plugins/a", dir: "/app/plugins/a" }), "plugin.thx:3:7 thx/no-global window does not exist.\n  hint: Plugins cannot reach the page.");
   assert.equal(formatThxError({ ...FAKE_ERROR, hint: undefined }, { cwd: "/app", dir: "/app/plugins/a" }), "plugins/a/plugin.thx:3:7 thx/no-global window does not exist.");
   assert.equal(formatThxError({ ...FAKE_ERROR, file: "lib/x.thx", hint: undefined }, { cwd: "/app/plugins", dir: "/app/plugins/a" }), "a/lib/x.thx:3:7 thx/no-global window does not exist.");
+  // A folder outside where the command ran prints its full path, not ../../../var/...
+  assert.equal(
+    formatThxError({ ...FAKE_ERROR, hint: undefined }, { cwd: "/home/ana/repo", dir: "/var/folders/xy/app/plugins/notes" }),
+    "/var/folders/xy/app/plugins/notes/plugin.thx:3:7 thx/no-global window does not exist.",
+  );
 });
 
 test("a folder with no plugin.thx and a compiler that throws both become errors", () => {

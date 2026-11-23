@@ -120,6 +120,17 @@ export interface ThixoConfig {
   libraries?: ExposedLibrary[];
   /** What the authoring loop does when its agent refuses a request: how many refusals block a user, and a hook. */
   authoringGuard?: AuthoringGuardConfig;
+  /** How much copy at build may store for people who make plugins. Deploys (the implementor's) do not count. */
+  assetQuota?: AssetQuota;
+}
+
+/** Bytes of copied files, each file counted once by its hash. A submit that would go over is a build error and
+ * stores nothing. */
+export interface AssetQuota {
+  /** What one user's own submits may have stored, all their plugins together. Default 64 MiB. */
+  authorBytes?: number;
+  /** What every user's submits may have stored together. Default 1 GiB. */
+  totalBytes?: number;
 }
 
 // ---- Adapters (X4) ----
@@ -138,8 +149,8 @@ export interface BuildAdapter {
   /** Copy at build: fetches one outside address a plugin's source loads (`<img src="https://...">`), so the file can
    * be stored with the version and served from the app. It runs on the server for whoever wrote the source, so it
    * must refuse to reach inside the network: https only, no loopback, private, link-local or metadata addresses,
-   * after every redirect too, a timeout, and no more than `maxBytes`. Without it, a plugin that loads from outside
-   * does not build. */
+   * after every redirect too, a timeout, and no more than `maxBytes`. It stops when `limits.signal` aborts. Without
+   * it, a plugin that loads from outside does not build. */
   fetchAsset?(address: string, limits: AssetLimits): Promise<FetchedAsset>;
 }
 
@@ -149,6 +160,9 @@ export interface AssetLimits {
   maxBytes: number;
   /** The content types that may be copied: images and fonts. */
   types: string[];
+  /** Aborts when the build's deadline passes or another copy in the same build failed. A fetcher stops when it
+   * aborts; the build stops waiting for it either way. */
+  signal?: AbortSignal;
 }
 
 /** What `fetchAsset` got. `contentType` is the type alone, lower-cased, such as `image/png`. A failure's `message`

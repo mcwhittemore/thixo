@@ -81,8 +81,9 @@ function createGuard(ctx: ServerContext): AuthoringGuard {
   const counted = async (user: UserId, now: Date) => {
     const windowStart = new Date(now.getTime() - windowHours * 3_600_000).toISOString();
     const lifted = (await data.getAuthoringBlock(user))?.liftedAt;
-    const since = lifted && lifted > windowStart ? lifted : windowStart;
-    return (await data.listRefusals({ user, since })).filter((r) => r.from === "user");
+    // A refusal in the same millisecond as the lift came after it (a lift ends the block that refused everything),
+    // so the lift's own time is counted from, not past.
+    return (await data.listRefusals({ user, since: windowStart })).filter((r) => r.from === "user" && (!lifted || r.at >= lifted));
   };
 
   const hours = windowHours === 1 ? "an hour" : `${windowHours} hours`;
@@ -99,7 +100,9 @@ function createGuard(ctx: ServerContext): AuthoringGuard {
 
     async status(user) {
       const block = await activeBlock(user);
-      const count = (await counted(user, new Date())).length;
+      // A block replaces the record of the last lift, so while one stands the count is the block's own refusals:
+      // counting the window again would take in refusals from before that lift.
+      const count = block ? block.refusals.length : (await counted(user, new Date())).length;
       return { blocked: !!block, ...(block ? { message: blockedMessage(block) } : {}), count, limit, windowHours };
     },
 
