@@ -1,7 +1,7 @@
 // Builds one TypeScript program over a plugin's files, the language's lib and the host modules' declarations,
 // entirely in memory. Plugin files are given to TypeScript as `.tsx` under `/src/`.
 
-import ts from "typescript";
+import ts from "./ts-api.js";
 import type { CompileEnv, SourceFiles } from "../contract.js";
 import { LIB_THX_DTS } from "./lib-dts.js";
 

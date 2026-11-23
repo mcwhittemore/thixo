@@ -1,4 +1,4 @@
-import ts from "typescript";
+import ts from "./ts-api.js";
 import type { CompileEnv, CompileResult, DataSchema, FieldDecl, Manifest, SourceFiles, ThxError } from "../contract.js";
 import { verifyOutput } from "../verify/verify-output.js";
 import { Emitter } from "./emit.js";
