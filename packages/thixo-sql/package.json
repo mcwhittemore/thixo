@@ -8,6 +8,9 @@
     "build": "tsc -b",
     "test": "node --import tsx --test \"test/**/*.test.ts\""
   },
-  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+    "./testing": { "types": "./dist/testing/index.d.ts", "default": "./dist/testing/index.js" }
+  },
   "dependencies": { "thixo": "0.0.1" }
 }

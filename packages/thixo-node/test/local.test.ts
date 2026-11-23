@@ -4,6 +4,20 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { local } from "../src/local.js";
+import { sqliteDriver } from "../src/sqlite-driver.js";
+
+test("local({ driver }) keeps data in the given driver, not in data.sqlite, and close() closes it", async () => {
+  const projectDir = mkdtempSync(join(tmpdir(), "thixo-local-"));
+  const driver = sqliteDriver(":memory:");
+  let closed = false;
+  const close = driver.close.bind(driver);
+  const adapters = local({ projectDir, driver: Object.assign(driver, { close: () => ((closed = true), close()) }) });
+  await adapters.data.patch({ kind: "store", store: "s", id: "1", owner: "ann" }, "p", { a: 1 });
+  assert.equal(Number((await driver.all("SELECT COUNT(*) AS n FROM thixo_data"))[0].n), 1);
+  assert.equal(existsSync(join(projectDir, ".thixo", "data.sqlite")), false);
+  await adapters.close();
+  assert.equal(closed, true);
+});
 
 test("local roots everything under <projectDir>/.thixo and migrates on first use", async () => {
   const projectDir = mkdtempSync(join(tmpdir(), "thixo-local-"));

@@ -4,10 +4,12 @@
 // --example copies examples/<name>. --app (or its older name --dir) copies any app folder: one create-thixo-app made,
 // one you wrote, or an example by path. --as is the user the doctor signs in as (default: ana for todo and for a
 // created app, rita for crm). For an app whose users are not ana, pass --as with one its login accepts.
+// --postgres <url> keeps the copy's data in that Postgres database (thixo-postgres) instead of SQLite.
+// --restart stops this run's server (if it is up) and starts it again in the same copy, so what was stored is read back.
 // Prints the run's state as JSON once the server says it is ready. Stop it with cleanup.mjs --run <id>.
 
 import { spawn } from "node:child_process";
-import { closeSync, openSync, readFileSync } from "node:fs";
+import { closeSync, openSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { copyApp, copyExample } from "../../../../tests/e2e/support.mjs";
 import { alive, args, fail, readState, runDir, THIXO, writeState } from "./common.mjs";
@@ -24,13 +26,29 @@ const example = source ? basename(source) : (a.example ?? "todo");
 const SIGN_IN_AS = { todo: "ana", crm: "rita" };
 const signInAs = a.as && a.as !== true ? a.as : (SIGN_IN_AS[example] ?? "ana");
 const previous = readState(run);
-if (previous?.pid && alive(previous.pid)) fail(`run "${run}" is still up (pid ${previous.pid}, ${previous.url}). Run cleanup.mjs --run ${run} first, or pick another --run.`);
+if (a.restart) {
+  if (!previous?.dir) fail(`nothing to restart for run "${run}". Run launch.mjs --run ${run} first.`);
+  if (previous.pid && alive(previous.pid)) {
+    process.kill(previous.pid, "SIGTERM");
+    for (let i = 0; i < 50 && alive(previous.pid); i++) await new Promise((ok) => setTimeout(ok, 100));
+  }
+} else if (previous?.pid && alive(previous.pid)) fail(`run "${run}" is still up (pid ${previous.pid}, ${previous.url}). Run cleanup.mjs --run ${run} first, or pick another --run.`);
 
 let dir;
 try {
-  dir = source ? copyApp(source, example) : copyExample(example);
+  dir = a.restart ? previous.dir : source ? copyApp(source, example) : copyExample(example);
 } catch (error) {
   fail(error.message);
+}
+if (a.postgres && !a.restart) {
+  if (a.postgres === true) fail("--postgres needs a connection URL, such as --postgres postgres://user:pass@localhost:5432/db.");
+  const file = join(dir, "thixo.config.ts");
+  const config = readFileSync(file, "utf8");
+  if (!config.includes("adapters: local()")) fail("--postgres needs a config with `adapters: local()` to rewrite.");
+  writeFileSync(
+    file,
+    `import { postgresDriver } from "thixo-postgres";\n` + config.replace("adapters: local()", `adapters: local({ driver: postgresDriver(${JSON.stringify(a.postgres)}) })`),
+  );
 }
 const log = join(runDir(run), "dev.log");
 const fd = openSync(log, "w");

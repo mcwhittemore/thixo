@@ -9,6 +9,7 @@ The local adapters are what a developer gets when Thixo runs on their machine wi
 - `local-build` compiles with `thixo-thx` and checks the output a second time, turning a failed check into build errors.
 - `serve-stream` serves a web `Request`/`Response` handler from a Node HTTP server, streaming bodies both ways, with optional static files.
 - `claude-code-model` runs `claude -p` once per authoring turn and turns its reply into a tool call or a final answer.
+- `local-driver` keeps data in another `thixo-sql` driver when `local({ driver })` is given (see `sql-drivers.md`). `data.sqlite` is then not made.
 - `sql-data` holds the registry, releases, layouts, plugin data through fork chains, store records private to their owner, and annotations by group (`thixo-sql`, under every adapter set).
 
 ## How to get to it (user POV)

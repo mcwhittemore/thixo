@@ -1,6 +1,7 @@
 import { join, resolve } from "node:path";
 import type { Adapters, DataAdapter } from "thixo/contract";
 import { sqlDataAdapter } from "thixo-sql";
+import type { SqlDriver } from "thixo-sql";
 import { fileCodeAdapter } from "./file-code-adapter.js";
 import { localBuild } from "./local-build.js";
 import { sqliteDriver } from "./sqlite-driver.js";
@@ -8,12 +9,16 @@ import { sqliteDriver } from "./sqlite-driver.js";
 export interface LocalOptions {
   /** The implementor's project. Default: `THIXO_PROJECT_DIR`, or the current directory. */
   projectDir?: string;
+  /** Keeps data in this database instead of `<stateDir>/data.sqlite`, such as `postgresDriver(url)` from
+   * `thixo-postgres`. Code, the build and the state folder stay local. `close()` closes the driver if it has a
+   * `close`. */
+  driver?: SqlDriver & { close?(): void | Promise<void> };
 }
 
 export interface LocalAdapters extends Adapters {
-  /** `<projectDir>/.thixo`, where `data.sqlite` and `code/` live. */
+  /** `<projectDir>/.thixo`, where `code/` lives, and `data.sqlite` unless a `driver` was given. */
   stateDir: string;
-  close(): void;
+  close(): void | Promise<void>;
 }
 
 /** Adapters for a developer's machine, rooted at `<projectDir>/.thixo`. The data adapter migrates itself before
@@ -21,7 +26,7 @@ export interface LocalAdapters extends Adapters {
 export function local(options: LocalOptions = {}): LocalAdapters {
   const projectDir = resolve(options.projectDir ?? process.env.THIXO_PROJECT_DIR ?? process.cwd());
   const stateDir = join(projectDir, ".thixo");
-  const driver = sqliteDriver(join(stateDir, "data.sqlite"));
+  const driver = options.driver ?? sqliteDriver(join(stateDir, "data.sqlite"));
   const raw = sqlDataAdapter(driver);
   let ready: Promise<void> | undefined;
   const migrate = () => (ready ??= raw.migrate().catch((error) => ((ready = undefined), Promise.reject(error))));
@@ -43,6 +48,6 @@ export function local(options: LocalOptions = {}): LocalAdapters {
     data,
     build: localBuild(),
     stateDir,
-    close: () => driver.close(),
+    close: () => (driver as { close?(): void | Promise<void> }).close?.(),
   };
 }

@@ -20,6 +20,15 @@ export default defineConfig({
 `projectDir` is the app's folder. It defaults to `THIXO_PROJECT_DIR`, or the current folder. The result also has a
 `close()` that closes the database.
 
+`driver` keeps the data in another database than `.thixo/data.sqlite`. It is any `thixo-sql` driver, so the same app
+can run its data on Postgres. Code, the build and the state folder stay local.
+
+```ts
+import { postgresDriver } from "thixo-postgres";
+
+adapters: local({ driver: postgresDriver(process.env.DATABASE_URL!) }),
+```
+
 ## `claudeCode(options?)`
 
 The model for the authoring chat. It runs the local `claude` command, so it needs no API key.

@@ -1,17 +1,24 @@
 export type SqlParam = string | number | null;
 export type SqlRow = Record<string, unknown>;
 
-/** What a statement can be run against: the driver itself, or the handle a transaction gives. Placeholders are `?`.
- * A driver for Postgres rewrites them to `$1`, `$2`. Column names come back as written in the schema (lower case). */
+/** What a statement can be run against. Placeholders are `?`. A driver for Postgres rewrites them to `$1`, `$2`.
+ * Column names come back as written in the schema (lower case). */
 export interface SqlExecutor {
   run(sql: string, params?: SqlParam[]): Promise<void>;
   all<T extends SqlRow = SqlRow>(sql: string, params?: SqlParam[]): Promise<T[]>;
 }
 
+export interface SqlStatement {
+  sql: string;
+  params?: SqlParam[];
+}
+
 export interface SqlDriver extends SqlExecutor {
-  /** Runs `fn` so that its statements commit together or not at all. Statements outside the transaction never
-   * land inside it, and a thrown error rolls back and is rethrown. */
-  transaction<T>(fn: (tx: SqlExecutor) => Promise<T>): Promise<T>;
+  /** Runs the statements in order so that they commit together or not at all, and returns each one's rows (empty
+   * for a statement that returns none). A failing statement rolls the whole batch back and its error is thrown.
+   * A batch is a fixed list, not a callback, because D1 has no open transactions: it only runs a list. Statements
+   * from outside never land inside a batch. */
+  batch(statements: SqlStatement[]): Promise<SqlRow[][]>;
 }
 
 /** A synchronous, single-connection database, such as `node:sqlite` or better-sqlite3. */
@@ -44,13 +51,14 @@ export function syncDriver(db: SyncDatabase, options: { begin?: string } = {}): 
   return {
     run: (sql, params) => exclusive(() => direct.run(sql, params)),
     all: <T extends SqlRow>(sql: string, params?: SqlParam[]) => exclusive(() => direct.all<T>(sql, params)),
-    transaction: (fn) =>
+    batch: (statements) =>
       exclusive(async () => {
         db.run(begin, []);
         try {
-          const value = await fn(direct);
+          const results: SqlRow[][] = [];
+          for (const statement of statements) results.push(db.all(statement.sql, statement.params ?? []));
           db.run("COMMIT", []);
-          return value;
+          return results;
         } catch (error) {
           try {
             db.run("ROLLBACK", []);

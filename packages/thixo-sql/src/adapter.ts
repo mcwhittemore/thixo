@@ -141,13 +141,10 @@ export function sqlDataAdapter(driver: SqlDriver): DataAdapter {
 
   return {
     async migrate() {
-      await driver.transaction(async (tx) => {
-        for (const statement of STATEMENTS) await tx.run(statement);
-        await tx.run(
-          `INSERT INTO thixo_schema (id, version) SELECT 1, ? WHERE NOT EXISTS (SELECT 1 FROM thixo_schema WHERE id = 1)`,
-          [SCHEMA_VERSION],
-        );
-      });
+      await driver.batch([
+        ...STATEMENTS.map((sql) => ({ sql })),
+        { sql: `INSERT INTO thixo_schema (id, version) VALUES (1, ?) ON CONFLICT (id) DO NOTHING`, params: [SCHEMA_VERSION] },
+      ]);
     },
 
     async putPlugin(plugin) {
@@ -197,27 +194,22 @@ export function sqlDataAdapter(driver: SqlDriver): DataAdapter {
       let last: unknown;
       for (let attempt = 0; attempt < 5; attempt++) {
         try {
-          return await driver.transaction(async (tx) => {
-            await tx.run(
-              `INSERT INTO thixo_versions (plugin, number, source, source_hash, compiled, manifest, created_by, created_at)
-               SELECT ?, COALESCE(MAX(number), 0) + 1, ?, ?, ?, ?, ?, ? FROM thixo_versions WHERE plugin = ?`,
-              [
-                version.plugin,
-                version.source,
-                version.sourceHash,
-                version.compiled,
-                json(version.manifest),
-                version.createdBy,
-                version.createdAt,
-                version.plugin,
-              ],
-            );
-            const rows = await tx.all(
-              `SELECT * FROM thixo_versions WHERE plugin = ? AND number = (SELECT MAX(number) FROM thixo_versions WHERE plugin = ?)`,
-              [version.plugin, version.plugin],
-            );
-            return toVersion(rows[0]);
-          });
+          const rows = await driver.all(
+            `INSERT INTO thixo_versions (plugin, number, source, source_hash, compiled, manifest, created_by, created_at)
+             SELECT ?, COALESCE(MAX(number), 0) + 1, ?, ?, ?, ?, ?, ? FROM thixo_versions WHERE plugin = ?
+             RETURNING *`,
+            [
+              version.plugin,
+              version.source,
+              version.sourceHash,
+              version.compiled,
+              json(version.manifest),
+              version.createdBy,
+              version.createdAt,
+              version.plugin,
+            ],
+          );
+          return toVersion(rows[0]);
         } catch (error) {
           if (!isConflict(error)) throw error;
           last = error;
@@ -245,14 +237,14 @@ export function sqlDataAdapter(driver: SqlDriver): DataAdapter {
     },
 
     async putRelease(release) {
-      await driver.transaction(async (tx) => {
-        await tx.run(`DELETE FROM thixo_releases WHERE id = ?`, [release.id]);
-        await tx.run(
-          `INSERT INTO thixo_releases (id, seq, deployment, plugins, layout, created_at)
-           SELECT ?, COALESCE(MAX(seq), 0) + 1, ?, ?, ?, ? FROM thixo_releases`,
-          [release.id, release.deployment, json(release.plugins), json(release.layout), release.createdAt],
-        );
-      });
+      await driver.batch([
+        { sql: `DELETE FROM thixo_releases WHERE id = ?`, params: [release.id] },
+        {
+          sql: `INSERT INTO thixo_releases (id, seq, deployment, plugins, layout, created_at)
+                SELECT ?, COALESCE(MAX(seq), 0) + 1, ?, ?, ?, ? FROM thixo_releases`,
+          params: [release.id, release.deployment, json(release.plugins), json(release.layout), release.createdAt],
+        },
+      ]);
     },
 
     async latestRelease() {
@@ -307,15 +299,13 @@ export function sqlDataAdapter(driver: SqlDriver): DataAdapter {
         .filter(([, value]) => value !== undefined)
         .map(([field, value]) => [field, encodeValue(value)] as const);
       if (encoded.length === 0) return;
-      await driver.transaction(async (tx) => {
-        for (const [field, value] of encoded) {
-          await tx.run(
-            `INSERT INTO thixo_data (kind, scope, bucket, id, plugin, field, value) VALUES (?, ?, ?, ?, ?, ?, ?)
-             ON CONFLICT (kind, scope, bucket, id, plugin, field) DO UPDATE SET value = excluded.value`,
-            [key.kind, key.scope, key.bucket, key.id, plugin, field, value],
-          );
-        }
-      });
+      await driver.batch(
+        encoded.map(([field, value]) => ({
+          sql: `INSERT INTO thixo_data (kind, scope, bucket, id, plugin, field, value) VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (kind, scope, bucket, id, plugin, field) DO UPDATE SET value = excluded.value`,
+          params: [key.kind, key.scope, key.bucket, key.id, plugin, field, value],
+        })),
+      );
     },
 
     async listStore(store, owner, chain) {

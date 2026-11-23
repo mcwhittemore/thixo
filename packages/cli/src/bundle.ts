@@ -133,7 +133,7 @@ export async function loadServerBundle(paths: ProjectPaths, server: ServerApi, b
 /** `local()` adapters hold a database open. Close whatever has a `close`. */
 export function closeAdapters(config: ThixoConfig): void {
   try {
-    (config.adapters as { close?: () => void }).close?.();
+    Promise.resolve((config.adapters as { close?: () => void | Promise<void> }).close?.()).catch(() => undefined);
   } catch {}
 }
 

@@ -19,8 +19,10 @@ library.
 | --- | --- | --- |
 | `packages/thx` | `thixo-thx` | The plugin language, thx: compiler, output verifier, in-page runtime. The wall. |
 | `packages/core` | `thixo` | `thixo`, `thixo/api`, `thixo/schema`, `thixo/slots`, `thixo/server`, `thixo/shell`. No provider code (X4). |
-| `packages/thixo-sql` | `thixo-sql` | The data adapter, on a small SQL driver interface. |
-| `packages/thixo-node` | `thixo-node` | Local adapters: files for code, `node:sqlite` for data, an in-process build, a Node HTTP server, a Claude Code model adapter. |
+| `packages/thixo-sql` | `thixo-sql` | The data adapter, on a small SQL driver interface, and `thixo-sql/testing`, the adapter's tests for any driver. |
+| `packages/thixo-postgres` | `thixo-postgres` | The Postgres driver for `thixo-sql`, on `pg`. |
+| `packages/thixo-d1` | `thixo-d1` | The Cloudflare D1 driver for `thixo-sql`. It needs no Cloudflare package. |
+| `packages/thixo-node` | `thixo-node` | Local adapters: files for code, `node:sqlite` for data (or any `thixo-sql` driver, `local({ driver })`), an in-process build, a Node HTTP server, a Claude Code model adapter. |
 | `packages/thixo-anthropic` | `thixo-anthropic` | The model adapter for the Claude API. |
 | `packages/cli` | `thixo-cli` | The `thixo` command. |
 | `packages/create-thixo-app` | `create-thixo-app` | Starts a new app from a template. Run from a checkout, it links the packages and React from it with `file:` deps, since they are not on npm yet. |
