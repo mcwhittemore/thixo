@@ -95,6 +95,21 @@ await recordDeleted("todo", id);
 Also exported: `signToken` and `verifyToken` (the short-lived tokens the shell sends), `generateSdk`, and the
 `Route` and `ServerContext` types.
 
+The authoring guard is configured in the Thixo config. When the agent refuses a request, such as a plugin that
+looks like the app's sign-in, Thixo stores it and calls the hook. Three refusals in 24 hours block that user from
+making plugins. `thixo.services.authoring` lists refusals and blocks and lifts one.
+
+```ts
+export default defineConfig({
+  // ...
+  authoringGuard: {
+    limit: 3,
+    windowHours: 24,
+    onRefusal: ({ refusal, count, limit, blocked }) => alerts.send(`${refusal.user}: ${refusal.category} (${count}/${limit})${blocked ? ", blocked" : ""}`),
+  },
+});
+```
+
 ## `thixo/shell`
 
 The React side of the app. `mount` renders the app into `#root`. The rest are components and hooks an app uses.

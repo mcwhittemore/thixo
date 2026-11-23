@@ -4,6 +4,7 @@ import type { CompileEnv } from "thixo-thx/contract";
 import { buildCompileEnv } from "./compile-env.js";
 import type { DeployInput, DeployResult } from "./deploy.js";
 import type { RegistryServices } from "./registry/types.js";
+import type { AuthoringGuard } from "./authoring/guard.js";
 import { TokenError, userOf, verifyToken } from "./tokens.js";
 
 export { HttpError };
@@ -31,6 +32,8 @@ export type { RegistryServices };
 export interface Services {
   deploy(input: DeployInput): Promise<DeployResult>;
   registry: RegistryServices;
+  /** The authoring guard: refusals, blocks, and lifting one. The host acts as whoever it names in `unblock`. */
+  authoring: Pick<AuthoringGuard, "status" | "refusals" | "blocks" | "unblock">;
 }
 
 export interface ServerContext {

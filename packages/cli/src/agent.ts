@@ -204,7 +204,9 @@ export async function runAgent(options: AgentOptions, io: Io, fetchImpl: Fetch =
 
   if (!response.ok) {
     const error = (body as ErrorBody | null)?.error;
-    const hint = response.status === 404 ? " The tool route is off: it needs `thixo dev`, which turns it on." : response.status === 401 || response.status === 403 ? " The agent key may be stale: restart `thixo dev` so it writes a new one." : "";
+    // A refusal that is about the user, not the key, says so itself.
+    const aboutUser = error?.code === "authoring_blocked" || error?.code === "missing_scopes";
+    const hint = aboutUser ? "" : response.status === 404 ? " The tool route is off: it needs `thixo dev`, which turns it on." : response.status === 401 || response.status === 403 ? " The agent key may be stale: restart `thixo dev` so it writes a new one." : "";
     const detail = error?.message ?? raw;
     io.err(options.raw ? raw : `${request.tool} failed (${response.status}${error?.code ? ` ${error.code}` : ""}): ${detail}${hint && !/[.!?]$/.test(detail) ? "." : ""}${hint}`);
     return 1;

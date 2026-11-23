@@ -43,7 +43,7 @@ export async function startDev(paths: ProjectPaths, options: { port: number; hos
   const rebuildServer = async (): Promise<boolean> => {
     try {
       await buildServerBundle(paths);
-      const next = await activateApp(paths, deps, { agentKey });
+      const next = await activateApp(paths, deps, { agentKey, log: (line) => io.err(line) });
       const previous = app;
       app = next;
       problem = null;

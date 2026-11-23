@@ -13,7 +13,7 @@ one's tests. [docs/10](../docs/10-implementation.md) is the build spec; `thx/src
 | `thixo-d1` | `thixo-d1` | The Cloudflare D1 driver for `thixo-sql`. See [its readme](thixo-d1/readme.md). | Built, tested on Miniflare's D1 |
 | `thixo-node` | `thixo-node` | Local adapters: `local()` (files for code, `node:sqlite` for data, an in-process build), `serve()`, and `claudeCode()` (re-exported from `thixo-anthropic/node`). | Built |
 | `thixo-anthropic` | `thixo-anthropic` | The model adapter for the Claude API. | Built, tested against a local fake of the API |
-| `cli` | `thixo-cli` | The `thixo` command: dev, build, start, compile, new plugin, agent, registry list, release. | Built |
+| `cli` | `thixo-cli` | The `thixo` command: dev, build, start, compile, new plugin, agent, registry list, release, authoring. | Built |
 | `create-thixo-app` | `create-thixo-app` | Starts a new app from the todo example. | Not written |
 | `thixo-cloudflare`, `thixo-vercel`, `thixo-aws` | | Adapters for each cloud. | Not written |
 

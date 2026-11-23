@@ -72,3 +72,13 @@ test("registry and release", () => {
   assert.deepEqual(parseCommand(["release", "x"], {}), { name: "release", dir: "x", json: false });
   fail(["registry", "show"], /registry list/);
 });
+
+test("authoring blocks, refusals and unblock", () => {
+  assert.deepEqual(parseCommand(["authoring", "blocks"], {}), { name: "authoring", dir: ".", command: { what: "blocks", all: false, json: false } });
+  assert.deepEqual(parseCommand(["authoring", "blocks", "app", "--all", "--json"], {}), { name: "authoring", dir: "app", command: { what: "blocks", all: true, json: true } });
+  assert.deepEqual(parseCommand(["authoring", "refusals", "--user", "ana"], {}), { name: "authoring", dir: ".", command: { what: "refusals", json: false, user: "ana" } });
+  assert.deepEqual(parseCommand(["authoring", "unblock", "ana", "app"], {}), { name: "authoring", dir: "app", command: { what: "unblock", user: "ana", json: false } });
+  assert.deepEqual(parseCommand(["authoring"], {}), { name: "help", topic: "authoring" });
+  fail(["authoring", "unblock"], /needs a user/);
+  fail(["authoring", "forgive", "ana"], /three commands: blocks, refusals and unblock/);
+});

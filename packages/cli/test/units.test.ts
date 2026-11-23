@@ -11,6 +11,7 @@ import { contentSecurityPolicy } from "../src/handler.js";
 import { layoutHint, newPlugin, pluginId, pluginTemplate } from "../src/new-plugin.js";
 import { compileFolder, readPluginFolder, readPlugins, reportOutcome, summarizeManifest } from "../src/plugins.js";
 import { findProjectRoot, openProject, projectPaths } from "../src/project.js";
+import { logRefusals } from "../src/runtime.js";
 import { FAKE_ERROR, fakeThx, testIo } from "./support/helpers.js";
 
 // Every folder a test makes goes here, and is removed when the file's tests end.
@@ -28,6 +29,22 @@ const put = (root: string, path: string, text = "") => {
   mkdirSync(join(file, ".."), { recursive: true });
   writeFileSync(file, text);
 };
+
+test("in dev a refusal is a log line, and the implementor's own hook still runs", async () => {
+  const lines: string[] = [];
+  const heard: number[] = [];
+  const guard = logRefusals({ limit: 3, onRefusal: (n) => void heard.push(n.count) }, (line) => lines.push(line));
+  assert.equal(guard.limit, 3);
+  const refusal = { id: "ref_1", user: "ana", conversation: null, category: "credentials" as const, reason: "It asks for\na password.", trigger: "x", from: "user" as const, source: "agent" as const, at: "2026-11-22T10:00:00.000Z" };
+  await guard.onRefusal!({ refusal, count: 2, limit: 3, windowHours: 24, blocked: false });
+  await guard.onRefusal!({ refusal, count: 3, limit: 3, windowHours: 24, blocked: true, block: { user: "ana", at: refusal.at, reason: "three", refusals: [] } });
+  assert.deepEqual(lines, [
+    "  authoring refused ana (credentials, agent, 2 of 3 in 24h): It asks for a password.",
+    "  authoring refused ana (credentials, agent, 3 of 3 in 24h): It asks for a password.",
+    "  authoring blocked ana from making plugins. Lift it with `thixo authoring unblock ana`.",
+  ]);
+  assert.deepEqual(heard, [2, 3]);
+});
 
 test("findProjectRoot walks up to thixo.config.ts", () => {
   const root = tmp();

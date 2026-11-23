@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useShellInternals } from "./shell.js";
 
-type Line = { kind: "user" | "agent" | "tool" | "error" | "done"; text: string; id?: string; ok?: boolean };
+type Line = { kind: "user" | "agent" | "tool" | "error" | "refusal" | "done"; text: string; id?: string; ok?: boolean };
 
 const clip = (text: string, max = 160) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
 
@@ -36,6 +36,8 @@ export function toolOutcome(name: string, ok: boolean, output: string): string {
       return `fork made ${ref}`;
     case "use":
       return `use put ${ref} in ${typeof body.slot === "string" ? body.slot : "its slot"}${body.confirmed === true ? " (confirmed in your layout)" : ""}`;
+    case "refuse":
+      return "refuse recorded the refusal";
     default:
       return `${name} done`;
   }
@@ -49,12 +51,29 @@ export function AuthoringChat() {
   const [lines, setLines] = React.useState<Line[]>([]);
   const [draft, setDraft] = React.useState("");
   const [busy, setBusy] = React.useState(false);
+  // Set when the guard has blocked this user from making plugins: the chat says why and takes no more messages.
+  const [blocked, setBlocked] = React.useState<string | null>(null);
   const conversation = React.useRef<string | undefined>(undefined);
   const abort = React.useRef<AbortController | null>(null);
   const form = React.useRef<HTMLFormElement | null>(null);
   const log = React.useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => () => abort.current?.abort(), []);
+  const client = internals?.client;
+  const holdsAuthor = !!internals?.session.user.scopes.includes("thixo.plugins.author");
+  React.useEffect(() => {
+    if (!client || !holdsAuthor) return;
+    let live = true;
+    client
+      .authoringStatus()
+      .then((status) => {
+        if (live && status.blocked) setBlocked(status.message ?? "You can no longer make plugins in this app.");
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [client, holdsAuthor]);
   // Keep the newest line in view, so the agent's last message is never cut off below the fold of the log.
   React.useEffect(() => {
     const el = log.current;
@@ -62,7 +81,7 @@ export function AuthoringChat() {
   }, [lines]);
 
   if (!internals) return null;
-  const canAuthor = internals.session.user.scopes.includes("thixo.plugins.author");
+  const canAuthor = holdsAuthor && !blocked;
   const turn = lines.slice(lines.map((l) => l.kind).lastIndexOf("user") + 1);
   const lastTool = [...turn].reverse().find((l) => l.kind === "tool");
 
@@ -93,6 +112,12 @@ export function AuthoringChat() {
           });
           // The agent put a plugin in the layout: show it now, not only when the turn ends.
           if (event.name === "use" && ok) void internals!.refreshLayout();
+        } else if (event.type === "refusal" && typeof event.message === "string") {
+          push({ kind: "refusal", text: event.message });
+          if (event.blocked === true) {
+            setBlocked(event.message);
+            conversation.current = undefined;
+          }
         } else if (event.type === "conversation" && typeof event.id === "string") conversation.current = event.id;
         else if (event.type === "error") push({ kind: "error", text: String(event.message ?? "The agent failed") });
         else if (event.type === "done") {
@@ -103,6 +128,7 @@ export function AuthoringChat() {
       }
     } catch (error) {
       if (!controller.signal.aborted) push({ kind: "error", text: error instanceof Error ? error.message : String(error) });
+      if ((error as { code?: unknown }).code === "authoring_blocked") setBlocked(error instanceof Error ? error.message : String(error));
     } finally {
       if (!controller.signal.aborted) {
         setBusy(false);
@@ -118,6 +144,10 @@ export function AuthoringChat() {
         {lines.map((line, i) =>
           line.kind === "error" ? (
             <div key={i} role="alert" className="thixo-slot-message">
+              {line.text}
+            </div>
+          ) : line.kind === "refusal" ? (
+            <div key={i} role="alert" className="thixo-slot-message thixo-chat-refusal" data-kind="refusal">
               {line.text}
             </div>
           ) : (
@@ -153,7 +183,7 @@ export function AuthoringChat() {
           className="thixo-input"
           aria-label="Message"
           rows={2}
-          placeholder={canAuthor ? "Describe the plugin you want" : "You can't ask for plugins"}
+          placeholder={canAuthor ? "Describe the plugin you want" : blocked ? "You can no longer make plugins" : "You can't ask for plugins"}
           value={draft}
           disabled={!canAuthor}
           onChange={(e) => setDraft(e.currentTarget.value)}
@@ -166,11 +196,17 @@ export function AuthoringChat() {
           }}
           style={{ flex: 1 }}
         />
-        <button type="submit" className="thixo-button thixo-button-primary" disabled={busy || !canAuthor} aria-busy={busy} title={canAuthor ? undefined : "Asking needs thixo.plugins.author"}>
+        <button type="submit" className="thixo-button thixo-button-primary" disabled={busy || !canAuthor} aria-busy={busy} title={canAuthor ? undefined : blocked ? "You can no longer make plugins" : "Asking needs thixo.plugins.author"}>
           {busy ? "Working…" : "Send"}
         </button>
       </form>
-      {!canAuthor && <p className="thixo-muted">Asking for a plugin needs thixo.plugins.author.</p>}
+      {blocked ? (
+        <p role="status" className="thixo-muted" data-blocked="true">
+          {blocked}
+        </p>
+      ) : (
+        !canAuthor && <p className="thixo-muted">Asking for a plugin needs thixo.plugins.author.</p>
+      )}
     </section>
   );
 }

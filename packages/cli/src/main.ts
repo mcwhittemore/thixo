@@ -12,6 +12,7 @@ import { newPlugin, type AppSlots } from "./new-plugin.js";
 import { buildServerBundle, closeAdapters, loadServerBundle } from "./bundle.js";
 import { openProject } from "./project.js";
 import { runRegistryList, runRelease } from "./registry-cmd.js";
+import { runAuthoringCommand } from "./authoring-cmd.js";
 import { runStart } from "./start.js";
 
 export interface RunContext {
@@ -80,6 +81,8 @@ export async function run(argv: string[], context: RunContext = {}): Promise<num
         return await runRegistryList(at(command.dir), command, io, deps);
       case "release":
         return await runRelease(at(command.dir), command, io, deps);
+      case "authoring":
+        return await runAuthoringCommand(at(command.dir), command.command, io, deps);
     }
   } catch (error) {
     if (error instanceof CliError) {

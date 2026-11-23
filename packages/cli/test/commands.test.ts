@@ -420,6 +420,43 @@ test("registry list and release read the local registry through the adapters", a
   }
 });
 
+test("authoring blocks, refusals and unblock read and lift the guard's records through the app's own services", async () => {
+  const w = workdir();
+  const state = ((globalThis as { __thixoFixtureGuard?: unknown }).__thixoFixtureGuard = { refusals: [] as unknown[], blocks: new Map<string, unknown>() });
+  try {
+    const empty = testIo(w.root);
+    assert.equal(await run(["authoring", "blocks", w.root], { io: empty, deps: fakeDeps() }), 0, empty.stderr.join("\n"));
+    assert.equal(empty.stdout.join("\n"), "No one is blocked from making plugins.");
+
+    state.refusals.push({ id: "ref_1", user: "ana", conversation: "c1", category: "credentials", reason: "It asks for a password.", trigger: "a login box", from: "user", source: "agent", at: "2026-11-22T10:00:00.000Z" });
+    state.blocks.set("ana", { user: "ana", at: "2026-11-22T10:00:00.000Z", reason: "Thixo's authoring agent refused 3 of your requests within 24 hours.", refusals: ["ref_1"] });
+
+    const blocks = testIo(w.root);
+    assert.equal(await run(["authoring", "blocks", w.root], { io: blocks, deps: fakeDeps() }), 0);
+    assert.match(blocks.stdout.join("\n"), /^USER +SINCE +STATE +REFUSALS +REASON\nana +2026-11-22T10:00:00.000Z +blocked +1 +Thixo's authoring agent refused 3/);
+    assert.match(blocks.stdout.join("\n"), /thixo authoring unblock <user>/);
+
+    const refusals = testIo(w.root);
+    assert.equal(await run(["authoring", "refusals", w.root, "--user", "ana"], { io: refusals, deps: fakeDeps() }), 0);
+    assert.match(refusals.stdout.join("\n"), /2026-11-22T10:00:00.000Z  ana  credentials  agent  conversation c1\n  reason:  It asks for a password\.\n  trigger: a login box/);
+
+    const lift = testIo(w.root);
+    assert.equal(await run(["authoring", "unblock", "ana", w.root], { io: lift, deps: fakeDeps() }), 0);
+    assert.match(lift.stdout.join("\n"), /^Lifted the block on ana\./);
+    const after = testIo(w.root);
+    assert.equal(await run(["authoring", "blocks", w.root, "--all", "--json"], { io: after, deps: fakeDeps() }), 0);
+    const all = JSON.parse(after.stdout.join("\n"));
+    assert.equal(all[0].liftedBy, "implementor");
+
+    const again = testIo(w.root);
+    assert.equal(await run(["authoring", "unblock", "ana", w.root], { io: again, deps: fakeDeps() }), 0);
+    assert.match(again.stdout.join("\n"), /ana was not blocked/);
+  } finally {
+    delete (globalThis as { __thixoFixtureGuard?: unknown }).__thixoFixtureGuard;
+    w.cleanup();
+  }
+});
+
 test("help, version and unknown commands", async () => {
   const io = testIo(process.cwd());
   assert.equal(await run(["--help"], { io }), 0);
