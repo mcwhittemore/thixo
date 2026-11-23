@@ -50,3 +50,9 @@ Preconditions:
 - A `Checkbox` without `label` is named `Done` for a screen reader. Give any other checkbox a label. Every component's props are in `thixo agent describe`, under `### thixo/ui`.
 - Budget tests set `budget: 20000`; the default is 5,000,000. A stopped runtime stays stopped: create a new one to run the plugin again.
 - Plugin promises that the runtime stops are marked handled; any other plugin rejection still shows as unhandled, which `node --test` counts as a failure.
+
+## Verifying the TypeScript split
+
+- `npx tsc -v` from the repo root prints 7.x; `node -e "console.log(require(\"typescript-js-api\").version)"` from `packages/thx` prints 6.0.x.
+- Searching `packages/thx/src` for `from "typescript` finds only `compiler/ts-api.ts`.
+- `node --import tsx packages/thx/scripts/thxc.ts packages/thx/test/fixtures/due-dates` prints a module and exits 0; a misspelled field in a copy of it still gives `thx/type`.

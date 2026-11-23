@@ -2,7 +2,7 @@
 // checks it and writes its JavaScript; every other kind is an error. Nothing reaches the output that this file did
 // not write.
 
-import ts from "typescript";
+import ts from "./ts-api.js";
 import type { CompileEnv, FieldDecl, FieldType, ThxError } from "../contract.js";
 import { ASSET_FILE, attrKind, isElementAllowed, type AttrKind } from "../runtime/allowlist.js";
 import { BUILTIN_GLOBALS, CONSTRUCTIBLE } from "./lib-dts.js";

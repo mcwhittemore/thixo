@@ -2,7 +2,7 @@
 // shape the compiler is meant to write: one default-exported function of `rt`, whose only way to touch anything is
 // a call to one of rt's named members, and which names nothing it did not declare.
 
-import ts from "typescript";
+import ts from "../compiler/ts-api.js";
 
 /** The members of `rt` compiled code may name. */
 export const RT_NAMES: ReadonlySet<string> = new Set([

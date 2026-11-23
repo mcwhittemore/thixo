@@ -1,4 +1,4 @@
-import ts from "typescript";
+import ts from "thixo-thx/ts-api";
 
 /** Stand-in for thx's own library: the globals the plugin-facing declarations may use, and the bare minimum of
  * built-ins that `noLib` demands. */

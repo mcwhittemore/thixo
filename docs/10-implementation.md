@@ -12,8 +12,7 @@ The two files of types are the contract between packages. This page is the prose
 
 ## Packages
 
-An npm workspace. Node 22.13 or later. TypeScript 5.9, because the compiler uses its parser and checker as a
-library.
+An npm workspace. Node 22.13 or later. Two TypeScript versions, on purpose (see "TypeScript versions" below).
 
 | Folder | npm name | What it owns |
 | --- | --- | --- |
@@ -388,6 +387,33 @@ on its own.
 `.claude/skills/verify-thixo/` is the project's verification skill, in the shape pstack's
 `create-verification-skill` gives. Each part of the build adds a file to its `features/` for what it made. A change
 to a feature updates its file.
+
+## TypeScript versions
+
+Checked on npm on 2026-11-22. `latest` is 7.0.2, the native (Go) port. It ships no JS API: no `import ts from
+"typescript"` with `createProgram` or `createSourceFile`. The 6.x line (last: 6.0.3) is the final release with the JS
+API. `@typescript/typescript6` exists but is only at 6.0.2, so `typescript@~6.0.3` under an alias is newer.
+`7.1.0-beta` (tag `beta`) has an IPC-based API (`typescript/sync`, `typescript/async`) that we do not ship on.
+
+What we use:
+
+- The repo is typechecked and built with `typescript` ^7.0.2 (root and `packages/core` dev dependencies). 7.0 does not
+  load every `@types` package by default, so `tsconfig.base.json` sets `"types": ["node"]`.
+- The thx compiler uses TypeScript as a library, so `packages/thx` depends on `typescript-js-api`, an npm alias for
+  `typescript@~6.0.3`. Both versions are installed; the `tsc` command is 7.x.
+- Every use of the API in `packages/thx` goes through `packages/thx/src/compiler/ts-api.ts`. Nothing else imports
+  `typescript`. The core type-check test helper takes it from `thixo-thx/ts-api`. A test fails if another file imports
+  the package.
+- The language's lib (`LIB_THX_DTS`) and the compile tests pass unchanged on 6.0.3, so the emitted code for the example
+  plugins means the same.
+
+Moving to 7.x later: 7.1's API runs the checker in a native process and talks to it over a channel. It has programs,
+source files, symbol and type lookups and semantic diagnostics, so the checking half (`program.ts`, `compile.ts`) can
+move. It is not drop-in: it is a different node and program model, and our in-memory host (the lib and host modules as
+virtual files) has to be rebuilt on its file-system callbacks. `emit.ts` (1,400 lines) and `verify-output.ts` walk the
+syntax tree with `ts.is*` guards and `SyntaxKind`; the 7.1 tree is a different shape, so those move with the module.
+Rough size: a rewrite of the adapter plus a port of the two tree walkers, not a one-file swap of the import. We have not
+tried it. Move when 7.1 is stable and the node model is settled.
 
 ## Left for later
 

@@ -10,6 +10,7 @@
     "sourceMap": true,
     "composite": true,
     "skipLibCheck": true,
+    "types": ["node"],
     "verbatimModuleSyntax": true
   }
 }
