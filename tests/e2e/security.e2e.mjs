@@ -44,7 +44,8 @@ before(async () => {
   })`;
   const text = readFileSync(config, "utf8");
   assert.ok(text.includes("adapters: local(),"), "the todo example's config uses local()");
-  writeFileSync(config, text.replace("adapters: local(),", `adapters: ${fetcher},`).replace(`import { local, claudeCode } from "thixo-node";`, `import { local, claudeCode, guardedFetch } from "thixo-node";`));
+  if (!text.includes(`import { local } from "thixo-node";`)) throw new Error("The todo config no longer imports `local` alone from thixo-node; update this rewrite.");
+  writeFileSync(config, text.replace("adapters: local(),", `adapters: ${fetcher},`).replace(`import { local } from "thixo-node";`, `import { local, guardedFetch } from "thixo-node";`));
   dev = await startDev(dir);
   browser = await chromium.launch();
 });
