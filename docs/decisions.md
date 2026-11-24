@@ -1,7 +1,7 @@
 # Decisions
 
 What has been decided, with the reason and what was turned down. Entries 1 to 60 were made for the framework Thixo
-started as; that framework is kept at the `framework-v0` tag, and links in those entries point at documents that
+started as; that framework is in the history at commit `58adb67`, and links in those entries point at documents that
 live there now.
 
 New decisions go at the bottom. To reverse one, add a new entry that names the one it replaces. Don't edit history.
@@ -563,7 +563,7 @@ history.
 The project is cut down to what the plugin language promised: code that looks like TypeScript and React, compiled
 to JavaScript that runs in a page and reaches only what it was handed. The name is thixo; `.thx` stays as the file
 extension. The framework (API, shell, slots, registry, plugin data, authoring agent, adapters, examples) is removed
-from the tree, and the last commit that had it is tagged `framework-v0`.
+from the tree, and the last commit that had it is `58adb67`.
 
 - **Why:** the containment was the idea worth keeping. The rest of the framework was a bet on a product shape that
   may be wrong, and it made the language harder to test on its own.

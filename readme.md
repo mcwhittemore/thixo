@@ -72,4 +72,4 @@ spikes/           throwaway experiments the design rests on
 ```
 
 thixo started as a framework for malleable SaaS products, with this language as its plugin layer. That framework is
-kept at the `framework-v0` tag.
+in the history, at commit `58adb67`.

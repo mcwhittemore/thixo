@@ -4,7 +4,7 @@ A language that reads as TypeScript and React and compiles to JavaScript that ca
 [readme.md](readme.md).
 
 - `docs/decisions.md` is append-only, and only the project's owner settles an entry. Entries 1 to 60 are history
-  from the framework thixo started as (kept at the `framework-v0` tag).
+  from the framework thixo started as (in the history, at commit `58adb67`).
 - `docs/language.md` says what the language is. Where it says **lean**, the build took a side the owner has not
   settled; don't present a lean as a decision.
 - `docs/security.md` says what a program can't do. Each promise there is a goal in `bench/src/goals.ts`; keep them
