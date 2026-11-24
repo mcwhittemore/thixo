@@ -1,8 +1,0 @@
-import { definePlugin } from "thixo/plugin";
-import { Text } from "thixo/ui";
-import { main } from "@app/slots";
-import { hello } from "@app/sdk";
-
-export default definePlugin(main, { id: "plg_hello", name: "Hello", description: "Says hello." }, function Hello() {
-  return <Text>hello</Text>;
-});

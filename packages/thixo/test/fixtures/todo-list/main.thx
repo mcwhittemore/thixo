@@ -1,0 +1,40 @@
+// A todo list over host modules: data and hooks from the page, components it renders. The program never holds the
+// network; it calls only what the host handed it.
+
+import { useState } from "thixo";
+import { useCan, useQuery } from "@app/hooks";
+import { Button, Checkbox, Stack, TextInput } from "@app/ui";
+import { listTodos, createTodo, updateTodo, deleteTodo, listAssignees } from "@app/sdk";
+
+export default function TodoList({ onSelect }: { onSelect: (todoId: string) => void }) {
+  const todos = useQuery(listTodos);
+  const [title, setTitle] = useState("");
+  const canDelete = useCan(deleteTodo);
+  const assignees = useQuery(listAssignees);
+  const assigneeOf = (todoId: string) => assignees.data?.find((a) => a.todoId === todoId)?.name;
+
+  async function add() {
+    await createTodo({ title });
+    setTitle("");
+    todos.refresh();
+  }
+
+  return (
+    <Stack>
+      <TextInput value={title} onChange={setTitle} onSubmit={add} placeholder="Add a todo" />
+
+      {todos.data?.map((todo) => (
+        <Stack key={todo.id} direction="row">
+          <Checkbox checked={todo.done} onChange={(done) => updateTodo({ id: todo.id, done }).then(todos.refresh)} />
+          <button onClick={() => onSelect(todo.id)}>{todo.title}</button>
+
+          {assigneeOf(todo.id) && <span>{assigneeOf(todo.id)}</span>}
+
+          <Button disabled={!canDelete} onClick={() => deleteTodo({ id: todo.id }).then(todos.refresh)}>
+            Delete
+          </Button>
+        </Stack>
+      ))}
+    </Stack>
+  );
+}

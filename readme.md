@@ -1,145 +1,75 @@
 ![The word thixo, built from a lattice of nodes. A bee, a frog and a swallow each reshape its letters, and a wasp writes it back.](thixo.gif)
 
-# Thixo
+# thixo
 
 ```sh
-Thixo (n)
-The flexibly opinionated framework for creating malleable software
-
 Thixotropic (adj)
 holds its shape at rest, flows when you work it
 ```
 
-A developer uses Thixo the way they would use Next.js. They define an API and a base app. Thixo adds the part that
-is hard to build yourself: a safe way for the people using the app to write, share and run their own plugins inside
-it.
+thixo is a language that reads as TypeScript and React, and compiles to JavaScript that can run in your page
+without being able to reach it. A thixo program can draw, animate and respond to the pointer inside the box it is
+mounted in. It can't read the page around it, touch the network, run JavaScript of its own, or do anything the host
+didn't hand it.
 
-> **Status: first build.** The requirements are settled in [docs/02](docs/02-requirements.md), and a first build of
-> the framework runs locally: the plugin language and its compiler, the API layer, the shell, the registry, plugin
-> data, the authoring agent and the `thixo` command, with local adapters (SQLite and files) and a Claude API model
-> adapter. `npx thixo dev examples/todo` runs the example. The cloud adapters (Cloudflare, Vercel, AWS) are not
-> written yet.
+It exists for code written by agents. When a person asks an agent for something and the agent writes code, that
+code should be able to do only what the person can see it doing.
+
+```tsx
+import { useState, useFrame } from "thixo";
+
+export default function Spin() {
+  const [t, setT] = useState(0);
+  useFrame((time) => setT(time));
+  return (
+    <svg width="200" height="200">
+      <rect x="70" y="70" width="60" height="60" fill="teal" transform={`rotate(${t * 90} 100 100)`} />
+    </svg>
+  );
+}
+```
+
+```sh
+npx thixo compile ./spin -o spin.js
+```
+
+```ts
+import { load, mount } from "thixo/browser";
+mount(document.getElementById("box")!, await load(code));
+```
 
 ## Try it
 
 ```sh
 npm install
 npm run build
-npx thixo dev examples/todo --port 4310    # then open http://127.0.0.1:4310
-npm test                                   # every package's tests
-npm run e2e                                # the todo app end to end in headless Chromium
+npm test                                  # the compiler, runtime and their hostile programs
+npm run bench -- --goal read-dom          # an agent tries to read the page through thixo
 ```
 
-## Why
+## The benchmark
 
-Ink & Switch's essay [Malleable software](https://www.inkandswitch.com/essay/malleable-software/) describes tools
-that "users can reshape with minimal friction to suit their unique needs," and argues that most software today is the
-opposite: built far away, sealed and unchangeable.
+The wall is only as good as the attempts to get past it. [bench/](bench/readme.md) gives an agent one goal, such as
+"read the cookie" or "send a request to this server". The agent writes thixo, submits it, and the program is compiled
+and run in headless Chromium beside secrets it isn't meant to reach. The arena reports what it saw. If the goal was
+reached the agent is done, and the program is a bug to fix. If not, the agent gets the feedback and tries again.
 
-Coding agents have made the reshaping cheap. A person can now describe a change and get working code. What is still
-missing is a place to put that code:
-
-- **A team needs common ground.** When everyone builds their own tools, the same tool gets built three times and none
-  of them can be handed to a colleague.
-- **Generated code can't be trusted with a user's full access.** A plugin written by an agent, or by a stranger,
-  should be able to do only what it says it does.
-- **Data has to survive the changes.** A plugin that adds a field today and is forked tomorrow must not lose what
-  people have already written.
-
-Thixo's position is that these are framework problems. A developer building a malleable product should get them
-solved by default, and should not be able to get them wrong.
-
-## The four parts
-
-1. **An API with scopes.** The developer defines endpoints. Each endpoint carries the scopes a caller needs. The API
-   issues tokens and enforces them.
-2. **A base app with slots.** A React shell provides the always-on functionality, defines where plugins go and ships
-   the default plugins.
-3. **A place to write plugins.** A chat interface where a user describes what they want and an agent writes the
-   plugin, plus storage that keeps every version.
-4. **A registry.** Search that knows what each plugin needs and what each user is allowed to do, so people find and
-   fork each other's plugins before building their own.
-
-```mermaid
-flowchart LR
-  subgraph Browser
-    Shell[Shell: base app and slots]
-    Plugin[Plugin, compiled, in the page]
-  end
-  subgraph Server
-    API[API: endpoints and scopes]
-    Registry[Registry: versions, search, build]
-    Data[Plugin data: store and annotations]
-  end
-  Plugin -- SDK calls --> Shell
-  Shell -- user's token --> API
-  API --> Data
-  Shell -- load plugin version --> Registry
-```
-
-## What it looks like
-
-An endpoint says what it needs:
-
-```ts
-export const updateTodo = endpoint({
-  method: "PATCH",
-  path: "/todos/:id",
-  scopes: ["todos.read", "todos.write"],
-  // ...
-});
-```
-
-A plugin imports the endpoints it uses. Nothing else declares its permissions; the build reads them from the imports:
-
-```tsx
-import { listTodos, updateTodo } from "@app/sdk";
-import { deleteTodo } from "@app/sdk/optional";
-```
-
-The shell says where plugins go:
-
-```tsx
-<Shell>
-  <Nav />
-  <Slot is={main} />
-</Shell>
-```
-
-The full example is in [examples/todo](examples/todo), and it runs: see its readme.
-
-## Principles
-
-- **Malleable, not constrained.** A plugin can render anything inside its slot. Thixo fixes the edges (the slot, the
-  API, the data rules) and leaves the middle open.
-- **The code is the source of truth.** A plugin's scopes come from the endpoints it imports, and its data schema from
-  the types it declares. Nobody maintains a list by hand.
-- **Going past your scopes is impossible, not discouraged.** A plugin never holds the user's session or token.
-  The shell forwards from each plugin version only the calls it was built with.
-- **Data outlives code.** Plugin versions come and go. No version can destroy what another one wrote.
-- **No cloud lock-in.** Where code and data are stored, and where the server runs, are adapters. The first proof of
-  concept targets Cloudflare. Vercel and AWS must work too.
-
-## Reading order
+## Reading
 
 | Doc | What it answers |
 | --- | --- |
-| [Concepts](docs/01-concepts.md) | What the words mean |
-| [Requirements](docs/02-requirements.md) | What Thixo must do |
-| [Architecture](docs/03-architecture.md) | How the parts fit and what happens on a call |
-| [Security model](docs/04-security-model.md) | How a plugin is contained, and the known gaps |
-| [The language](docs/05-language.md) | The language plugins are written in, and what its compiled code has to get right |
-| [Data model](docs/06-data-model.md) | What Thixo stores, and the rules that keep plugin data safe |
-| [Portability](docs/07-portability.md) | The adapters, and what each cloud has to provide |
-| [Decisions](docs/08-decisions.md) | What was decided, when and why |
-| [Open questions](docs/09-open-questions.md) | What is not decided |
+| [The language](docs/language.md) | What a program can write, and where it differs from TypeScript |
+| [Security](docs/security.md) | What a program can't do, what is trusted, and the known gaps |
+| [Decisions](docs/decisions.md) | What was decided, when and why |
 
 ## Layout
 
 ```
-docs/          the requirements and design, in reading order
-examples/      apps built with Thixo; today, the todo app
-packages/      the framework's packages
-tests/e2e/     the todo app driven end to end in a browser (`npm run e2e`)
-.claude/skills/verify-thixo/   how behaviour is proved: launch, drive, evidence
+packages/thixo/   the compiler, the runtime, thixo/browser and the `thixo` command
+bench/            agents against the wall: goals, the arena, the runner
+docs/             the language, the security model, the decisions
+spikes/           throwaway experiments the design rests on
 ```
+
+thixo started as a framework for malleable SaaS products, with this language as its plugin layer. That framework is
+kept at the `framework-v0` tag.

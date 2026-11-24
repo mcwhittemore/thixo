@@ -1,6 +1,0 @@
-// A private store (D2): the contacts this user pinned. Nobody else's pins are visible to them.
-
-import { store } from "thixo/data";
-import { t } from "thixo/schema";
-
-export const pins = store("pins", { fields: { contactId: t.string() } });

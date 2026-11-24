@@ -1,0 +1,20 @@
+// The declarations of the built-in "thixo" module: the hooks every program gets. `thixo/browser` implements them.
+
+export const THIXO_DTS = `
+/** A value that survives renders, and the function that changes it. */
+export declare function useState<T>(initial: T): [T, (next: T | ((previous: T) => T)) => void];
+export declare function useMemo<T>(fn: () => T, deps: readonly unknown[]): T;
+/** Runs after a render. Return a function to undo it. */
+export declare function useEffect(fn: () => void | (() => void), deps?: readonly unknown[]): void;
+/** Calls \\\`fn\\\` once a frame while the program is on screen: \\\`time\\\` is seconds since it mounted, \\\`delta\\\` seconds since
+ * the last frame. */
+export declare function useFrame(fn: (time: number, delta: number) => void): void;
+/** The pointer, in pixels from the top left of the program's box. \\\`inside\\\` is false once it leaves. */
+export declare function usePointer(): { readonly x: number; readonly y: number; readonly down: boolean; readonly inside: boolean };
+/** The size of the program's box, in pixels. */
+export declare function useSize(): { readonly width: number; readonly height: number };
+/** The keys held down right now, by \\\`key\\\` name, such as "ArrowLeft" or "a". Only while the program has focus. */
+export declare function useKeys(): readonly string[];
+/** A class name for a style object. States (":hover") and "@media" blocks go inside it. */
+export declare function css(style: ThxCss): string;
+`;

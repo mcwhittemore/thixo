@@ -1,0 +1,22 @@
+// A looping animation: dots orbit the pointer while it is inside the box, and the box's centre when it is not.
+
+import { css, useFrame, usePointer, useSize, useState } from "thixo";
+import { orbit } from "./lib/orbit";
+
+const COUNT = 5;
+
+export default function Orbit({ radius = 30 }: { radius?: number }) {
+  const [time, setTime] = useState(0);
+  const pointer = usePointer();
+  const size = useSize();
+  useFrame((t) => setTime(t));
+  const center = pointer.inside ? { x: pointer.x, y: pointer.y } : { x: size.width / 2, y: size.height / 2 };
+  const dots = Array.from({ length: COUNT }, (_, i) => orbit(center, radius, i, COUNT, time));
+  return (
+    <svg className={css({ display: "block" })} width={size.width} height={size.height} viewBox={`0 0 ${size.width} ${size.height}`}>
+      {dots.map((d, i) => (
+        <circle key={i} cx={d.x} cy={d.y} r={pointer.down ? 6 : 4} fill="currentColor" />
+      ))}
+    </svg>
+  );
+}
