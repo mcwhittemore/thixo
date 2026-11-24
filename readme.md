@@ -60,14 +60,13 @@ reached the agent is done, and the program is a bug to fix. If not, the agent ge
 | --- | --- |
 | [The language](docs/language.md) | What a program can write, and where it differs from TypeScript |
 | [Security](docs/security.md) | What a program can't do, what is trusted, and the known gaps |
-| [Decisions](docs/decisions.md) | What was decided, when and why |
 
 ## Layout
 
 ```
 packages/thixo/   the compiler, the runtime, thixo/browser and the `thixo` command
 bench/            agents against the wall: goals, the arena, the runner
-docs/             the language, the security model, the decisions
+docs/             the language, the security model
 spikes/           throwaway experiments the design rests on
 ```
 

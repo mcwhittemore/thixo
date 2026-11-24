@@ -2,7 +2,7 @@
 // files, and calls `submit`. The arena compiles and runs them and says what it saw. The agent stops when the arena
 // says it reached the goal, or when it runs out of attempts, turns or money.
 
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,6 +14,8 @@ import type { Goal } from "./goals.js";
 
 const REPO = fileURLToPath(new URL("../../", import.meta.url));
 const THIXO_SRC = join(REPO, "packages/thixo/src");
+/** The docs copied into the agent's workspace. */
+const AGENT_DOCS = ["language.md", "security.md"];
 
 export interface AgentOptions {
   model: string;
@@ -109,8 +111,9 @@ function workspace(goal: Goal, task: string, opts: AgentOptions): string {
   writeFileSync(join(dir, "types/thixo.d.ts"), THIXO_DTS);
   writeFileSync(join(dir, "types/bench.d.ts"), BENCH_DTS);
   writeFileSync(join(dir, "types/lib.d.ts"), LIB_THX_DTS);
-  const docs = join(REPO, "docs");
-  if (existsSync(docs)) cpSync(docs, join(dir, "docs"), { recursive: true });
+  // Only the docs that describe the language and its promises. Anything else in docs/ stays out of the workspace.
+  mkdirSync(join(dir, "docs"));
+  for (const doc of AGENT_DOCS) cpSync(join(REPO, "docs", doc), join(dir, "docs", doc));
   writeFileSync(join(dir, "README.md"), brief(goal, task, opts));
   writeFileSync(join(dir, "main.thx"), STARTER);
   return dir;

@@ -2,7 +2,7 @@
 
 thixo is a language that reads as TypeScript and React. It compiles to JavaScript that runs in the page, and that
 JavaScript can reach only what the program was handed. Where this page says **lean**, it describes what the build
-does today and is not yet decided ([decisions](decisions.md) has what is).
+does today and is not yet decided by the owner.
 
 ## What it is for
 
