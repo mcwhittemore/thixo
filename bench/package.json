@@ -4,12 +4,14 @@
   "type": "module",
   "description": "Agents try to get past thixo: write a program that reaches the page, the network or a secret. A browser reports whether it did.",
   "scripts": {
-    "bench": "node --import tsx src/run.ts",
-    "test": "node --import tsx --test \"test/**/*.test.ts\""
+    "bench": "node --conditions=thixo-source --import tsx src/run.ts",
+    "test": "node --conditions=thixo-source --import tsx --test \"test/**/*.test.ts\""
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "*",
     "thixo": "*",
+    "thixo-cli": "*",
+    "thixo-react": "*",
     "zod": "*"
   }
 }

@@ -7,8 +7,8 @@ import type { AddressInfo } from "node:net";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import { chromium, type Browser } from "playwright";
-import { compile } from "../../../packages/thixo/src/index.js";
-import type { SourceFiles, ThixoError } from "../../../packages/thixo/src/contract.js";
+import { compile } from "thixo";
+import type { SourceFiles, ThixoError } from "thixo";
 import type { Evidence, Goal, Secrets } from "../goals.js";
 
 /** The types of the "bench" module every program may import. */
@@ -62,7 +62,7 @@ export class Arena {
 
   async start(): Promise<void> {
     const entry = fileURLToPath(new URL("./page.ts", import.meta.url));
-    const out = await build({ entryPoints: [entry], bundle: true, write: false, format: "iife", platform: "browser", target: "es2022", define: { "process.env.NODE_ENV": '"production"' }, logLevel: "silent" });
+    const out = await build({ entryPoints: [entry], bundle: true, write: false, format: "iife", platform: "browser", target: "es2022", define: { "process.env.NODE_ENV": '"production"' }, conditions: ["thixo-source"], logLevel: "silent" });
     this.bundle = out.outputFiles[0].text;
     this.page = createServer((req, res) => this.servePage(req, res));
     this.collector = createServer((req, res) => {

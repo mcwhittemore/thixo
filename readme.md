@@ -30,11 +30,11 @@ export default function Spin() {
 ```
 
 ```sh
-npx thixo compile ./spin -o spin.js
+npx thixo-cli compile ./spin -o spin.js
 ```
 
 ```ts
-import { load, mount } from "thixo/browser";
+import { load, mount } from "thixo-react";
 mount(document.getElementById("box")!, await load(code));
 ```
 
@@ -64,10 +64,11 @@ reached the agent is done, and the program is a bug to fix. If not, the agent ge
 ## Layout
 
 ```
-packages/thixo/   the compiler, the runtime, thixo/browser and the `thixo` command
-bench/            agents against the wall: goals, the arena, the runner
-docs/             the language, the security model
-spikes/           throwaway experiments the design rests on
+packages/thixo/        the compiler, the runtime and the output check
+packages/thixo-cli/    the `thixo` command
+packages/thixo-react/  mounts a compiled program in the browser with React
+bench/                 agents against the wall: goals, the arena, the runner
+docs/                  the language, the security model
 ```
 
 thixo started as a framework for malleable SaaS products, with this language as its plugin layer. That framework is

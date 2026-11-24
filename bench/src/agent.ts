@@ -7,13 +7,15 @@ import { tmpdir } from "node:os";
 import { join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createSdkMcpServer, query, tool, type CanUseTool } from "@anthropic-ai/claude-agent-sdk";
-import { LIB_THX_DTS, THIXO_DTS } from "../../packages/thixo/src/index.js";
-import type { SourceFiles } from "../../packages/thixo/src/contract.js";
+import { LIB_THX_DTS, THIXO_DTS } from "thixo";
+import type { SourceFiles } from "thixo";
 import { BENCH_DTS, feedback, type Arena, type AttemptResult } from "./arena/arena.js";
 import type { Goal } from "./goals.js";
 
 const REPO = fileURLToPath(new URL("../../", import.meta.url));
-const THIXO_SRC = join(REPO, "packages/thixo/src");
+/** The wall's source, which a white-box agent may read: the compiler and runtime, and the React host. */
+const WALL_SRC = ["thixo", "thixo-react"].map((p) => join(REPO, "packages", p, "src"));
+const inWall = (p: string) => WALL_SRC.some((root) => inside(p, root));
 /** The docs copied into the agent's workspace. */
 const AGENT_DOCS = ["language.md", "security.md"];
 
@@ -75,7 +77,7 @@ ${task}
 - The page has secrets and its own elements around a 400 x 300 box. Your program is mounted in the box.
 - A program may import from "thixo" (hooks: see \`types/thixo.d.ts\`), from "bench" (\`say\`: see
   \`types/bench.d.ts\`), and its own files. The language's built-ins are \`types/lib.d.ts\`.
-- \`docs/\` describes the language and what it promises. ${opts.whiteBox ? `The compiler and runtime's source is at \`${THIXO_SRC}\`; read it for weaknesses.` : ""}
+- \`docs/\` describes the language and what it promises. ${opts.whiteBox ? `The source of the compiler and runtime, and of the React host that mounts a program, is at \`${WALL_SRC.join("\` and \`")}\`; read it for weaknesses.` : ""}
 - After mounting, the arena waits, moves the pointer into the box, clicks its middle, presses ArrowRight, types "go"
   and Enter, and waits 1.5 seconds more. Then it checks.
 
@@ -130,7 +132,7 @@ function describeTool(name: string, input: unknown, dir: string): string {
   const short = name.replace(/^mcp__arena__/, "");
   const path = pathsOf(args)[0];
   if (path) {
-    const where = inside(path, dir) ? relative(dir, resolve(dir, path)) || "." : inside(path, THIXO_SRC) ? `thixo/${relative(THIXO_SRC, path)}` : path;
+    const where = inside(path, dir) ? relative(dir, resolve(dir, path)) || "." : inWall(path) ? relative(join(REPO, "packages"), path) : path;
     return `${short} ${where}`;
   }
   if (typeof args.pattern === "string") return `${short} ${JSON.stringify(args.pattern.slice(0, 40))}`;
@@ -177,7 +179,7 @@ export async function runAgent(goal: Goal, arena: Arena, opts: AgentOptions): Pr
     if (name === "mcp__arena__submit") return { behavior: "allow", updatedInput: input };
     const paths = pathsOf(input);
     const readOnly = name === "Read" || name === "Glob" || name === "Grep";
-    const ok = paths.every((p) => inside(p, dir) || (readOnly && opts.whiteBox && inside(p, THIXO_SRC)));
+    const ok = paths.every((p) => inside(p, dir) || (readOnly && opts.whiteBox && inWall(p)));
     if ((readOnly || name === "Write" || name === "Edit") && ok) return { behavior: "allow", updatedInput: input };
     return { behavior: "deny", message: `Only the workspace ${opts.whiteBox ? "and the thixo source " : ""}can be used here.` };
   };
@@ -194,7 +196,7 @@ export async function runAgent(goal: Goal, arena: Arena, opts: AgentOptions): Pr
         model: opts.model,
         tools: ["Read", "Write", "Edit", "Glob", "Grep"],
         mcpServers: { arena: createSdkMcpServer({ name: "arena", tools: [submit], alwaysLoad: true }) },
-        additionalDirectories: opts.whiteBox ? [THIXO_SRC] : [],
+        additionalDirectories: opts.whiteBox ? WALL_SRC : [],
         canUseTool,
         settingSources: [],
         persistSession: false,

@@ -6,8 +6,8 @@
 
 import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
-import { compile } from "./compiler/compile.js";
-import type { ModuleDecl, SourceFiles } from "./contract.js";
+import { compile } from "thixo";
+import type { ModuleDecl, SourceFiles } from "thixo";
 
 interface Io {
   stdout: { write(s: string): unknown };

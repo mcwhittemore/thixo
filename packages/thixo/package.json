@@ -1,54 +1,38 @@
 {
   "name": "thixo",
   "version": "0.1.0",
-  "description": "A language that looks like TypeScript and React, and compiles to JavaScript that can't reach the page, the network or anything it wasn't handed.",
+  "description": "The thixo compiler and runtime: a language that reads as TypeScript and React and compiles to JavaScript that can only reach what it was handed.",
   "type": "module",
   "files": [
-    "dist",
-    "bin"
+    "dist"
   ],
-  "bin": {
-    "thixo": "./bin/thixo.js"
-  },
   "scripts": {
     "build": "tsc -b",
     "test": "node --import tsx --test \"test/**/*.test.ts\""
   },
   "exports": {
     ".": {
+      "thixo-source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
     "./runtime": {
+      "thixo-source": "./src/runtime/index.ts",
       "types": "./dist/runtime/index.d.ts",
       "default": "./dist/runtime/index.js"
     },
-    "./browser": {
-      "types": "./dist/browser/index.d.ts",
-      "default": "./dist/browser/index.js"
-    },
     "./ts-api": {
+      "thixo-source": "./src/compiler/ts-api.ts",
       "types": "./dist/compiler/ts-api.d.ts",
       "default": "./dist/compiler/ts-api.js"
     },
     "./contract": {
+      "thixo-source": "./src/contract.ts",
       "types": "./dist/contract.d.ts",
       "default": "./dist/contract.js"
     }
   },
   "dependencies": {
     "typescript-js-api": "npm:typescript@~6.0.3"
-  },
-  "peerDependencies": {
-    "react": ">=18",
-    "react-dom": ">=18"
-  },
-  "peerDependenciesMeta": {
-    "react": {
-      "optional": true
-    },
-    "react-dom": {
-      "optional": true
-    }
   }
 }

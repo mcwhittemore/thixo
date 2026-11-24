@@ -10,9 +10,9 @@
     "node": ">=22.13"
   },
   "scripts": {
-    "build": "tsc -b packages/thixo",
-    "test": "npm run test -w thixo -w thixo-bench",
-    "typecheck": "tsc -b packages/thixo && tsc -p bench",
+    "build": "tsc -b packages/thixo packages/thixo-cli packages/thixo-react",
+    "test": "npm run test -w thixo -w thixo-cli -w thixo-bench",
+    "typecheck": "tsc -b packages/thixo packages/thixo-cli packages/thixo-react && tsc -p bench",
     "bench": "npm run bench -w thixo-bench --"
   },
   "devDependencies": {
