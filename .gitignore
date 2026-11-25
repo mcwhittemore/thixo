@@ -9,3 +9,6 @@ artifacts
 # Benchmark runs
 bench/results
 results
+
+# loopway bot worktrees
+.worktrees
