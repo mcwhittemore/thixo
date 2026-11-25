@@ -1,0 +1,16 @@
+name: verification
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  file:
+    name: verification file
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: verifications/pr-${{ github.event.pull_request.number }}.md has the template's shape
+        run: .claude/skills/verify-thixo/scripts/check-verification.sh ${{ github.event.pull_request.number }} "$GITHUB_WORKSPACE"

@@ -21,12 +21,13 @@ when the pull request merges or closes.
 
 ## What to check
 
-1. **It does the job, and the proof is written down.** The branch must have `verifications/issue-<N>.md` with
-   Verified, Not verified and Gaps sections. A missing file means **Changes needed**, whatever else is true. Rerun
-   each Verified entry yourself. Then try the case the issue is about your own way (for compiler or CLI changes, a
-   program of your own through `npx thixo compile`). A claim you couldn't reproduce is a finding. So is a check that
-   should have been run but appears in neither Verified nor Not verified. Read Not verified closely: decide whether
-   each gap is acceptable for this change, and say so.
+1. **It does the job, and the proof is written down.** The dev bot pushes `verifications/pr-<N>.md` just after it
+   opens the pull request. If the file isn't there yet, end your turn without a comment: the push wakes you. Once
+   it's there, load the `verify-thixo` skill and run `scripts/check-verification.sh <N>`. Rerun each Verified entry
+   the way the skill says. Then try the case the issue is about with an input of your own choosing, through the
+   skill's drivers. A claim you couldn't reproduce is a finding. So is a check the change called for that appears
+   in neither Verified nor Not verified. Read Not verified closely: decide whether each gap is acceptable for this
+   change, and say so.
 2. **The build is green.** `npm run build`, `npm run typecheck`, `npm test`.
 3. **The wall holds.** A change to `packages/thixo` or `packages/thixo-react` needs an escape or guard test that tries to
    get past it, and that test must fail without the change. Check that by reverting the source change in your
