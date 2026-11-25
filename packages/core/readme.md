@@ -20,10 +20,11 @@ else r.errors;    // [{ file, line, column, code, message, hint? }]
   declarations are checked once per process.
 
 It has no dependencies. The parser, the type check and the hash are its own, and nothing in the compile path needs
-Node, so a host can compile on an edge worker, in a browser or in Node. `test/budget.test.ts` holds the package to
-a size and a speed: the bundle under 100 KB gzipped, and the readme's Spin compiled in under 5 ms, the first time
-and every time after. To make the first time fast, the module compiles a tiny program when it loads, which adds about
-13 ms to the import; an edge worker pays that at startup, not in a request.
+Node, so a host can compile on an edge worker, in a browser or in Node. `test/budget.check.ts` holds the package to
+a size and a speed: the bundle under 100 KB gzipped, and the first compile in a fresh process under 5 ms for Spin,
+the orbit fixture and the todo-list fixture. To make that first compile fast, the module compiles a warm-up program
+(`src/compiler/warm-up.ts`) when it loads, which adds about 45 ms to the import; an edge worker pays that at
+startup, not in a request.
 
 ## `@thixo/core/runtime`
 
