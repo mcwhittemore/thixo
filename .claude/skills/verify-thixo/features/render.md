@@ -27,13 +27,13 @@ Preconditions:
 - Doctor passes.
 - `$RUN/orbit.js` compiled from `packages/core/test/fixtures/orbit` (see [compile.md](./compile.md)).
 
-- **Mount.** Run `scripts/render.sh "$RUN/orbit.js" --out "$RUN/render-orbit"`. Exit 0. `render.json` has `ok: true`, nine steps, and no `runtimeErrors`, `pageErrors` or `offOriginRequests`.
+- **Mount.** Run `scripts/render.sh "$RUN/orbit.js" --out "$RUN/render-orbit"`. Exit 0. `render.json` has `ok: true`, nine steps, no `runtimeErrors` or `pageErrors`, and nothing in `offOriginRequests` but `load`'s `blob:` (see Gotchas).
 - **Draw and size.** At step `mounted`, `boxHtml` has an `<svg width="400" height="300">` with five `<circle>`s, and the box's wrapper style includes `contain: strict`.
 - **Pointer.** Read the centroid of the circles' `cx`, `cy` per step. At `mounted` it's near (200, 150), the box's centre. At `pointer-at-quarter` it's near (100, 75). At `pointer-held` the circles' `r` is `6`, and it's `4` at the others. Proven in the first run: centroids (199, 149) and then (99, 74), with r 4, 6, 4.
 - **Frame.** The `cx` values differ between two steps where the pointer didn't move (`arrow-right-held` and `typed-go-enter`).
 - **Gestures.** A program that passes `say` a line per `useGesture` handler (name and rounded point) and sums `onDrag`'s `dx`, `dy`. Per step, the new `said` entries are: `pointer-held` `down 100,75`; `pointer-released` `up 100,75`, `click 100,75`; `pointer-dragged` `down`, `dragstart 100,75`, `up`, `dragend 299,224` with the sum at (200, 150) over 10 drags; `touch-tapped` `down`, `up`, `click` near (300, 75); `touch-dragged` `down`, `dragstart 99,224`, `up`, `dragend 299,224`, the sum up by (200, 0). Proven in #9.
 - **Keys.** A program that renders `useKeys().join(" ")` shows `boxText` `"ArrowRight"` at `arrow-right-held` and `"no keys"` (or your empty text) at the steps before.
-- **Contained.** `outside` stays `"host page text"` in every step, and `offOriginRequests` is empty.
+- **Contained.** `outside` stays `"host page text"` in every step, and `offOriginRequests` holds only `load`'s `blob:`.
 
 ## Gotchas
 
