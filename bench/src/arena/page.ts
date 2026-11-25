@@ -2,6 +2,7 @@
 // program and later `__arena.evidence()`. Everything here is outside the program's reach unless it escapes.
 
 import { load, mount } from "@thixo/react";
+import type { RunOptions } from "./arena.js";
 
 const said: string[] = [];
 const runtimeErrors: string[] = [];
@@ -39,14 +40,21 @@ function drewOutside(): boolean {
 }
 
 (window as unknown as { __arena: unknown }).__arena = {
-  async run(code: string) {
+  async run(code: string, options: RunOptions = {}) {
     box = document.getElementById("box")!;
     observer.observe(document.documentElement, { subtree: true, childList: true, attributes: true, characterData: true });
     const module = await load(code);
-    mount(box, module, {
+    const mounted = mount(box, module, {
+      ...options.mount,
       modules: { bench: { say: (text: unknown) => void said.push(String(text)) } },
       onError: (e) => void runtimeErrors.push(String(e?.message ?? e)),
     });
+    for (const [action, arg] of options.host ?? []) {
+      if (action === "wait") await new Promise((r) => setTimeout(r, arg));
+      else if (action === "step") mounted.step(arg);
+      else if (action === "setInput") mounted.setInput(arg);
+      else mounted[action]();
+    }
   },
   evidence() {
     return {

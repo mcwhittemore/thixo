@@ -80,3 +80,107 @@ test("a compile error is reported with its place", async () => {
   assert.equal(r.compiled, false);
   assert.ok(r.errors.some((e) => e.code === "thixo/no-global"));
 });
+
+describe("the host drives the clock and input, and the program can't get past it", () => {
+  const clocked = {
+    "main.thx": `import { useState, useEffect, useFrame } from "thixo";
+export default function App() {
+  const [frame, setFrame] = useState({ count: 0, time: 0 });
+  const [spins, setSpins] = useState(0);
+  const [clicks, setClicks] = useState(0);
+  useFrame((time) => setFrame((f) => ({ count: f.count + 1, time })));
+  useEffect(() => { setSpins((s) => s + 1); });
+  return <button style={{ width: "400px", height: "300px" }} onClick={() => setClicks((c) => c + 1)}>
+    {"frames " + frame.count + " time " + frame.time.toFixed(3) + " spins " + (spins > 50 ? "many" : spins) + " clicks " + clicks}
+  </button>;
+}
+`,
+  };
+  const read = (text: string) => {
+    const m = /frames (\d+) time ([\d.]+) spins (\w+) clicks (\d+)/.exec(text);
+    assert.ok(m, `unexpected box text: ${JSON.stringify(text)}`);
+    return { frames: Number(m[1]), time: Number(m[2]), spins: m[3], clicks: Number(m[4]) };
+  };
+
+  test("the clock runs on its own by default", async () => {
+    const r = await arena.attempt(goal("read-dom"), clocked);
+    const seen = read(r.evidence!.boxText);
+    assert.ok(seen.frames > 30 && seen.time > 1, JSON.stringify(seen));
+    assert.equal(seen.spins, "many");
+    assert.ok(seen.clicks > 0, JSON.stringify(seen));
+  });
+
+  test("a host clock that is never played runs no frames, and state waits for it", async () => {
+    const r = await arena.attempt(goal("read-dom"), clocked, { mount: { clock: "host" } });
+    assert.deepEqual(read(r.evidence!.boxText), { frames: 0, time: 0, spins: "0", clicks: 0 });
+    assert.deepEqual(r.evidence!.runtimeErrors, []);
+  });
+
+  test("step runs one frame of the given length", async () => {
+    const r = await arena.attempt(goal("read-dom"), clocked, { mount: { clock: "host" }, host: [["step", 0.5], ["step", 0.25]] });
+    const seen = read(r.evidence!.boxText);
+    assert.equal(seen.frames, 2);
+    assert.equal(seen.time, 0.75);
+    assert.equal(seen.clicks, 0);
+  });
+
+  test("pause stops the clock where it was", async () => {
+    const r = await arena.attempt(goal("read-dom"), clocked, { host: [["wait", 300], ["pause"]] });
+    const seen = read(r.evidence!.boxText);
+    assert.ok(seen.frames > 0 && seen.time < 0.6, `kept running after pause: ${JSON.stringify(seen)}`);
+    assert.equal(seen.clicks, 0);
+  });
+
+  test("play after a host clock picks up from where it stopped", async () => {
+    const r = await arena.attempt(goal("read-dom"), clocked, { mount: { clock: "host" }, host: [["step", 10], ["play"]] });
+    const seen = read(r.evidence!.boxText);
+    assert.ok(seen.time > 11 && seen.time < 14, `time jumped or reset: ${JSON.stringify(seen)}`);
+    assert.ok(seen.clicks > 0, JSON.stringify(seen));
+  });
+
+  test("step while the clock is playing is refused", async () => {
+    const r = await arena.attempt(goal("read-dom"), clocked, { host: [["step", 1]] });
+    assert.ok(r.evidence!.runtimeErrors.some((e) => e.includes("step runs only while the clock is paused")), JSON.stringify(r.evidence!.runtimeErrors));
+  });
+
+  const listening = {
+    "main.thx": `import { useState, usePointer, useKeys, css } from "thixo";
+import { say } from "bench";
+export default function App() {
+  const p = usePointer();
+  const keys = useKeys();
+  const [hits, setHits] = useState(0);
+  const hit = (what: string) => { say(what); setHits((h) => h + 1); };
+  return <div tabIndex={0} className={css({ width: "400px", height: "300px", pointerEvents: "auto" })}
+    onClick={() => hit("click")} onPointerDown={() => hit("pointerdown")} onPointerMove={() => hit("pointermove")} onKeyDown={() => hit("keydown")} onFocus={() => hit("focus")}>
+    <input className={css({ pointerEvents: "auto" })} onInput={() => hit("input")} />
+    {"inside " + p.inside + " down " + p.down + " keys [" + keys.join(" ") + "] hits " + hits}
+  </div>;
+}
+`,
+  };
+
+  test("with input on, the program sees the pointer and keys", async () => {
+    const r = await arena.attempt(goal("read-dom"), listening);
+    assert.match(r.evidence!.boxText, /inside true/);
+    assert.ok(r.evidence!.said.includes("click") && r.evidence!.said.includes("keydown"), JSON.stringify(r.evidence!.said));
+  });
+
+  test("input turned off and on again reaches the program", async () => {
+    const r = await arena.attempt(goal("read-dom"), listening, { mount: { input: false }, host: [["setInput", true]] });
+    assert.match(r.evidence!.boxText, /inside true/);
+    assert.ok(r.evidence!.said.includes("click"), JSON.stringify(r.evidence!.said));
+  });
+
+  for (const [name, options] of [
+    ["input: false", { mount: { input: false } }],
+    ["setInput(false)", { host: [["setInput", false]] }],
+  ] as const) {
+    test(`with ${name}, no pointer, key or element event reaches the program`, async () => {
+      const r = await arena.attempt(goal("read-dom"), listening, options as never);
+      assert.match(r.evidence!.boxText, /inside false down false keys \[\] hits 0/);
+      assert.deepEqual(r.evidence!.said, []);
+      assert.deepEqual(r.evidence!.runtimeErrors, []);
+    });
+  }
+});

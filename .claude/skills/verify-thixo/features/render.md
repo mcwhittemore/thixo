@@ -12,6 +12,8 @@ frame clock, and responds to the pointer, keys and the box's size. It touches no
 - `render-size` reads `useSize()`, the box's `width` and `height`.
 - `render-css` styles with `css({...})`, which becomes a generated class (`thx1-…`).
 - `render-contained` gives the box `contain: strict`. Nothing outside it changes, and no request leaves the origin.
+- `render-clock` runs `useFrame` on a clock the host drives with `clock: "host"`, `play()`, `pause()` and `step(s)`.
+- `render-input` keeps the pointer, keys and events from the program with `input: false` or `setInput(false)`.
 - `render-errors` reports a program's run-time error to the host's `onError`, not the page.
 
 ## How to get to it (user POV)
@@ -31,6 +33,10 @@ Preconditions:
 - **Frame.** The `cx` values differ between two steps where the pointer didn't move (`arrow-right-held` and `typed-go-enter`).
 - **Keys.** A program that renders `useKeys().join(" ")` shows `boxText` `"ArrowRight"` at `arrow-right-held` and `"no keys"` (or your empty text) at the steps before.
 - **Contained.** `outside` stays `"host page text"` in every step, and `offOriginRequests` is empty.
+
+- **Clock and input.** `render.sh` mounts with the defaults, so drive `render-clock` and `render-input` through the
+  arena tests (`bench/test/arena.test.ts`, "the host drives the clock and input"), which pass mount options and host
+  actions (`play`, `pause`, `step`, `setInput`, `wait`) to `Arena.attempt`.
 
 ## Gotchas
 
