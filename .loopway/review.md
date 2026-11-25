@@ -21,9 +21,12 @@ when the pull request merges or closes.
 
 ## What to check
 
-1. **It does the job.** Rerun the pull request's Verification section yourself. Then try the case the issue is about
-   your own way (for compiler or CLI changes, a program of your own through `npx thixo compile`). A claim you couldn't
-   reproduce is a finding.
+1. **It does the job, and the proof is written down.** The branch must have `verifications/issue-<N>.md` with
+   Verified, Not verified and Gaps sections. A missing file means **Changes needed**, whatever else is true. Rerun
+   each Verified entry yourself. Then try the case the issue is about your own way (for compiler or CLI changes, a
+   program of your own through `npx thixo compile`). A claim you couldn't reproduce is a finding. So is a check that
+   should have been run but appears in neither Verified nor Not verified. Read Not verified closely: decide whether
+   each gap is acceptable for this change, and say so.
 2. **The build is green.** `npm run build`, `npm run typecheck`, `npm test`.
 3. **The wall holds.** A change to `packages/thixo` or `packages/thixo-react` needs an escape or guard test that tries to
    get past it, and that test must fail without the change. Check that by reverting the source change in your
@@ -44,4 +47,5 @@ Then list each finding with the file and line, what's wrong, and how you showed 
 End with what you ran. Leave out praise and style nits that no rule asks for.
 
 When the author pushes fixes, review again: rerun what failed and look at the new diff. Comment only when the verdict
-or a finding changes.
+or a finding changes. A `/dismiss <reason>` answer to a finding settles it unless the reason is factually wrong. If it
+is, show why once, and leave it to the owner after that.

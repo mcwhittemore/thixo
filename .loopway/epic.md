@@ -45,16 +45,36 @@ Post the plan on the epic as a numbered list (title, what works after it, how to
 ## File the units
 
 Once approved, open one issue per unit with `mcp__loopway__create_issue`, `subscribe: true` and `assign: false`.
-Each body starts with `Part of #<epic>`, then the goal, the done-when, how to verify it, and dependencies on earlier
-units. Leave them unassigned: the owner starts a unit by assigning it, and that is what starts the dev bot.
+Each body starts with `Part of #<epic>`, then the goal, the done-when, how to verify it, and a `Depends on: #<issue>, …`
+line naming the earlier units it needs (or `Depends on: nothing`).
 
 Then edit the epic's body with `gh issue edit` to add (or replace) a `## Units` section at the end, keeping the owner's
 text above it word for word: a task list in order, `- [ ] #<issue> <title>`.
 
+## Pace: who gets the work, and how fast
+
+Assign units to whoever the epic is assigned to (`gh issue view <epic> --json assignees`); assigning is what starts
+the dev bot. A unit is **unblocked** when every unit it depends on is closed. The epic's labels set the pace. Read
+them again every turn, since the owner can change pace mid-epic:
+
+- **No pace label: step by step.** Assign the first unblocked unit, only one at a time. When its pull request merges
+  and the unit closes, assign the next one.
+- **`pace:unblocked`: all unblocked.** Assign every unblocked unit at once. Each time a unit closes, assign whatever
+  that unblocks. The owner merges.
+- **`pace:auto`: auto.** Like `pace:unblocked`, but you also merge. When a unit's issue says its pull request is
+  ready to merge, check it yourself before merging: the review bot's latest verdict is **Ready to merge**, every finding
+  is fixed or answered with a `/dismiss`, `verifications/issue-<N>.md` exists, CI is green, and the branch is current with
+  `main`. Then `gh pr merge <PR> --squash --delete-branch`. If any check fails, comment on the unit's issue saying
+  which, and don't merge. Never merge a pull request whose Not verified section has a gap the review didn't accept.
+
+Start assigning as soon as the units are filed. If a unit stalls (an `ask` waiting on the owner, or review going in
+circles), say so on the epic. In `pace:auto`, stop merging anything that depends on it.
+
 ## Keep the epic current
 
-Updates on the units come to this thread. When a unit closes, tick it in the epic's Units section and comment on the
-epic: what now works, and the next unit to start. If what a unit taught changes the plan, propose the change on the
-epic and ask before filing, reordering or closing units. When the owner says on the epic to start a unit, assign it
-with `gh issue edit <unit> --add-assignee mcwhittemore`. When every unit is done, check the epic's done-when against
-the code yourself and say on the epic whether it's met.
+Updates on the units come to this thread. When a unit closes, tick it in the epic's Units section, assign what the pace
+allows, and comment on the epic: what now works and what's in flight. Read the unit's `verifications/` file. If its Gaps
+show the same verification gap showing up across units, note it on the epic as work worth filing. If what a unit
+taught changes the plan, propose the change on the epic and ask before filing, reordering or closing units. When the
+owner says on the epic to start a unit, assign it whatever the pace. When every unit is done, check the epic's
+done-when against the code yourself and say on the epic whether it's met.

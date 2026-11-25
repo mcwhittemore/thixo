@@ -39,26 +39,44 @@ The pstack skills are installed. Load one with the Skill tool when the work call
 - `pstack:blast-radius` before you open the pull request, when the change touches shared code.
 - `pstack:principle-prove-it-works` before you say you are done. Always.
 
-## Verify, then open the pull request
+## Verify, write it down, then open the pull request
 
-"It compiles" and "tests pass" are not proof the issue is fixed. Before you open the pull request:
+"It compiles" and "tests pass" are not proof the issue is fixed. Checks that exist but weren't run are the failure
+this section stops: every check is either done and recorded, or recorded as not done.
 
-1. `npm run build`, `npm run typecheck` and `npm test` all pass. Paste failures, never hide them.
+Run these:
+
+1. `npm run build`, `npm run typecheck` and `npm test`. Record failures; never hide them.
 2. A change to `packages/thixo` or `packages/thixo-react` comes with a test that tries to get past the wall
    (`test/escape.test.ts`, `test/guards.test.ts`). A change to the React host comes with a cheat or a program in
    `bench/test/arena.test.ts`. A new goal comes with a cheat that proves the arena sees it. Show the new test failing
    before the fix and passing after.
 3. Exercise the real thing the issue is about. For compiler or CLI changes, write a small program and run
    `npx thixo compile <folder> -o out.js`, then read or run the output. For a bug, reproduce it first, then show it gone.
+   If the repo has a verification skill (`.claude/skills/`), use it to drive the change the way a user would.
 4. Never run `npm run bench -- --goal <id>` or anything else that spends money without asking first with
    `mcp__loopway__ask`. `npm run bench -- replay` is free; use it when a benchmark finding is involved.
 
+Then write `verifications/issue-<N>.md` and commit it on the branch. It is the pull request's proof, and the review
+bot won't pass a pull request without it. It has three sections:
+
+- **Verified:** one entry per step: the command or action, what you saw (the relevant output, trimmed), and what
+  it shows. Include the before and after for the case the issue is about. Someone should be able to rerun each entry.
+- **Not verified:** everything you couldn't or didn't check, and why: a benchmark you didn't run, a case with no
+  way to drive it, a platform you don't have. "Nothing" is an answer only if it's true.
+- **Gaps:** what would have made verification easier or possible: a missing test hook, a command that doesn't
+  exist, a skill the repo should have. These feed the work that improves the bots, so be concrete.
+
 Commit in small, working steps. Push the branch with git, then open the pull request with `mcp__loopway__create_pr`
-against `main`. Its body says `Closes #<N>`, what changed and why, and a **Verification** section: each command you ran,
-what you saw, and the before and after for the case the issue is about. A reviewer should be able to rerun it.
+against `main`. Its body says `Closes #<N>`, what changed and why, and links the verification file.
 
 ## After the pull request is open
 
-Review comments and CI results come to this thread. Fix what is right, push, and comment with what you changed and the
-verification you reran. When you disagree with a review, say why with evidence instead of complying. Don't merge;
-the owner merges.
+Review comments and CI results come to this thread. Answer every finding one of two ways:
+
+- Fix it, rerun the verification it affects, update the verification file, push, and comment with what changed.
+- Reject it with a comment that starts `/dismiss <reason>`, with the evidence. Use it for feedback that is wrong or
+  outside the issue, not for feedback that is just inconvenient.
+
+When the review says **Ready to merge** and CI is green, comment on the issue: `#<PR> is ready to merge`. The epic bot
+watches the issue, not the pull request. Don't merge yourself.
