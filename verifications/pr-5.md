@@ -45,6 +45,14 @@ Revision: evidence taken at 39e69f5 plus the uncommitted verify-thixo skill, rer
   `.claude/skills/verify-thixo/scripts/check-verification.sh 5`
   Saw: before this file existed, exit 1 and `verifications/pr-5.md is missing`. With it, exit 0 and `ok`.
 
+- **The epic bot's small-change check works on a real PR.**
+  `gh pr view 5 --json additions,deletions,files`
+  Saw: `additions=988 deletions=0 files=19`. This PR touches `.github/`, `.loopway/` and
+  `.claude/skills/verify-thixo/`, so under the new rules it's **owner review**, which is correct for a change to the gates.
+- **The bot files still load after the small-change edits.**
+  The same `loadBots` call as above.
+  Saw: `dev ['issue'] 4190`, `epic ['issue'] 7036`, `review ['pull_request'] 3705` (prompt lengths), no errors.
+
 ## Not verified
 
 - The workflow on GitHub itself. Only its script ran, locally. The first push of this PR is its first real run.
@@ -56,7 +64,13 @@ Revision: evidence taken at 39e69f5 plus the uncommitted verify-thixo skill, rer
 - The `todo-list` fixture, `--entry`, the `compile-usage` path through `cli.sh`, and `render-size` with a box of
   another size.
 
+- That the bots apply the small-change limits and P1/P2/P3 grading as written. Both are prompt rules, and no bot has
+  run on a real epic yet.
+
 ## Gaps
+
+- The small-change limits are prose the epic bot applies, not a CI check humans can't edit, which is how the article
+  enforces them. A `small-change` check computed from the diff would make them binding.
 
 - `render.sh` mounts only the `bench` host module. Verifying another host module means editing `render.ts`; a
   `--host <module.js>` flag would fix that.

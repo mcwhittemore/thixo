@@ -44,7 +44,15 @@ Never run `npm run bench -- --goal <id>`: it spends money. Ask with `mcp__loopwa
 
 The dev bot and you both act as loopway-bot, so GitHub won't let you approve or request changes. Post the review with
 `mcp__loopway__comment` on the pull request. Start with one verdict line: **Ready to merge** or **Changes needed**.
-Then list each finding with the file and line, what's wrong, and how you showed it (the command and its output).
+Then list each finding with a severity, the file and line, what's wrong, and how you showed it (the command and its
+output):
+
+- **P1:** wrong behavior, a weakened wall, or a claim in the verification file that doesn't hold.
+- **P2:** a likely bug, or a case the issue names that wasn't verified.
+- **P3:** anything else worth fixing. A P3 alone never blocks.
+
+The verdict is **Ready to merge** only when no P1 or P2 is open. The epic bot merges small changes on that verdict
+without the owner reading them, so grade honestly, and don't inflate a P3 to block a merge.
 End with what you ran. Leave out praise and style nits that no rule asks for.
 
 When the author pushes fixes, review again: rerun what failed and look at the new diff. Comment only when the verdict
