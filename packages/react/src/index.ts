@@ -75,6 +75,8 @@ type GestureName = "onDown" | "onUp" | "onClick" | "onDragStart" | "onDrag" | "o
 interface Gesture {
   name: GestureName;
   point: { x: number; y: number; dx?: number; dy?: number };
+  /** Ends a press after the host turned input off, so it reaches the program though input is off. */
+  closing?: boolean;
 }
 
 interface Box {
@@ -301,7 +303,7 @@ export function thixoModule(rt: Runtime, clock: Clock = createClock(true, () => 
       React.useEffect(
         () =>
           box.listen((g) => {
-            if (rt.stopped || !box.get().input) return;
+            if (rt.stopped || (!box.get().input && !g.closing)) return;
             const h = latest.current;
             const f = h !== null && typeof h === "object" ? (h as Record<string, unknown>)[g.name] : undefined;
             if (typeof f === "function") (f as (p: Gesture["point"]) => unknown)(g.point);
@@ -466,12 +468,12 @@ export function mount(target: HTMLElement, module: CompiledModule, options: Moun
   }
 
   const press: { current: Press | null } = { current: null };
-  const release = (at: { x: number; y: number }, clicked: boolean) => {
+  const release = (at: { x: number; y: number }, clicked: boolean, closing = false) => {
     const p = press.current!;
     press.current = null;
-    box.emit({ name: "onUp", point: at });
-    if (p.dragging) box.emit({ name: "onDragEnd", point: at });
-    else if (clicked) box.emit({ name: "onClick", point: at });
+    box.emit({ name: "onUp", point: at, closing });
+    if (p.dragging) box.emit({ name: "onDragEnd", point: at, closing });
+    else if (clicked) box.emit({ name: "onClick", point: at, closing });
   };
 
   const root = createRoot(target);
@@ -487,8 +489,14 @@ export function mount(target: HTMLElement, module: CompiledModule, options: Moun
     },
     setInput(on) {
       if (on === box.get().input) return;
-      if (!on && press.current) release({ x: press.current.lastX, y: press.current.lastY }, false);
       box.set(on ? { input: true } : { input: false, pointer: NO_POINTER, keys: [] });
+      if (on || !press.current) return;
+      // Input is already off, so whatever the program does in these handlers, the host's call returns with it off.
+      try {
+        release({ x: press.current.lastX, y: press.current.lastY }, false, true);
+      } catch (e) {
+        onError(e instanceof Error ? e : new Error("The program threw while its press was ended."));
+      }
     },
     unmount() {
       clock.stop();

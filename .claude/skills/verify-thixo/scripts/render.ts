@@ -18,6 +18,7 @@ const PAGE_SCRIPT = `
 import { load, mount } from "@thixo/react";
 const said = [];
 const errors = [];
+const hostErrors = [];
 let box;
 let mounted;
 window.__verify = {
@@ -30,7 +31,11 @@ window.__verify = {
     });
   },
   setInput(on) {
-    mounted.setInput(on);
+    try {
+      mounted.setInput(on);
+    } catch (e) {
+      hostErrors.push("setInput(" + on + "): " + String(e?.message ?? e));
+    }
   },
   seen() {
     return {
@@ -38,6 +43,7 @@ window.__verify = {
       boxText: (box?.innerText ?? "").slice(0, 4000),
       boxHtml: (box?.innerHTML ?? "").slice(0, 20000),
       runtimeErrors: errors.slice(0, 50),
+      hostErrors: hostErrors.slice(0, 50),
       outside: document.getElementById("outside")?.textContent ?? null,
     };
   },
@@ -178,13 +184,13 @@ async function main(args: string[]): Promise<number> {
     await browser.close();
     await new Promise((r) => server.close(r));
   }
-  const last = steps.at(-1)?.seen as { runtimeErrors?: string[] } | undefined;
-  const failed = !!mountError || pageErrors.length > 0 || (last?.runtimeErrors?.length ?? 0) > 0;
+  const last = steps.at(-1)?.seen as { runtimeErrors?: string[]; hostErrors?: string[] } | undefined;
+  const failed = !!mountError || pageErrors.length > 0 || (last?.runtimeErrors?.length ?? 0) > 0 || (last?.hostErrors?.length ?? 0) > 0;
   const report = { input: resolve(input), gestures, ok: !failed, mountError, pageErrors, console: consoleLines, offOriginRequests: requests, steps };
   writeFileSync(join(out, "render.json"), JSON.stringify(report, null, 2) + "\n");
   process.stdout.write(`${failed ? "FAILED" : "ok"}: ${steps.length} steps, evidence in ${out}\n`);
   if (mountError) process.stdout.write(`mount error: ${mountError}\n`);
-  for (const e of [...pageErrors, ...(last?.runtimeErrors ?? [])]) process.stdout.write(`error: ${e}\n`);
+  for (const e of [...pageErrors, ...(last?.runtimeErrors ?? []), ...(last?.hostErrors ?? [])]) process.stdout.write(`error: ${e}\n`);
   return failed ? 1 : 0;
 }
 

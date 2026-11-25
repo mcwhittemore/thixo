@@ -89,7 +89,7 @@ and a snapshot after each:
 10. `input-off-mid-drag`: the mouse pressed at box (100, 75) and dragged to (200, 150); the host calls
     `setInput(false)`, the mouse moves on to (250, 150) and is released, then the host calls `setInput(true)`
 
-`render.json` holds, per step: `said`, `boxText`, `boxHtml` and `runtimeErrors`, plus page errors, console lines and
+`render.json` holds, per step: `said`, `boxText`, `boxHtml`, `runtimeErrors` and `hostErrors` (a host call such as `setInput` that threw), plus page errors, console lines and
 any request that left the page's origin. It exits 0 when the program mounted with no errors and 1 otherwise. Read the
 screenshots with your image tool, and assert on `render.json` numbers, not on how a picture looks.
 
