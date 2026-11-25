@@ -97,7 +97,7 @@ async function main(args: string[]): Promise<number> {
   const steps: { step: string; screenshot: string; seen: unknown }[] = [];
   let mountError: string | undefined;
   try {
-    const page = await browser.newPage({ viewport: { width: 480, height: 380 } });
+    const page = await browser.newPage({ viewport: { width: 480, height: 380 }, hasTouch: true });
     page.on("pageerror", (e) => pageErrors.push(e.message));
     page.on("console", (m) => consoleLines.push(`${m.type()}: ${m.text()}`));
     page.on("request", (r) => {
@@ -137,6 +137,25 @@ async function main(args: string[]): Promise<number> {
       await page.keyboard.press("Enter");
       await page.waitForTimeout(200);
       await shot("typed-go-enter");
+      await page.mouse.move(at.x, at.y);
+      await page.mouse.down();
+      await page.mouse.move(b.x + 300, b.y + 225, { steps: 10 });
+      await page.mouse.up();
+      await page.waitForTimeout(200);
+      await shot("pointer-dragged");
+      // Touch goes through CDP: Playwright's touchscreen only taps, and a finger drag is the case touch-action matters for.
+      const cdp = await page.context().newCDPSession(page);
+      const touch = (type: string, points: { x: number; y: number }[]) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points });
+      await page.mouse.move(b.x + 450, b.y + 320);
+      await touch("touchStart", [{ x: b.x + 300, y: b.y + 75 }]);
+      await touch("touchEnd", []);
+      await page.waitForTimeout(200);
+      await shot("touch-tapped");
+      await touch("touchStart", [{ x: b.x + 100, y: b.y + 225 }]);
+      for (let i = 1; i <= 10; i++) await touch("touchMove", [{ x: b.x + 100 + i * 20, y: b.y + 225 }]);
+      await touch("touchEnd", []);
+      await page.waitForTimeout(200);
+      await shot("touch-dragged");
     }
   } finally {
     await browser.close();

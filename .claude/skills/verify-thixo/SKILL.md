@@ -82,6 +82,9 @@ and a snapshot after each:
 4. `pointer-released`
 5. `arrow-right-held`: ArrowRight held down
 6. `typed-go-enter`: typed `go`, then Enter
+7. `pointer-dragged`: the mouse pressed at box (100, 75), dragged to (300, 225) in 10 moves, and released
+8. `touch-tapped`: a finger tap at box (300, 75)
+9. `touch-dragged`: a finger pressed at box (100, 225), dragged to (300, 225) in 10 moves, and lifted
 
 `render.json` holds, per step: `said`, `boxText`, `boxHtml` and `runtimeErrors`, plus page errors, console lines and
 any request that left the page's origin. It exits 0 when the program mounted with no errors and 1 otherwise. Read the
