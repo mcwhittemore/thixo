@@ -51,7 +51,7 @@ Every program may import from `thixo`, and these are its exports.
 | Export | What it does |
 | --- | --- |
 | `useState`, `useMemo`, `useEffect` | React's, with deps compared by value: values cross into the host as fresh copies. |
-| `useFrame(fn)` | Calls `fn(time, delta)` once a frame, in seconds, while the program is mounted. |
+| `useFrame(fn)` | Calls `fn(time, delta)` once a frame, in seconds, while the host lets its clock run. `time` counts only the frames that ran. |
 | `usePointer()` | `{ x, y, down, inside }`, in pixels from the top left of the program's box. |
 | `useGesture(handlers)` | Calls `onDown`, `onUp`, `onClick`, `onDragStart`, `onDrag` (with `dx`, `dy`) and `onDragEnd` as the pointer is pressed, released, clicked or dragged on the box. Mouse, pen and touch alike; the primary pointer only. By default the main button starts one, and a press that moves 4 pixels or less is a click. The host sets these with `mount(..., { gestures })`, or turns gestures off; the program can't. |
 | `useSize()` | `{ width, height }` of the box. |

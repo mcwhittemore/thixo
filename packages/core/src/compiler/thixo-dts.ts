@@ -19,7 +19,8 @@ export interface DragPoint extends GesturePoint { readonly dx: number; readonly 
  * default only its main button. Each \\\`onDown\\\` gets one \\\`onUp\\\`, also when the pointer leaves the box or is cancelled. A
  * press that moves 4 pixels or less (by default) and comes up inside the box is a click. One that moves further is a drag: \\\`onDragStart\\\` at
  * the point it was pressed, \\\`onDrag\\\` for each move after, and \\\`onDragEnd\\\` when it comes up, leaves or is cancelled. The host
- * decides the threshold, the buttons, whether touch counts, and whether gestures come at all. */
+ * decides the threshold, the buttons, whether touch counts, and whether gestures come at all. While the host has input
+ * off, no gesture comes, and a press it was in the middle of is dropped without an \\\`onUp\\\`. */
 export declare function useGesture(handlers: {
   onDown?(point: GesturePoint): void;
   onUp?(point: GesturePoint): void;
