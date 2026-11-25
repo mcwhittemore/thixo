@@ -7,7 +7,7 @@
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { readProgram } from "thixo";
+import { readProgram } from "@thixo/cli";
 import { runAgent, type RunSummary } from "./agent.js";
 import { Arena, feedback } from "./arena/arena.js";
 import { goal, GOALS } from "./goals.js";

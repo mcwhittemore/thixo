@@ -14,7 +14,7 @@ escape) doesn't compile. The author gets `file:line:column code message` and, of
 
 ## How to get to it (user POV)
 
-- Compile a program that breaks a rule: `npx thixo compile <folder>`.
+- Compile a program that breaks a rule: `npx @thixo/cli compile <folder>`.
 - The same, with `--json`, the way tools and agents read it.
 
 ## Driving it with verify-thixo

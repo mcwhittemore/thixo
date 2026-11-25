@@ -41,7 +41,7 @@ export default function Orbit() {
 ```
 
 ```sh
-npx thixo compile ./orbit -o orbit.js
+npx @thixo/cli compile ./orbit -o orbit.js
 ```
 
 ## The built-in module

@@ -30,7 +30,7 @@ export default function Spin() {
 ```
 
 ```sh
-npx thixo compile ./spin -o spin.js
+npx @thixo/cli compile ./spin -o spin.js
 ```
 
 ```ts
@@ -65,7 +65,7 @@ reached the agent is done, and the program is a bug to fix. If not, the agent ge
 
 ```
 packages/core/   the compiler, the runtime and the output check
-packages/cli/    the `thixo` command
+packages/cli/    the `thixo` command (@thixo/cli)
 packages/react/  mounts a compiled program in the browser with React
 bench/           agents against the wall: goals, the arena, the runner
 docs/            the language, the security model

@@ -1,4 +1,4 @@
-# thixo
+# @thixo/cli
 
 The `thixo` command.
 
