@@ -4,6 +4,7 @@
 // what this file and the host hand it.
 
 import * as React from "react";
+import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import type { ProgramDefinition, Runtime } from "@thixo/core";
 import { createRuntime } from "@thixo/core/runtime";
@@ -21,10 +22,23 @@ export interface MountOptions {
   budget?: number;
   /** Called when the program is stopped or throws. Rendering stops; the box shows nothing. */
   onError?(error: Error): void;
+  /** `"auto"`, the default, starts the clock at once. `"host"` starts it paused at time 0, for the host to `play` or
+   * `step`. */
+  clock?: "auto" | "host";
+  /** `false` keeps the pointer, the keys and every event in the box from the program. Default true. */
+  input?: boolean;
 }
 
 export interface Mounted {
   runtime: Runtime;
+  /** Runs the clock: `useFrame` is called once an animation frame. Time goes on from where it stopped. */
+  play(): void;
+  /** Stops the clock. No frame runs, and the program's state changes wait until the clock moves again. */
+  pause(): void;
+  /** Moves a paused clock on by `seconds` in one frame, and renders before it returns. */
+  step(seconds: number): void;
+  /** Turns input on or off. Turning it off lets go of the pointer and the held keys. */
+  setInput(on: boolean): void;
   unmount(): void;
 }
 
@@ -42,6 +56,7 @@ interface BoxState {
   pointer: { x: number; y: number; down: boolean; inside: boolean };
   size: { width: number; height: number };
   keys: string[];
+  input: boolean;
 }
 
 interface Box {
@@ -50,8 +65,10 @@ interface Box {
   set(patch: Partial<BoxState>): void;
 }
 
-function createBox(): Box {
-  let state: BoxState = { pointer: { x: 0, y: 0, down: false, inside: false }, size: { width: 0, height: 0 }, keys: [] };
+const NO_POINTER: BoxState["pointer"] = { x: 0, y: 0, down: false, inside: false };
+
+function createBox(input: boolean): Box {
+  let state: BoxState = { pointer: NO_POINTER, size: { width: 0, height: 0 }, keys: [], input };
   const subs = new Set<() => void>();
   return {
     get: () => state,
@@ -62,6 +79,92 @@ function createBox(): Box {
     set(patch) {
       state = { ...state, ...patch };
       for (const fn of subs) fn();
+    },
+  };
+}
+
+type FrameFn = (time: number, delta: number) => void;
+
+/** The program's one clock. Its time is the sum of the frames the host let run. While it is still, the program's
+ * state changes are held, so a program can't animate itself with effects that set state. */
+interface Clock {
+  readonly time: number;
+  subscribe(fn: FrameFn): () => void;
+  update(change: () => void): void;
+  play(): void;
+  pause(): void;
+  step(seconds: number): void;
+  stop(): void;
+}
+
+function createClock(playing: boolean, stopped: () => boolean): Clock {
+  let time = 0;
+  let live = playing;
+  let handle = 0;
+  let last: number | undefined;
+  const subs = new Set<FrameFn>();
+  const held: (() => void)[] = [];
+  const release = () => {
+    for (const change of held.splice(0)) change();
+  };
+  const tick = (delta: number) => {
+    time += delta;
+    for (const fn of [...subs]) {
+      if (stopped()) return;
+      fn(time, delta);
+    }
+  };
+  const frame = (now: number) => {
+    if (stopped()) return;
+    const delta = last === undefined ? 0 : (now - last) / 1000;
+    last = now;
+    tick(delta);
+    if (!stopped()) handle = requestAnimationFrame(frame);
+  };
+  if (playing) handle = requestAnimationFrame(frame);
+  return {
+    get time() {
+      return time;
+    },
+    subscribe(fn) {
+      subs.add(fn);
+      return () => void subs.delete(fn);
+    },
+    update(change) {
+      if (live) change();
+      else held.push(change);
+    },
+    play() {
+      if (playing || stopped()) return;
+      playing = live = true;
+      last = undefined;
+      release();
+      handle = requestAnimationFrame(frame);
+    },
+    pause() {
+      if (!playing) return;
+      playing = live = false;
+      cancelAnimationFrame(handle);
+    },
+    step(seconds) {
+      if (playing) throw new Error("step runs only while the clock is paused.");
+      if (!Number.isFinite(seconds) || seconds < 0) throw new Error("step takes a number of seconds, 0 or more.");
+      if (stopped()) return;
+      flushSync(() => {
+        live = true;
+        try {
+          release();
+          tick(seconds);
+        } finally {
+          live = false;
+        }
+      });
+    },
+    stop() {
+      playing = live = false;
+      cancelAnimationFrame(handle);
+      subs.clear();
+      held.length = 0;
     },
   };
 }
@@ -100,7 +203,7 @@ function useLatest<T>(value: T): React.RefObject<T> {
 }
 
 /** The built-in "thixo" module for one runtime. `css` is the runtime's own. */
-export function thixoModule(rt: Runtime): Record<string, unknown> {
+export function thixoModule(rt: Runtime, clock: Clock = createClock(true, () => rt.stopped)): Record<string, unknown> {
   const fn = <F extends (...args: never[]) => unknown>(f: F): F => rt.hostFunction(f);
   return {
     useState: fn((initial: unknown) => {
@@ -108,7 +211,7 @@ export function thixoModule(rt: Runtime): Record<string, unknown> {
       const setter = React.useRef<unknown>(null);
       setter.current ??= fn((next: unknown) => {
         if (rt.stopped) return;
-        setValue((previous: unknown) => (typeof next === "function" ? (next as (p: unknown) => unknown)(previous) : next));
+        clock.update(() => setValue((previous: unknown) => (typeof next === "function" ? (next as (p: unknown) => unknown)(previous) : next)));
       });
       return [value, setter.current];
     }),
@@ -129,24 +232,15 @@ export function thixoModule(rt: Runtime): Record<string, unknown> {
     useFrame: fn((callback: unknown) => {
       const latest = useLatest(callback);
       React.useEffect(() => {
-        let handle = 0;
-        let start: number | undefined;
-        let last: number | undefined;
-        const step = (now: number) => {
-          if (rt.stopped) return;
-          start ??= now;
-          const delta = last === undefined ? 0 : (now - last) / 1000;
-          last = now;
-          if (typeof latest.current === "function") (latest.current as (t: number, d: number) => unknown)((now - start) / 1000, delta);
-          if (!rt.stopped) handle = requestAnimationFrame(step);
-        };
-        handle = requestAnimationFrame(step);
-        return () => cancelAnimationFrame(handle);
+        const start = clock.time;
+        return clock.subscribe((time, delta) => {
+          if (typeof latest.current === "function") (latest.current as FrameFn)(time - start, delta);
+        });
       }, []);
     }),
     usePointer: fn(() => {
       const box = useBox("usePointer");
-      return React.useSyncExternalStore(box.subscribe, () => box.get().pointer);
+      return React.useSyncExternalStore(box.subscribe, () => (box.get().input ? box.get().pointer : NO_POINTER));
     }),
     useSize: fn(() => {
       const box = useBox("useSize");
@@ -154,10 +248,12 @@ export function thixoModule(rt: Runtime): Record<string, unknown> {
     }),
     useKeys: fn(() => {
       const box = useBox("useKeys");
-      return React.useSyncExternalStore(box.subscribe, () => box.get().keys);
+      return React.useSyncExternalStore(box.subscribe, () => (box.get().input ? box.get().keys : NO_KEYS));
     }),
   };
 }
+
+const NO_KEYS: string[] = [];
 
 /** Wraps a host's plain module as language values. */
 export function wrapModule(rt: Runtime, mod: Record<string, unknown>): Record<string, unknown> {
@@ -203,13 +299,14 @@ export function mount(target: HTMLElement, module: CompiledModule, options: Moun
       styles.appendChild(document.createTextNode(cssText + "\n"));
     },
   });
-  modules.thixo = thixoModule(rt);
+  const clock = createClock(options.clock !== "host", () => rt.stopped || failed !== undefined);
+  modules.thixo = thixoModule(rt, clock);
   for (const [spec, mod] of Object.entries(options.modules ?? {})) {
     if (spec === "thixo") throw new Error('A host can\'t replace the built-in "thixo" module.');
     modules[spec] = wrapModule(rt, mod);
   }
   const def: ProgramDefinition = rt.instantiate(module);
-  const box = createBox();
+  const box = createBox(options.input !== false);
   const Program = def.component as React.FC<Record<string, unknown>>;
 
   class Guard extends React.Component<{ children: React.ReactNode }, { error?: Error }> {
@@ -225,9 +322,11 @@ export function mount(target: HTMLElement, module: CompiledModule, options: Moun
     }
   }
 
+  let committed = false;
   function Root() {
     const ref = React.useRef<HTMLDivElement>(null);
     React.useLayoutEffect(() => {
+      committed = true;
       const el = ref.current!;
       const measure = () => box.set({ size: { width: el.clientWidth, height: el.clientHeight } });
       measure();
@@ -235,11 +334,14 @@ export function mount(target: HTMLElement, module: CompiledModule, options: Moun
       ro.observe(el);
       return () => ro.disconnect();
     }, []);
+    const input = React.useSyncExternalStore(box.subscribe, () => box.get().input);
     const point = (e: React.PointerEvent, patch: Partial<BoxState["pointer"]> = {}) => {
+      if (!box.get().input) return;
       const r = ref.current!.getBoundingClientRect();
       box.set({ pointer: { ...box.get().pointer, x: e.clientX - r.left, y: e.clientY - r.top, inside: true, ...patch } });
     };
     const keys = (key: string, held: boolean) => {
+      if (!box.get().input) return;
       const now = box.get().keys.filter((k) => k !== key);
       box.set({ keys: held ? [...now, key] : now });
     };
@@ -248,7 +350,8 @@ export function mount(target: HTMLElement, module: CompiledModule, options: Moun
       {
         ref,
         style: BOX_STYLE,
-        tabIndex: 0,
+        tabIndex: input ? 0 : -1,
+        inert: !input,
         "data-thixo-box": "",
         onPointerMove: (e: React.PointerEvent) => point(e),
         onPointerDown: (e: React.PointerEvent) => point(e, { down: true }),
@@ -263,10 +366,22 @@ export function mount(target: HTMLElement, module: CompiledModule, options: Moun
   }
 
   const root = createRoot(target);
-  root.render(React.createElement(Root));
+  const element = React.createElement(Root);
+  root.render(element);
   return {
     runtime: rt,
+    play: () => clock.play(),
+    pause: () => clock.pause(),
+    step(seconds) {
+      if (!committed) flushSync(() => root.render(element));
+      clock.step(seconds);
+    },
+    setInput(on) {
+      if (on === box.get().input) return;
+      box.set(on ? { input: true } : { input: false, pointer: NO_POINTER, keys: [] });
+    },
     unmount() {
+      clock.stop();
       root.unmount();
       styles.remove();
     },
