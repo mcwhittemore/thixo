@@ -28,18 +28,13 @@
       "types": "./dist/runtime/index.d.ts",
       "default": "./dist/runtime/index.js"
     },
-    "./ts-api": {
-      "thixo-source": "./src/compiler/ts-api.ts",
-      "types": "./dist/compiler/ts-api.d.ts",
-      "default": "./dist/compiler/ts-api.js"
-    },
     "./contract": {
       "thixo-source": "./src/contract.ts",
       "types": "./dist/contract.d.ts",
       "default": "./dist/contract.js"
     }
   },
-  "dependencies": {
+  "devDependencies": {
     "typescript-js-api": "npm:typescript@~6.0.3"
   },
   "publishConfig": {

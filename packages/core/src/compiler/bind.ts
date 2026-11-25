@@ -120,7 +120,9 @@ class Binder {
   }
 
   private declare(scope: Scope, id: A.Ident, kind: SymKind, decl: A.Node, space: { value: boolean; type: boolean }, top: boolean): Sym {
-    const existing = (space.value ? scope.values.get(id.name) : undefined) ?? (space.type ? scope.types.get(id.name) : undefined);
+    // Map.prototype.get, so that asking whether the lib already declares a name doesn't read the lib.
+    const own = (m: Map<string, Sym>) => Map.prototype.get.call(m, id.name) as Sym | undefined;
+    const existing = (space.value ? own(scope.values) : undefined) ?? (space.type ? own(scope.types) : undefined);
     if (existing) {
       const overload = (n: A.Node) => n.kind === "FunctionDecl" && !n.body;
       const merges =

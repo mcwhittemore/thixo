@@ -1,10 +1,12 @@
-import ts from "./ts-api.js";
 import type { CompileEnv, CompileOptions, CompileResult, SourceFiles, ThixoError } from "../contract.js";
 import { verifyOutput } from "../verify/verify-output.js";
+import { checkProgram } from "./check/checker.js";
 import { Emitter } from "./emit.js";
 import { sourceHash } from "./hash.js";
 import { THIXO_DTS } from "./thixo-dts.js";
 import { createProgramFiles, resolveRelative, type ProgramFiles } from "./program.js";
+import type * as A from "./syntax/ast.js";
+import { lineCol } from "./syntax/ast.js";
 
 const TYPE_HINTS: [RegExp, string][] = [
   [/Property '(target|currentTarget|preventDefault|stopPropagation|nativeEvent)' does not exist on type 'ThxEvent'/, "A handler gets plain data, not the event: read `e.value`, `e.checked`, `e.key`, `e.x` or `e.y`."],
@@ -21,13 +23,13 @@ function sortErrors(errors: ThixoError[]): ThixoError[] {
 
 /** Files in an order where each comes after the files it imports, the entry last when it can be. */
 function fileOrder(p: ProgramFiles, files: SourceFiles, entry: string, errors: ThixoError[]): string[] {
-  const deps = new Map<string, { path: string; node: ts.Node }[]>();
+  const deps = new Map<string, { path: string; node: A.Str }[]>();
   for (const [path, sf] of p.files) {
-    const list: { path: string; node: ts.Node }[] = [];
+    const list: { path: string; node: A.Str }[] = [];
     for (const s of sf.statements)
-      if (ts.isImportDeclaration(s) && ts.isStringLiteral(s.moduleSpecifier)) {
-        const rel = resolveRelative(path, s.moduleSpecifier.text, files);
-        if (rel !== undefined) list.push({ path: rel, node: s.moduleSpecifier });
+      if (s.kind === "Import") {
+        const rel = resolveRelative(path, s.source.value, files);
+        if (rel !== undefined) list.push({ path: rel, node: s.source });
       }
     deps.set(path, list);
   }
@@ -39,12 +41,11 @@ function fileOrder(p: ProgramFiles, files: SourceFiles, entry: string, errors: T
     state.set(path, "visiting");
     for (const d of deps.get(path) ?? []) {
       if (state.get(d.path) === "visiting") {
-        const sf = d.node.getSourceFile();
-        const pos = sf.getLineAndCharacterOfPosition(d.node.getStart(sf));
+        const pos = lineCol(p.files.get(path)!, d.node.start);
         errors.push({
           file: path,
-          line: pos.line + 1,
-          column: pos.character + 1,
+          line: pos.line,
+          column: pos.column,
           code: "thixo/cycle",
           message: `Files import each other in a circle: ${[...stack, path, d.path].join(" -> ")}.`,
           hint: "Move what both need into a third file.",
@@ -62,27 +63,18 @@ function fileOrder(p: ProgramFiles, files: SourceFiles, entry: string, errors: T
   return order;
 }
 
+/** The type check's errors, each with the hint that matches its message. */
 function typeErrors(p: ProgramFiles): ThixoError[] {
-  const diags = [...p.program.getOptionsDiagnostics(), ...p.program.getGlobalDiagnostics(), ...p.program.getSemanticDiagnostics()];
-  return diags.map((d) => {
-    const message = ts.flattenDiagnosticMessageText(d.messageText, " ");
-    let file = "(env)";
-    let line = 0;
-    let column = 0;
-    let code = "thixo/type";
-    if (d.file) {
-      const own = p.fileOf(d.file);
-      file = own ?? p.moduleOf(d.file) ?? d.file.fileName;
-      if (own === undefined) code = p.isLib(d.file) ? "thixo/internal" : "thixo/env-type";
-      if (d.start !== undefined) {
-        const pos = d.file.getLineAndCharacterOfPosition(d.start);
-        line = pos.line + 1;
-        column = pos.character + 1;
-      }
+  const out: ThixoError[] = [];
+  for (const m of p.modules.values()) if (m.error) out.push(m.error);
+  for (const e of checkProgram(p)) {
+    if (e.hint) out.push(e);
+    else {
+      const hint = TYPE_HINTS.find(([re]) => re.test(e.message))?.[1];
+      out.push(hint ? { ...e, hint } : e);
     }
-    const hint = TYPE_HINTS.find(([re]) => re.test(message))?.[1];
-    return { file, line, column, code, message, ...(hint ? { hint } : {}) };
-  });
+  }
+  return out;
 }
 
 /** The modules every program may import: the built-in `thixo` and whatever the host adds. */
@@ -105,13 +97,9 @@ export function compile(files: SourceFiles, options: CompileOptions = {}): Compi
     errors.push({ file: entry, line: 0, column: 0, code: "thixo/file", message: `A program needs a \`${entry}\`.`, hint: "Its default export is the component: `export default function App() { ... }`." });
   if (errors.length) return { ok: false, errors };
 
-  const p = createProgramFiles(files, env);
-  for (const [path, sf] of p.files)
-    for (const d of p.program.getSyntacticDiagnostics(sf)) {
-      const pos = sf.getLineAndCharacterOfPosition(d.start ?? 0);
-      errors.push({ file: path, line: pos.line + 1, column: pos.character + 1, code: "thixo/syntax", message: `This is not valid syntax: ${ts.flattenDiagnosticMessageText(d.messageText, " ")}`, hint: "In a .thx file `<T>value` is read as JSX. Write the value with its type on the declaration instead." });
-    }
-  if (errors.length) return { ok: false, errors: sortErrors(errors) };
+  const parsed = createProgramFiles(files, env);
+  if (parsed.errors.length) return { ok: false, errors: sortErrors(parsed.errors) };
+  const p = parsed.program;
 
   const order = fileOrder(p, files, entry, errors);
   const emitter = new Emitter(p, entry, env, order);
