@@ -2,6 +2,13 @@
   "name": "thixo",
   "version": "0.1.0",
   "description": "The thixo command: compile a folder of .thx files to one JavaScript module.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mcwhittemore/thixo.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/mcwhittemore/thixo#readme",
   "type": "module",
   "files": [
     "dist",
