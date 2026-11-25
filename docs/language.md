@@ -51,7 +51,7 @@ Every program may import from `thixo`. **Lean:** this is the list today.
 | Export | What it does |
 | --- | --- |
 | `useState`, `useMemo`, `useEffect` | React's, with deps compared by value: values cross into the host as fresh copies. |
-| `useFrame(fn)` | Calls `fn(time, delta)` once a frame, in seconds, while the program is mounted. |
+| `useFrame(fn)` | Calls `fn(time, delta)` once a frame, in seconds, while the host lets its clock run. `time` counts only the frames that ran. |
 | `usePointer()` | `{ x, y, down, inside }`, in pixels from the top left of the program's box. |
 | `useSize()` | `{ width, height }` of the box. |
 | `useKeys()` | The keys held down while the box has focus. |
