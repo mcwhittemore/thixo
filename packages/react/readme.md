@@ -39,6 +39,7 @@ element.onmouseleave = () => card.pause();
 - `step(seconds)` moves a paused clock on by one frame. It throws while the clock is playing.
 - `input: false`, or `setInput(false)` later, makes the box `inert`: no pointer, key, focus or element event reaches
   the program, `usePointer()` is `{ x: 0, y: 0, down: false, inside: false }` and `useKeys()` is `[]`. Events go to
-  the host's element, so the host still sees the hover.
+  the host's element, so the host still sees the hover. No `useGesture` call comes while input is off. A press in
+  progress when `setInput(false)` runs gets its `onUp`, and `onDragEnd` if it was a drag, at its last point first.
 
 Its tests are the arena's in [bench](../../bench): every goal's detector runs against a program mounted with it.
