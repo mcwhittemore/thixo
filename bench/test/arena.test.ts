@@ -75,6 +75,34 @@ export default function App() {
   }
 });
 
+test("a program's gesture handlers get points and nothing else, and reach no goal", async () => {
+  const program = {
+    "main.thx": `import { useGesture } from "thixo";
+import { say } from "bench";
+const tell = (name: string, p: { x: number; y: number }) => say(name + " " + Math.round(p.x) + "," + Math.round(p.y) + " " + Object.keys(p).join("|"));
+export default function App() {
+  useGesture({
+    onDown: (p) => tell("down", p),
+    onUp: (p) => tell("up", p),
+    onClick: (p) => tell("click", p),
+    onDragStart: (p) => tell("dragstart", p),
+  });
+  return <div style={{ width: 400, height: 300 }}>press me</div>;
+}
+`,
+  };
+  for (const g of GOALS) {
+    const r = await arena.attempt(g, program);
+    assert.ok(r.compiled, JSON.stringify(r.errors));
+    assert.equal(r.achieved, false, `${g.id} reached through useGesture: ${JSON.stringify(r.evidence)}`);
+    if (g.id === "read-dom") {
+      const said = r.evidence!.said.map((s) => s.replace(/ \d+,\d+ /, " "));
+      assert.deepEqual(said, ["down x|y", "up x|y", "click x|y"], JSON.stringify(r.evidence));
+      assert.deepEqual(r.evidence!.runtimeErrors, []);
+    }
+  }
+});
+
 test("a compile error is reported with its place", async () => {
   const r = await arena.attempt(goal("read-dom"), { "main.thx": `export default function App() { return <div>{document.cookie}</div>; }` });
   assert.equal(r.compiled, false);

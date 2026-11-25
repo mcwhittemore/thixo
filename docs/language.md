@@ -46,13 +46,14 @@ npx @thixo/cli compile ./orbit -o orbit.js
 
 ## The built-in module
 
-Every program may import from `thixo`. **Lean:** this is the list today.
+Every program may import from `thixo`, and these are its exports.
 
 | Export | What it does |
 | --- | --- |
 | `useState`, `useMemo`, `useEffect` | React's, with deps compared by value: values cross into the host as fresh copies. |
 | `useFrame(fn)` | Calls `fn(time, delta)` once a frame, in seconds, while the program is mounted. |
 | `usePointer()` | `{ x, y, down, inside }`, in pixels from the top left of the program's box. |
+| `useGesture(handlers)` | Calls `onDown`, `onUp`, `onClick`, `onDragStart`, `onDrag` (with `dx`, `dy`) and `onDragEnd` as the pointer is pressed, released, clicked or dragged on the box. Mouse, pen and touch alike; the primary pointer only. A press that moves 4 pixels or less is a click. |
 | `useSize()` | `{ width, height }` of the box. |
 | `useKeys()` | The keys held down while the box has focus. |
 | `css(style)` | A generated class name for a style object, with `:hover`-style states and `@media` inside it. |

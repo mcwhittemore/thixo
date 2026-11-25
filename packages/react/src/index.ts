@@ -44,15 +44,28 @@ interface BoxState {
   keys: string[];
 }
 
+type GestureName = "onDown" | "onUp" | "onClick" | "onDragStart" | "onDrag" | "onDragEnd";
+
+interface Gesture {
+  name: GestureName;
+  point: { x: number; y: number; dx?: number; dy?: number };
+}
+
 interface Box {
   get(): BoxState;
   subscribe(fn: () => void): () => void;
   set(patch: Partial<BoxState>): void;
+  listen(fn: (g: Gesture) => void): () => void;
+  emit(g: Gesture): void;
 }
+
+/** How far, in pixels, a press may move and still be a click. Past it, the press is a drag. */
+const CLICK_SLOP = 4;
 
 function createBox(): Box {
   let state: BoxState = { pointer: { x: 0, y: 0, down: false, inside: false }, size: { width: 0, height: 0 }, keys: [] };
   const subs = new Set<() => void>();
+  const listeners = new Set<(g: Gesture) => void>();
   return {
     get: () => state,
     subscribe(fn) {
@@ -62,6 +75,13 @@ function createBox(): Box {
     set(patch) {
       state = { ...state, ...patch };
       for (const fn of subs) fn();
+    },
+    listen(fn) {
+      listeners.add(fn);
+      return () => listeners.delete(fn);
+    },
+    emit(g) {
+      for (const fn of [...listeners]) fn(g);
     },
   };
 }
@@ -148,6 +168,20 @@ export function thixoModule(rt: Runtime): Record<string, unknown> {
       const box = useBox("usePointer");
       return React.useSyncExternalStore(box.subscribe, () => box.get().pointer);
     }),
+    useGesture: fn((handlers: unknown) => {
+      const box = useBox("useGesture");
+      const latest = useLatest(handlers);
+      React.useEffect(
+        () =>
+          box.listen((g) => {
+            if (rt.stopped) return;
+            const h = latest.current;
+            const f = h !== null && typeof h === "object" ? (h as Record<string, unknown>)[g.name] : undefined;
+            if (typeof f === "function") (f as (p: Gesture["point"]) => unknown)(g.point);
+          }),
+        [box],
+      );
+    }),
     useSize: fn(() => {
       const box = useBox("useSize");
       return React.useSyncExternalStore(box.subscribe, () => box.get().size);
@@ -178,6 +212,7 @@ const BOX_STYLE: React.CSSProperties = {
   width: "100%",
   height: "100%",
   outline: "none",
+  touchAction: "none",
 };
 
 /** Mounts a compiled program in `target`. The program draws inside a box that fills `target` and clips it. */
@@ -235,9 +270,47 @@ export function mount(target: HTMLElement, module: CompiledModule, options: Moun
       ro.observe(el);
       return () => ro.disconnect();
     }, []);
+    const press = React.useRef<{ id: number; x: number; y: number; lastX: number; lastY: number; dragging: boolean } | null>(null);
     const point = (e: React.PointerEvent, patch: Partial<BoxState["pointer"]> = {}) => {
       const r = ref.current!.getBoundingClientRect();
-      box.set({ pointer: { ...box.get().pointer, x: e.clientX - r.left, y: e.clientY - r.top, inside: true, ...patch } });
+      const at = { x: e.clientX - r.left, y: e.clientY - r.top };
+      box.set({ pointer: { ...box.get().pointer, ...at, inside: true, ...patch } });
+      return at;
+    };
+    const release = (at: { x: number; y: number }, clicked: boolean) => {
+      const p = press.current!;
+      press.current = null;
+      box.emit({ name: "onUp", point: at });
+      if (p.dragging) box.emit({ name: "onDragEnd", point: at });
+      else if (clicked) box.emit({ name: "onClick", point: at });
+    };
+    const ours = (e: React.PointerEvent) => press.current !== null && press.current.id === e.pointerId;
+    const onDown = (e: React.PointerEvent) => {
+      const at = point(e, { down: true });
+      if (!e.isPrimary || e.button !== 0 || press.current) return;
+      press.current = { id: e.pointerId, ...at, lastX: at.x, lastY: at.y, dragging: false };
+      box.emit({ name: "onDown", point: at });
+    };
+    const onMove = (e: React.PointerEvent) => {
+      const at = point(e);
+      if (!ours(e)) return;
+      const p = press.current!;
+      if (!p.dragging) {
+        if (Math.hypot(at.x - p.x, at.y - p.y) <= CLICK_SLOP) return;
+        p.dragging = true;
+        box.emit({ name: "onDragStart", point: { x: p.x, y: p.y } });
+      }
+      box.emit({ name: "onDrag", point: { ...at, dx: at.x - p.lastX, dy: at.y - p.lastY } });
+      p.lastX = at.x;
+      p.lastY = at.y;
+    };
+    const onUp = (e: React.PointerEvent) => {
+      const at = point(e, { down: false });
+      if (ours(e)) release(at, true);
+    };
+    const onLeave = (e: React.PointerEvent) => {
+      const at = point(e, { inside: false, down: false });
+      if (ours(e)) release(at, false);
     };
     const keys = (key: string, held: boolean) => {
       const now = box.get().keys.filter((k) => k !== key);
@@ -250,10 +323,11 @@ export function mount(target: HTMLElement, module: CompiledModule, options: Moun
         style: BOX_STYLE,
         tabIndex: 0,
         "data-thixo-box": "",
-        onPointerMove: (e: React.PointerEvent) => point(e),
-        onPointerDown: (e: React.PointerEvent) => point(e, { down: true }),
-        onPointerUp: (e: React.PointerEvent) => point(e, { down: false }),
-        onPointerLeave: (e: React.PointerEvent) => point(e, { inside: false, down: false }),
+        onPointerMove: onMove,
+        onPointerDown: onDown,
+        onPointerUp: onUp,
+        onPointerLeave: onLeave,
+        onPointerCancel: onLeave,
         onKeyDown: (e: React.KeyboardEvent) => keys(e.key, true),
         onKeyUp: (e: React.KeyboardEvent) => keys(e.key, false),
         onBlur: () => box.set({ keys: [] }),

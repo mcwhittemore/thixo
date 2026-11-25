@@ -188,6 +188,7 @@ export async function fakeApp(code: string, opts: FakeOptions = {}): Promise<Fak
       useEffect: rt.hostFunction(useEffect),
       useFrame: rt.hostFunction(useFrame),
       usePointer: rt.hostFunction(() => ({ ...pointer })),
+      useGesture: rt.hostFunction(() => undefined),
       useSize: rt.hostFunction(() => ({ width: 200, height: 100 })),
       useKeys: rt.hostFunction(() => []),
     },
