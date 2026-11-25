@@ -19,14 +19,18 @@ import { load, mount } from "@thixo/react";
 const said = [];
 const errors = [];
 let box;
+let mounted;
 window.__verify = {
   async run(code, gestures) {
     box = document.getElementById("box");
-    mount(box, await load(code), {
+    mounted = mount(box, await load(code), {
       modules: { bench: { say: (text) => void said.push(String(text)) } },
       gestures,
       onError: (e) => void errors.push(String(e?.message ?? e)),
     });
+  },
+  setInput(on) {
+    mounted.setInput(on);
   },
   seen() {
     return {
@@ -159,6 +163,16 @@ async function main(args: string[]): Promise<number> {
       await touch("touchEnd", []);
       await page.waitForTimeout(200);
       await shot("touch-dragged");
+      const setInput = (on: boolean) => page.evaluate((o) => (window as unknown as { __verify: { setInput(o: boolean): void } }).__verify.setInput(o), on);
+      await page.mouse.move(at.x, at.y);
+      await page.mouse.down();
+      await page.mouse.move(b.x + 200, b.y + 150, { steps: 5 });
+      await setInput(false);
+      await page.mouse.move(b.x + 250, b.y + 150, { steps: 3 });
+      await page.mouse.up();
+      await setInput(true);
+      await page.waitForTimeout(200);
+      await shot("input-off-mid-drag");
     }
   } finally {
     await browser.close();

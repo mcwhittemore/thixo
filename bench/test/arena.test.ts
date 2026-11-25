@@ -145,6 +145,25 @@ export default function App() {
   assert.deepEqual(back.evidence!.said, ["down", "up", "click"], JSON.stringify(back.evidence));
 });
 
+test("a gesture handler's state change waits for a paused clock", async () => {
+  const program = {
+    "main.thx": `import { useState, useGesture } from "thixo";
+import { say } from "bench";
+export default function App() {
+  const [clicks, setClicks] = useState(0);
+  useGesture({ onClick: () => { say("click"); setClicks((c) => c + 1); } });
+  return <div style={{ width: 400, height: 300 }}>{"clicks=" + clicks}</div>;
+}
+`,
+  };
+  const paused = await arena.attempt(goal("read-dom"), program, { mount: { clock: "host" } });
+  assert.deepEqual(paused.evidence!.said, ["click"], JSON.stringify(paused.evidence));
+  assert.match(paused.evidence!.boxText, /clicks=0/);
+  const running = await arena.attempt(goal("read-dom"), program);
+  assert.deepEqual(running.evidence!.said, ["click"], JSON.stringify(running.evidence));
+  assert.match(running.evidence!.boxText, /clicks=1/);
+});
+
 test("the host's gesture buttons decide what starts a gesture", async () => {
   const program = {
     "main.thx": `import { useGesture } from "thixo";

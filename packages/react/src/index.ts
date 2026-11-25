@@ -85,6 +85,16 @@ interface Box {
   emit(g: Gesture): void;
 }
 
+/** The press a gesture is following: where it went down, where it last was, and whether it became a drag. */
+interface Press {
+  id: number;
+  x: number;
+  y: number;
+  lastX: number;
+  lastY: number;
+  dragging: boolean;
+}
+
 interface GestureRules {
   clickSlop: number;
   buttons: readonly number[];
@@ -393,22 +403,13 @@ export function mount(target: HTMLElement, module: CompiledModule, options: Moun
       ro.observe(el);
       return () => ro.disconnect();
     }, []);
-    const press = React.useRef<{ id: number; x: number; y: number; lastX: number; lastY: number; dragging: boolean } | null>(null);
     const input = React.useSyncExternalStore(box.subscribe, () => box.get().input);
-    if (!input) press.current = null;
     const point = (e: React.PointerEvent, patch: Partial<BoxState["pointer"]> = {}) => {
       if (!box.get().input) return undefined;
       const r = ref.current!.getBoundingClientRect();
       const at = { x: e.clientX - r.left, y: e.clientY - r.top };
       box.set({ pointer: { ...box.get().pointer, ...at, inside: true, ...patch } });
       return at;
-    };
-    const release = (at: { x: number; y: number }, clicked: boolean) => {
-      const p = press.current!;
-      press.current = null;
-      box.emit({ name: "onUp", point: at });
-      if (p.dragging) box.emit({ name: "onDragEnd", point: at });
-      else if (clicked) box.emit({ name: "onClick", point: at });
     };
     const ours = (e: React.PointerEvent) => press.current !== null && press.current.id === e.pointerId;
     const onDown = (e: React.PointerEvent) => {
@@ -464,6 +465,15 @@ export function mount(target: HTMLElement, module: CompiledModule, options: Moun
     );
   }
 
+  const press: { current: Press | null } = { current: null };
+  const release = (at: { x: number; y: number }, clicked: boolean) => {
+    const p = press.current!;
+    press.current = null;
+    box.emit({ name: "onUp", point: at });
+    if (p.dragging) box.emit({ name: "onDragEnd", point: at });
+    else if (clicked) box.emit({ name: "onClick", point: at });
+  };
+
   const root = createRoot(target);
   const element = React.createElement(Root);
   root.render(element);
@@ -477,6 +487,7 @@ export function mount(target: HTMLElement, module: CompiledModule, options: Moun
     },
     setInput(on) {
       if (on === box.get().input) return;
+      if (!on && press.current) release({ x: press.current.lastX, y: press.current.lastY }, false);
       box.set(on ? { input: true } : { input: false, pointer: NO_POINTER, keys: [] });
     },
     unmount() {
