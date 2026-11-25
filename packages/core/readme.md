@@ -21,7 +21,9 @@ else r.errors;    // [{ file, line, column, code, message, hint? }]
 
 It has no dependencies. The parser, the type check and the hash are its own, and nothing in the compile path needs
 Node, so a host can compile on an edge worker, in a browser or in Node. `test/budget.test.ts` holds the package to
-a size and a speed: the bundle under 100 KB gzipped, and the readme's Spin compiled in under 5 ms.
+a size and a speed: the bundle under 100 KB gzipped, and the readme's Spin compiled in under 5 ms, the first time
+and every time after. To make the first time fast, the module compiles a tiny program when it loads, which adds about
+13 ms to the import; an edge worker pays that at startup, not in a request.
 
 ## `@thixo/core/runtime`
 

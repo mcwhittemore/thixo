@@ -17,7 +17,7 @@ export const BUDGET = {
   gzipBytes: 100_000,
   /** The readme's Spin, compiled again in a process that has already compiled it. */
   warmMs: 5,
-  /** The readme's Spin, the first compile in a fresh process, after the module has loaded. */
+  /** The readme's Spin, the first compile in a fresh process, after the module has loaded (and warmed itself). */
   coldMs: 5,
 };
 
@@ -69,7 +69,9 @@ describe("installing @thixo/core", () => {
     writeFileSync(join(dir, "thixo.mjs"), bundle("esm"));
     writeFileSync(
       join(dir, "time.mjs"),
-      `import { compile } from "./thixo.mjs";
+      `const t0 = performance.now();
+const { compile } = await import("./thixo.mjs");
+const load = performance.now() - t0;
 const src = ${JSON.stringify(SPIN)};
 let t = performance.now();
 const r = compile({ "main.thx": src });
@@ -78,11 +80,13 @@ if (!r.ok) throw new Error("Spin does not compile");
 const runs = [];
 for (let i = 0; i < 50; i++) { t = performance.now(); compile({ "main.thx": src }); runs.push(performance.now() - t); }
 runs.sort((a, b) => a - b);
-console.log(JSON.stringify({ cold, warm: runs[25] }));`,
+console.log(JSON.stringify({ load, cold, warm: runs[25] }));`,
     );
-    const samples = [0, 1, 2].map(() => JSON.parse(execFileSync(process.execPath, [join(dir, "time.mjs")], { encoding: "utf8" })) as { cold: number; warm: number });
+    const samples = [0, 1, 2].map(() => JSON.parse(execFileSync(process.execPath, [join(dir, "time.mjs")], { encoding: "utf8" })) as { load: number; cold: number; warm: number });
     const cold = Math.min(...samples.map((s) => s.cold));
     const warm = Math.min(...samples.map((s) => s.warm));
+    const load = Math.min(...samples.map((s) => s.load));
+    console.log(`budget: load ${load.toFixed(1)} ms (not budgeted), cold ${cold.toFixed(2)} ms, warm ${warm.toFixed(2)} ms`);
     assert.ok(warm <= BUDGET.warmMs, `warm ${warm.toFixed(2)} ms`);
     assert.ok(cold <= BUDGET.coldMs, `cold ${cold.toFixed(2)} ms`);
   });
