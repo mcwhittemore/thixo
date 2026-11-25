@@ -7,10 +7,10 @@ A language that reads as TypeScript and React and compiles to JavaScript that ca
   settled; don't present a lean as a decision.
 - `docs/security.md` says what a program can't do. Each promise there is a goal in `bench/src/goals.ts`; keep them
   in step.
-- `packages/thixo` and `packages/thixo-react` are the wall. A change to the compiler or the runtime needs a test that
+- `packages/core` and `packages/react` are the wall. A change to the compiler or the runtime needs a test that
   tries to get past it (`test/escape.test.ts`, `test/guards.test.ts`); a change to the React host needs a cheat or a
-  program in `bench/test/arena.test.ts`. `packages/thixo-cli` is only the command.
-- `packages/thixo/src/contract.ts` is the package's public types. Change it with its readme.
+  program in `bench/test/arena.test.ts`. `packages/cli` is only the command.
+- `packages/core/src/contract.ts` is the package's public types. Change it with its readme.
 - A goal a benchmark agent reaches is a bug: fix the wall, check with `npm run bench -- replay`, and add the program
   to the escape tests.
 - A new goal needs a cheat in `bench/test/arena.test.ts` that proves the arena can see it.

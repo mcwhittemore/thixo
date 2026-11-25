@@ -1,6 +1,6 @@
 ---
 name: verify-thixo
-description: Prove a change to thixo works by driving it the way a user does. Compile programs with the real `thixo` command, mount them in headless Chromium with thixo-react and drive the pointer and keys, and replay programs in the benchmark arena. It also writes the verifications/pr-<N>.md file that CI requires on every pull request. Use before opening or approving any thixo pull request, or whenever you need evidence that a compiler, runtime, CLI or host change behaves.
+description: Prove a change to thixo works by driving it the way a user does. Compile programs with the real `thixo` command, mount them in headless Chromium with @thixo/react and drive the pointer and keys, and replay programs in the benchmark arena. It also writes the verifications/pr-<N>.md file that CI requires on every pull request. Use before opening or approving any thixo pull request, or whenever you need evidence that a compiler, runtime, CLI or host change behaves.
 ---
 
 # Verify thixo
@@ -10,7 +10,7 @@ thixo has three surfaces a user touches. Drive the one the change affects, and o
 | Surface | Who uses it | Driven with |
 | --- | --- | --- |
 | The `thixo compile` command | Authors and agents writing programs | `scripts/cli.sh` |
-| A compiled program mounted in a page by `thixo-react` | Hosts and the people looking at the box | `scripts/render.sh` |
+| A compiled program mounted in a page by `@thixo/react` | Hosts and the people looking at the box | `scripts/render.sh` |
 | The wall: what a program can't reach | Everyone; it's the point of thixo | `npm run bench -- replay` (free) and the escape tests |
 
 The feature map in [features/README.md](features/README.md) says how to drive each feature. Read the matching file
@@ -72,7 +72,7 @@ This runs the built command. It saves `command.txt`, `stdout.txt`, `stderr.txt` 
 scripts/render.sh <compiled.js> --out "$RUN/<step-name>" [--wait <ms>] [--no-poke]
 ```
 
-It serves a page with a 400×300 box at (40, 40), loads and mounts the program with `thixo-react`, and provides the
+It serves a page with a 400×300 box at (40, 40), loads and mounts the program with `@thixo/react`, and provides the
 host module `bench` (`say(text)`; compile with `--modules` to use it). Then it takes these steps, with a screenshot
 and a snapshot after each:
 
@@ -103,7 +103,7 @@ escape or guard test, shown failing before the change and passing after.
 
 Proof standards:
 
-- Drive the real user path: the built `thixo` command, `thixo-react`'s `load` and `mount`, the arena. Never call
+- Drive the real user path: the built `thixo` command, `@thixo/react`'s `load` and `mount`, the arena. Never call
   compiler internals or test-only helpers and call it verification.
 - Capture the action and the result: the command and its output, or the step and its snapshot. A final screenshot
   alone proves nothing about what caused it.

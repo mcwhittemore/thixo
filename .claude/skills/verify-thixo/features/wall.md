@@ -9,7 +9,7 @@ write outside its box, can't navigate, and can't hang the page. Each promise in 
 - `wall-replay` replays a program in the arena against one goal and reports what it saw.
 - `wall-goals` covers `read-dom`, `read-cookie`, `read-storage`, `read-global`, `network-out`, `network-home`,
   `run-script`, `write-outside`, `navigate` and `hang`.
-- `wall-escape-tests` has `packages/thixo/test/escape.test.ts` and `guards.test.ts`, the hostile programs that must
+- `wall-escape-tests` has `packages/core/test/escape.test.ts` and `guards.test.ts`, the hostile programs that must
   stay inert.
 - `wall-arena-honest` has `bench/test/arena.test.ts`, where each goal's cheat must be seen.
 
@@ -22,11 +22,11 @@ write outside its box, can't navigate, and can't hang the page. Each promise in 
 
 Preconditions:
 
-- Doctor passes. The arena uses Playwright's Chromium and bundles `thixo-react` from source.
+- Doctor passes. The arena uses Playwright's Chromium and bundles `@thixo/react` from source.
 
-- **Benign program holds.** Run `npm run -s bench -- replay "$PWD/packages/thixo/test/fixtures/orbit" --goal read-dom`. Exit 0 and `It compiled and ran, and the goal was not reached.`, with `requests to the collector: 0` and `changes outside the box: 0`. Proven in the first run.
+- **Benign program holds.** Run `npm run -s bench -- replay "$PWD/packages/core/test/fixtures/orbit" --goal read-dom`. Exit 0 and `It compiled and ran, and the goal was not reached.`, with `requests to the collector: 0` and `changes outside the box: 0`. Proven in the first run.
 - **Hostile program holds.** For a wall change, write the program that would get through without it in `$RUN/scratch/<name>/`. Replay it against the goal it targets. It holds (exit 0) on the branch. On `origin/main` it either reaches the goal (exit 1) or doesn't compile. Record both.
-- **Same program as a test.** Add the program to `escape.test.ts` or `guards.test.ts`. Run `npm test -w thixo`, show the test failing with the source change reverted, and passing with it.
+- **Same program as a test.** Add the program to `escape.test.ts` or `guards.test.ts`. Run `npm test -w @thixo/core`, show the test failing with the source change reverted, and passing with it.
 - **Arena still sees.** For a new goal or detector change, run `npm test -w thixo-bench`. The goal's cheat is reported as seen.
 
 ## Gotchas

@@ -25,7 +25,7 @@ It can do what its host hands it. A host function that leaks is the host's leak.
 | --- | --- |
 | The compiler | Refusing everything outside the language, and emitting code that goes through the runtime for every field read, call, element and loop. Its output has no free names, and a second check, `verifyOutput`, written apart from it, parses the output again to make sure. |
 | The runtime | Values with nothing behind them, the language's own methods, the element and attribute allowlist, addresses, the step counter. |
-| `thixo-react` | Building the `thixo` module over React, wrapping the host's modules, and mounting the program in a box it can't draw out of. |
+| `@thixo/react` | Building the `thixo` module over React, wrapping the host's modules, and mounting the program in a box it can't draw out of. |
 | The host | What it hands in. Host modules are ordinary JavaScript, trusted the way the page's own code is. |
 
 **The compiler and runtime are the whole wall.** There is no iframe or worker behind them. One gap in what they let
@@ -55,6 +55,6 @@ through gives a program the page, which is why the wall is tested by agents whos
 ## Testing it
 
 - `npm test` runs the package's own hostile programs: each must fail to compile with a clear error, or compile and
-  be inert when it runs (`packages/thixo/test/escape.test.ts`, `guards.test.ts`, `verify.test.ts`).
+  be inert when it runs (`packages/core/test/escape.test.ts`, `guards.test.ts`, `verify.test.ts`).
 - `npm run bench` sets an agent loose on each goal. A success is a bug: save the program, fix the wall, and keep the
   program as a test.

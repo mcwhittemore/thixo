@@ -29,7 +29,7 @@ when the pull request merges or closes.
    in neither Verified nor Not verified. Read Not verified closely: decide whether each gap is acceptable for this
    change, and say so.
 2. **The build is green.** `npm run build`, `npm run typecheck`, `npm test`.
-3. **The wall holds.** A change to `packages/thixo` or `packages/thixo-react` needs an escape or guard test that tries to
+3. **The wall holds.** A change to `packages/core` or `packages/react` needs an escape or guard test that tries to
    get past it, and that test must fail without the change. Check that by reverting the source change in your
    worktree and running the test. A React host change needs a cheat or program in `bench/test/arena.test.ts`. If
    `docs/security.md` changed, `bench/src/goals.ts` must change with it, and the other way round.

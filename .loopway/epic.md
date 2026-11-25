@@ -46,9 +46,9 @@ reading it. Shape units so most of them are small changes. A pull request is a s
 hold:
 
 - **Under 1,000 changed lines,** not counting `verifications/` and `package-lock.json`.
-- **One area.** It touches at most one of `packages/thixo-cli`, `bench` (outside `bench/src/goals.ts`), or the docs
+- **One area.** It touches at most one of `packages/cli`, `bench` (outside `bench/src/goals.ts`), or the docs
   and readmes that describe that area.
-- **Not the wall.** It touches none of `packages/thixo/`, `packages/thixo-react/`, `docs/security.md`,
+- **Not the wall.** It touches none of `packages/core/`, `packages/react/`, `docs/security.md`,
   `bench/src/goals.ts`, or a lean in `docs/language.md`. These are thixo's security boundary.
 - **Not the gates.** It touches none of `.github/`, `.loopway/`, or `.claude/skills/verify-thixo/`. A change to how
   work is checked can't approve itself.

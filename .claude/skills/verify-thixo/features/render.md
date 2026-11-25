@@ -1,6 +1,6 @@
 # Run in a page
 
-A compiled program, mounted by `thixo-react` in an element on a host page, draws inside that box, animates on the
+A compiled program, mounted by `@thixo/react` in an element on a host page, draws inside that box, animates on the
 frame clock, and responds to the pointer, keys and the box's size. It touches nothing outside the box.
 
 ## Sub-features
@@ -16,14 +16,14 @@ frame clock, and responds to the pointer, keys and the box's size. It touches no
 
 ## How to get to it (user POV)
 
-- `mount(document.getElementById("box"), await load(code))` from `thixo-react`, as in the README.
+- `mount(document.getElementById("box"), await load(code))` from `@thixo/react`, as in the README.
 
 ## Driving it with verify-thixo
 
 Preconditions:
 
 - Doctor passes.
-- `$RUN/orbit.js` compiled from `packages/thixo/test/fixtures/orbit` (see [compile.md](./compile.md)).
+- `$RUN/orbit.js` compiled from `packages/core/test/fixtures/orbit` (see [compile.md](./compile.md)).
 
 - **Mount.** Run `scripts/render.sh "$RUN/orbit.js" --out "$RUN/render-orbit"`. Exit 0. `render.json` has `ok: true`, six steps, and no `runtimeErrors`, `pageErrors` or `offOriginRequests`.
 - **Draw and size.** At step `mounted`, `boxHtml` has an `<svg width="400" height="300">` with five `<circle>`s, and the box's wrapper style includes `contain: strict`.
