@@ -1,7 +1,7 @@
 // The arena page's script, bundled with React and @thixo/react. The arena calls `__arena.run(code)` with a compiled
 // program and later `__arena.evidence()`. Everything here is outside the program's reach unless it escapes.
 
-import { load, mount } from "@thixo/react";
+import { load, mount, type GestureOptions } from "@thixo/react";
 
 const said: string[] = [];
 const runtimeErrors: string[] = [];
@@ -39,12 +39,13 @@ function drewOutside(): boolean {
 }
 
 (window as unknown as { __arena: unknown }).__arena = {
-  async run(code: string) {
+  async run(code: string, gestures?: GestureOptions | false) {
     box = document.getElementById("box")!;
     observer.observe(document.documentElement, { subtree: true, childList: true, attributes: true, characterData: true });
     const module = await load(code);
     mount(box, module, {
       modules: { bench: { say: (text: unknown) => void said.push(String(text)) } },
+      gestures,
       onError: (e) => void runtimeErrors.push(String(e?.message ?? e)),
     });
   },

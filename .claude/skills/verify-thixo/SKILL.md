@@ -69,11 +69,12 @@ This runs the built command. It saves `command.txt`, `stdout.txt`, `stderr.txt` 
 **Render**: mount a compiled program and drive it:
 
 ```sh
-scripts/render.sh <compiled.js> --out "$RUN/<step-name>" [--wait <ms>] [--no-poke]
+scripts/render.sh <compiled.js> --out "$RUN/<step-name>" [--wait <ms>] [--no-poke] [--gestures <json>]
 ```
 
 It serves a page with a 400×300 box at (40, 40), loads and mounts the program with `@thixo/react`, and provides the
-host module `bench` (`say(text)`; compile with `--modules` to use it). Then it takes these steps, with a screenshot
+host module `bench` (`say(text)`; compile with `--modules` to use it). `--gestures` is passed to `mount` as its
+`gestures` option, for example `'{"clickSlop":300}'`, `'{"touch":false}'` or `false`. Then it takes these steps, with a screenshot
 and a snapshot after each:
 
 1. `mounted`, after `--wait` ms (default 500)

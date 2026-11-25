@@ -15,10 +15,11 @@ export declare function usePointer(): { readonly x: number; readonly y: number; 
 export interface GesturePoint { readonly x: number; readonly y: number }
 /** A drag's point, with how far it moved since the last \\\`onDrag\\\`. */
 export interface DragPoint extends GesturePoint { readonly dx: number; readonly dy: number }
-/** Pointer gestures on the program's box, from a mouse, a pen or a finger. Only the primary pointer counts, and only
- * its main button. Each \\\`onDown\\\` gets one \\\`onUp\\\`, also when the pointer leaves the box or is cancelled. A press that
- * moves 4 pixels or less and comes up inside the box is a click. One that moves further is a drag: \\\`onDragStart\\\` at
- * the point it was pressed, \\\`onDrag\\\` for each move after, and \\\`onDragEnd\\\` when it comes up, leaves or is cancelled. */
+/** Pointer gestures on the program's box, from a mouse, a pen or a finger. Only the primary pointer counts, and by
+ * default only its main button. Each \\\`onDown\\\` gets one \\\`onUp\\\`, also when the pointer leaves the box or is cancelled. A
+ * press that moves 4 pixels or less (by default) and comes up inside the box is a click. One that moves further is a drag: \\\`onDragStart\\\` at
+ * the point it was pressed, \\\`onDrag\\\` for each move after, and \\\`onDragEnd\\\` when it comes up, leaves or is cancelled. The host
+ * decides the threshold, the buttons, whether touch counts, and whether gestures come at all. */
 export declare function useGesture(handlers: {
   onDown?(point: GesturePoint): void;
   onUp?(point: GesturePoint): void;

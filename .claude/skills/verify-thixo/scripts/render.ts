@@ -1,7 +1,7 @@
 // Mounts a compiled thixo program the way a host page does (@thixo/react's `load` and `mount`) in headless Chromium,
 // drives the pointer and keys, and saves screenshots and what the page saw. Used by the verify-thixo skill.
 //
-//   render.sh <compiled.js> --out <dir> [--wait <ms>] [--no-poke]
+//   render.sh <compiled.js> --out <dir> [--wait <ms>] [--no-poke] [--gestures <json>]
 //
 // Exit 0 when the program mounted with no runtime errors, 1 when it failed or threw, 2 for bad usage.
 
@@ -12,7 +12,7 @@ import { join, resolve } from "node:path";
 import { build } from "esbuild";
 import { chromium } from "playwright";
 
-const USAGE = "usage: render.sh <compiled.js> --out <dir> [--wait <ms>] [--no-poke]\n";
+const USAGE = "usage: render.sh <compiled.js> --out <dir> [--wait <ms>] [--no-poke] [--gestures <json>]\n";
 
 const PAGE_SCRIPT = `
 import { load, mount } from "@thixo/react";
@@ -20,10 +20,11 @@ const said = [];
 const errors = [];
 let box;
 window.__verify = {
-  async run(code) {
+  async run(code, gestures) {
     box = document.getElementById("box");
     mount(box, await load(code), {
       modules: { bench: { say: (text) => void said.push(String(text)) } },
+      gestures,
       onError: (e) => void errors.push(String(e?.message ?? e)),
     });
   },
@@ -64,6 +65,8 @@ async function main(args: string[]): Promise<number> {
   const out = resolve(outArg);
   const wait = Number(arg(args, "--wait") ?? 500);
   const poke = !args.includes("--no-poke");
+  const gesturesArg = arg(args, "--gestures");
+  const gestures = gesturesArg === undefined ? undefined : JSON.parse(gesturesArg);
   mkdirSync(out, { recursive: true });
 
   const bundle = await build({
@@ -105,7 +108,7 @@ async function main(args: string[]): Promise<number> {
     });
     await page.goto(origin + "/");
     await page
-      .evaluate((c) => (window as unknown as { __verify: { run(c: string): Promise<void> } }).__verify.run(c), code)
+      .evaluate(([c, g]) => (window as unknown as { __verify: { run(c: string, g: unknown): Promise<void> } }).__verify.run(c, g), [code, gestures] as const)
       .catch((e) => (mountError = String(e?.message ?? e)));
     const seen = () => page.evaluate(() => (window as unknown as { __verify: { seen(): unknown } }).__verify.seen());
     const shot = async (step: string) => {
@@ -163,7 +166,7 @@ async function main(args: string[]): Promise<number> {
   }
   const last = steps.at(-1)?.seen as { runtimeErrors?: string[] } | undefined;
   const failed = !!mountError || pageErrors.length > 0 || (last?.runtimeErrors?.length ?? 0) > 0;
-  const report = { input: resolve(input), ok: !failed, mountError, pageErrors, console: consoleLines, offOriginRequests: requests, steps };
+  const report = { input: resolve(input), gestures, ok: !failed, mountError, pageErrors, console: consoleLines, offOriginRequests: requests, steps };
   writeFileSync(join(out, "render.json"), JSON.stringify(report, null, 2) + "\n");
   process.stdout.write(`${failed ? "FAILED" : "ok"}: ${steps.length} steps, evidence in ${out}\n`);
   if (mountError) process.stdout.write(`mount error: ${mountError}\n`);

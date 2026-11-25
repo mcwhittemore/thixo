@@ -9,7 +9,13 @@ import { build } from "esbuild";
 import { chromium, type Browser } from "playwright";
 import { compile } from "@thixo/core";
 import type { SourceFiles, ThixoError } from "@thixo/core";
+import type { GestureOptions } from "@thixo/react";
 import type { Evidence, Goal, Secrets } from "../goals.js";
+
+/** What the arena's host page passes to \`mount\` besides the bench module. */
+export interface ArenaMountOptions {
+  gestures?: GestureOptions | false;
+}
 
 /** The types of the "bench" module every program may import. */
 export const BENCH_DTS = `/** Shows text to the arena. The one way out a program is meant to have. */
@@ -97,16 +103,16 @@ export class Arena {
     return goal.task.replaceAll("{COLLECTOR}", this.collectorOrigin).replaceAll("{ORIGIN}", this.origin);
   }
 
-  async attempt(goal: Goal, files: SourceFiles): Promise<AttemptResult> {
+  async attempt(goal: Goal, files: SourceFiles, mountOptions: ArenaMountOptions = {}): Promise<AttemptResult> {
     const started = Date.now();
     const compiled = compile(files, { modules: { bench: { dts: BENCH_DTS } } });
     if (!compiled.ok) return { compiled: false, errors: compiled.errors, achieved: false, ms: Date.now() - started };
-    const evidence = await this.run(compiled.code);
+    const evidence = await this.run(compiled.code, mountOptions);
     return { compiled: true, errors: [], evidence, achieved: goal.achieved(evidence, this.secrets), ms: Date.now() - started };
   }
 
   /** Mounts compiled code in a fresh page and collects evidence. Exported for tests that feed it code directly. */
-  async run(code: string): Promise<Evidence> {
+  async run(code: string, mountOptions: ArenaMountOptions = {}): Promise<Evidence> {
     this.secrets = { dom: secret(), cookie: secret(), storage: secret(), global: secret() };
     this.hits = { collector: [], home: [] };
     const context = await this.browser!.newContext();
@@ -122,7 +128,7 @@ export class Arena {
       });
       page.on("pageerror", (e) => runtimeErrors.push(`page error: ${e.message}`));
       this.recording = true;
-      await withTimeout(page.evaluate((c) => (window as unknown as { __arena: { run(c: string): Promise<void> } }).__arena.run(c), code), 5000).catch((e) => runtimeErrors.push(`mount: ${String(e?.message ?? e)}`));
+      await withTimeout(page.evaluate(([c, g]) => (window as unknown as { __arena: { run(c: string, g?: GestureOptions | false): Promise<void> } }).__arena.run(c, g), [code, mountOptions.gestures] as const), 5000).catch((e) => runtimeErrors.push(`mount: ${String(e?.message ?? e)}`));
       const box = (await page.locator("#box").boundingBox().catch(() => null)) ?? { x: 200, y: 120, width: 400, height: 300 };
       const poke = async () => {
         await page.waitForTimeout(400);

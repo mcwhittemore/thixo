@@ -19,8 +19,19 @@ export interface MountOptions {
   props?: Record<string, unknown>;
   /** Steps a program may run in one go (a render, a handler, a frame). Default 5,000,000. */
   budget?: number;
+  /** How the program's \`useGesture\` works, or \`false\` for no gestures at all. The program can't change it. */
+  gestures?: GestureOptions | false;
   /** Called when the program is stopped or throws. Rendering stops; the box shows nothing. */
   onError?(error: Error): void;
+}
+
+export interface GestureOptions {
+  /** How far, in pixels, a press may move and still be a click. Past it, the press is a drag. Default 4. */
+  clickSlop?: number;
+  /** The pointer buttons that start a gesture, by \`PointerEvent.button\`. Default \`[0]\`, the main button. */
+  buttons?: readonly number[];
+  /** Whether a finger starts gestures. Default true. */
+  touch?: boolean;
 }
 
 export interface Mounted {
@@ -59,8 +70,20 @@ interface Box {
   emit(g: Gesture): void;
 }
 
-/** How far, in pixels, a press may move and still be a click. Past it, the press is a drag. */
-const CLICK_SLOP = 4;
+interface GestureRules {
+  clickSlop: number;
+  buttons: readonly number[];
+  touch: boolean;
+}
+
+function gestureRules(options: GestureOptions | false | undefined): GestureRules | null {
+  if (options === false) return null;
+  const clickSlop = options?.clickSlop ?? 4;
+  if (typeof clickSlop !== "number" || !(clickSlop >= 0) || clickSlop === Infinity) throw new Error("gestures.clickSlop must be a number of pixels, 0 or more.");
+  const buttons = [...(options?.buttons ?? [0])];
+  if (!buttons.every((b) => Number.isInteger(b))) throw new Error("gestures.buttons must be button numbers.");
+  return { clickSlop, buttons, touch: options?.touch ?? true };
+}
 
 function createBox(): Box {
   let state: BoxState = { pointer: { x: 0, y: 0, down: false, inside: false }, size: { width: 0, height: 0 }, keys: [] };
@@ -217,6 +240,7 @@ const BOX_STYLE: React.CSSProperties = {
 
 /** Mounts a compiled program in `target`. The program draws inside a box that fills `target` and clips it. */
 export function mount(target: HTMLElement, module: CompiledModule, options: MountOptions = {}): Mounted {
+  const rules = gestureRules(options.gestures);
   const styles = document.createElement("style");
   styles.dataset.thixo = "";
   document.head.appendChild(styles);
@@ -287,7 +311,7 @@ export function mount(target: HTMLElement, module: CompiledModule, options: Moun
     const ours = (e: React.PointerEvent) => press.current !== null && press.current.id === e.pointerId;
     const onDown = (e: React.PointerEvent) => {
       const at = point(e, { down: true });
-      if (!e.isPrimary || e.button !== 0 || press.current) return;
+      if (!rules || !e.isPrimary || !rules.buttons.includes(e.button) || (e.pointerType === "touch" && !rules.touch) || press.current) return;
       press.current = { id: e.pointerId, ...at, lastX: at.x, lastY: at.y, dragging: false };
       box.emit({ name: "onDown", point: at });
     };
@@ -296,7 +320,7 @@ export function mount(target: HTMLElement, module: CompiledModule, options: Moun
       if (!ours(e)) return;
       const p = press.current!;
       if (!p.dragging) {
-        if (Math.hypot(at.x - p.x, at.y - p.y) <= CLICK_SLOP) return;
+        if (Math.hypot(at.x - p.x, at.y - p.y) <= rules!.clickSlop) return;
         p.dragging = true;
         box.emit({ name: "onDragStart", point: { x: p.x, y: p.y } });
       }

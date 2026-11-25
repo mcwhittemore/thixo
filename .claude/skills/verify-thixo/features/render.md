@@ -9,7 +9,7 @@ frame clock, and responds to the pointer, keys and the box's size. It touches no
 - `render-frame` advances on `useFrame(time, delta)`: the output changes between steps without input.
 - `render-pointer` reads `usePointer()` (`x`, `y`, `down` and `inside`, relative to the box).
 - `render-gesture` gets `useGesture` calls: `onDown`, `onUp` and `onClick` for a press, and `onDragStart`, `onDrag`
-  and `onDragEnd` for a drag, from the mouse and from touch.
+  and `onDragEnd` for a drag, from the mouse and from touch, under the host's `gestures` mount option.
 - `render-keys` reads `useKeys()`, the keys held while the box has focus.
 - `render-size` reads `useSize()`, the box's `width` and `height`.
 - `render-css` styles with `css({...})`, which becomes a generated class (`thx1-…`).
@@ -32,6 +32,7 @@ Preconditions:
 - **Pointer.** Read the centroid of the circles' `cx`, `cy` per step. At `mounted` it's near (200, 150), the box's centre. At `pointer-at-quarter` it's near (100, 75). At `pointer-held` the circles' `r` is `6`, and it's `4` at the others. Proven in the first run: centroids (199, 149) and then (99, 74), with r 4, 6, 4.
 - **Frame.** The `cx` values differ between two steps where the pointer didn't move (`arrow-right-held` and `typed-go-enter`).
 - **Gestures.** A program that passes `say` a line per `useGesture` handler (name and rounded point) and sums `onDrag`'s `dx`, `dy`. Per step, the new `said` entries are: `pointer-held` `down 100,75`; `pointer-released` `up 100,75`, `click 100,75`; `pointer-dragged` `down`, `dragstart 100,75`, `up`, `dragend 299,224` with the sum at (200, 150) over 10 drags; `touch-tapped` `down`, `up`, `click` near (300, 75); `touch-dragged` `down`, `dragstart 99,224`, `up`, `dragend 299,224`, the sum up by (200, 0). Proven in #9.
+- **Host gesture rules.** The same program with `--gestures`: `'{"clickSlop":300}'` turns `pointer-dragged` into a click (`down`, `up`, `click`, no `drag*`); `'{"touch":false}'` leaves `touch-tapped` and `touch-dragged` with no new `said`; `false` gives no gesture calls in any step, while `usePointer().down` still changes.
 - **Keys.** A program that renders `useKeys().join(" ")` shows `boxText` `"ArrowRight"` at `arrow-right-held` and `"no keys"` (or your empty text) at the steps before.
 - **Contained.** `outside` stays `"host page text"` in every step, and `offOriginRequests` holds only `load`'s `blob:`.
 
