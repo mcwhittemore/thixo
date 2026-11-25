@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
-import { verifyOutput } from "../src/index.js";
+import { describe, test } from "node:test";
+import { compile, verifyOutput } from "../src/index.js";
+import type { CompileOptions, SourceFiles } from "../src/contract.js";
+import { WARM_UP_FILES, WARM_UP_OPTIONS } from "../src/compiler/warm-up.js";
+import { readProgram, testOptions } from "./fixtures/env.js";
+import { ACCEPTED, HEAD } from "./fixtures/programs.js";
+import { verifyOutputWithTypeScript } from "./helpers/verify-output-ts.js";
 
 const wrap = (body: string) => `export default function (rt) {\n"use strict";\n${body}\n}\n`;
 
@@ -74,4 +79,27 @@ rt.pop(t1);
 const t0 = rt.app(rt.fn(function l_X() { return (typeof l_X); }));
 return t0;`);
   assert.deepEqual(verifyOutput(code), { ok: true });
+});
+
+// verifyOutput reads the output with the compiler's own parser. These read the same code with TypeScript's parser
+// too, under the same rules, so that a misreading the two halves of the compiler share can't pass unseen.
+describe("verifyOutput agrees with the same check read by TypeScript", () => {
+  for (const [name, code] of hostile)
+    test(`both refuse ${name}`, () => {
+      assert.equal(verifyOutput(code).ok, false);
+      assert.equal(verifyOutputWithTypeScript(code).ok, false);
+    });
+
+  const programs: [string, SourceFiles, CompileOptions][] = [
+    ["the orbit fixture", readProgram("orbit"), {}],
+    ["the todo-list fixture", readProgram("todo-list"), testOptions()],
+    ["the warm-up program", WARM_UP_FILES, WARM_UP_OPTIONS],
+    ...Object.entries(ACCEPTED).map(([name, body]): [string, SourceFiles, CompileOptions] => [name, { "main.thx": HEAD + body }, testOptions()]),
+  ];
+  for (const [name, files, options] of programs)
+    test(`both accept what the compiler makes of ${name}`, () => {
+      const r = compile(files, options);
+      assert.ok(r.ok, r.ok ? "" : r.errors.map((e) => e.message).join("\n"));
+      assert.deepEqual(verifyOutputWithTypeScript(r.code), { ok: true });
+    });
 });

@@ -104,7 +104,9 @@ This is the list an agent is given.
 - **The type check is the compiler's own.** It reads the types under "What is in" the way TypeScript does, and a
   test runs the same programs through both to keep them agreeing. **Lean:** where it can't follow TypeScript it
   refuses rather than guesses. A `let` declared without a value takes the types of what is assigned to it, and a
-  comparison between types that can't overlap is not an error.
+  comparison between types that can't overlap is not an error. A function made inside an `if` keeps the narrowing
+  of a `const`, but not of a `let` that is assigned anywhere, so `let x: string | undefined = "a"; const f = () =>
+  x.length;` is refused where TypeScript accepts it.
 
 ## Addresses
 

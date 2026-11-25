@@ -111,6 +111,12 @@ describe("the entry", () => {
       if (!r.ok) assert.equal(r.errors.filter((e) => e.code === "thixo/env-type").length, 1);
     }
   });
+  test("words a module reserves are not names, as in TypeScript", () => {
+    for (const word of ["yield", "let", "static", "interface", "private"]) {
+      const errs = errorsOf({ "main.thx": wrapBody(`const ${word} = 1;`) });
+      assert.ok(errs.some((e) => e.code === "thixo/syntax" && e.message.includes(`'${word}' is a reserved word in strict mode`)), word);
+    }
+  });
   test("a host can't replace the built-in thixo module", () => {
     assert.throws(() => envOf({ modules: { thixo: { dts: "export declare const x: number;" } } }), /built-in/);
   });

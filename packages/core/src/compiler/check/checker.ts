@@ -65,6 +65,29 @@ interface Env {
 
 const EMPTY_ENV: Env = { map: new Map() };
 
+/** Types of the lib's and the host modules' declarations, kept from one compile to the next. A type is shared when it
+ * is built only from shared types, so nothing a program declares ends up in here. */
+const SHARED = {
+  iface: new Map<string, Obj>(),
+  alias: new Map<string, Type>(),
+  tparams: new Map<Sym, TParam>(),
+  intrinsic: new Map<string, Obj>(),
+  text: new Map<string, Type>(),
+  ids: new Set<number>([...Object.values(T).map((t) => t.id), BOOLEAN.id]),
+};
+
+function isShared(t: Type): boolean {
+  return t.k === "lit" || SHARED.ids.has(t.id);
+}
+
+function sharedFull(): boolean {
+  if (SHARED.iface.size + SHARED.alias.size < 20_000) return false;
+  SHARED.iface.clear();
+  SHARED.alias.clear();
+  SHARED.tparams.clear();
+  return true;
+}
+
 interface FlowEntry {
   t: Type;
   root: Sym;
@@ -96,11 +119,19 @@ export class Checker {
   private readonly checkedDecls = new Set<A.Node>();
   private readonly ifaceCache = new Map<string, Obj>();
   private readonly aliasCache = new Map<string, Type>();
+
+  /** The cache an instantiation of `sym` belongs in: the shared one for a lib or module declaration over shared
+   * arguments, this compile's otherwise. */
+  private cacheFor<V>(sym: Sym, args: Type[], shared: Map<string, V>, own: Map<string, V>): { map: Map<string, V>; shared: boolean } {
+    const ok = sym.file.home !== "program" && args.every(isShared);
+    if (ok) sharedFull();
+    return ok ? { map: shared, shared: true } : { map: own, shared: false };
+  }
   private readonly aliasBusy = new Set<string>();
   private readonly tparamTypes = new Map<Sym, TParam>();
   private readonly fnReturn = new Map<A.Node, Type>();
   private readonly fnBusy = new Set<A.Node>();
-  private readonly intrinsicProps = new Map<string, Obj>();
+  private readonly intrinsicProps = SHARED.intrinsic;
   private flow: Flow = new Map();
   private fnStack: FnCtx[] = [];
   private breaks: BreakTarget[] = [];
@@ -221,8 +252,14 @@ export class Checker {
         this.error(n, `${what} are not read in a host module's declarations. Declare the type the program sees instead.`.replace("`infer` are", "`infer` is"));
         return;
       }
-      if (n.kind === "TypeRef") this.typeFromNode(n, EMPTY_ENV);
-      else if (n.kind === "TypeQuery") this.typeFromNode(n, EMPTY_ENV);
+      // Names only: building the types waits until a program uses them, and reports what is wrong then.
+      if (n.kind === "TypeRef") {
+        if (!this.resolveTypeName(n.name, n) && n.name.kind === "Ident") this.error(n.name, `Cannot find name '${n.name.name}'.`);
+      } else if (n.kind === "TypeQuery") {
+        let id: A.Ident | A.QualifiedName = n.name;
+        while (id.kind === "QualifiedName") id = id.left;
+        if (!bf.values.get(id)) this.error(id, `Cannot find name '${id.name}'.`);
+      }
       const children: A.Node[] = [];
       forEach(n, (c) => children.push(c));
       children.forEach(visit);
@@ -233,7 +270,8 @@ export class Checker {
   // ---- symbols ----
 
   private tparamOf(sym: Sym): TParam {
-    let t = this.tparamTypes.get(sym);
+    const store = sym.file.home === "program" ? this.tparamTypes : SHARED.tparams;
+    let t = store.get(sym);
     if (!t) {
       const decl = sym.decls[0] as A.TypeParam;
       let c: Type | undefined | null = null;
@@ -250,7 +288,8 @@ export class Checker {
           return c;
         },
       };
-      this.tparamTypes.set(sym, t);
+      store.set(sym, t);
+      if (store === SHARED.tparams) SHARED.ids.add(t.id);
     }
     return t;
   }
@@ -598,7 +637,8 @@ export class Checker {
 
   interfaceType(sym: Sym, args: Type[]): Obj {
     const key = `${sym.id}<${args.map((a) => a.id).join(",")}>`;
-    let t = this.ifaceCache.get(key);
+    const cache = this.cacheFor(sym, args, SHARED.iface, this.ifaceCache);
+    let t = cache.map.get(key);
     if (t) return t;
     const decls = sym.decls as A.Interface[];
     const name = args.length ? `${sym.name}<${args.map((a) => typeToString(a)).join(", ")}>` : sym.name;
@@ -628,7 +668,8 @@ export class Checker {
       },
       { name, decl: sym, args, instantiate: (mp) => this.interfaceType(sym, args.map((a) => this.instantiate(a, mp))) },
     );
-    this.ifaceCache.set(key, self);
+    cache.map.set(key, self);
+    if (cache.shared) SHARED.ids.add(self.id);
     return self;
   }
 
@@ -652,7 +693,8 @@ export class Checker {
 
   aliasType(sym: Sym, args: Type[]): Type {
     const key = `${sym.id}<${args.map((a) => a.id).join(",")}>`;
-    const cached = this.aliasCache.get(key);
+    const cache = this.cacheFor(sym, args, SHARED.alias, this.aliasCache);
+    const cached = cache.map.get(key);
     if (cached) return cached;
     if (this.aliasBusy.has(key)) {
       this.error(sym.ident, `Type alias '${sym.name}' circularly references itself.`);
@@ -669,7 +711,8 @@ export class Checker {
         const inner = t;
         t = { ...inner, id: newId(), name: args.length ? `${sym.name}<${args.map((a) => typeToString(a)).join(", ")}>` : sym.name };
       }
-      this.aliasCache.set(key, t);
+      cache.map.set(key, t);
+      if (cache.shared) SHARED.ids.add(t.id);
       return t;
     } finally {
       this.aliasBusy.delete(key);
@@ -1862,14 +1905,16 @@ export class Checker {
       case "&&=":
         this.assignTo(e.right, r, declared, "assign", left.start);
         break;
-      case "+=":
-        if (!unionMembers(declared).every(isStringLike)) {
-          this.checkNumeric(left, declared, "left");
+      case "+=": {
+        const now = this.speculate(() => this.expr(left)).value;
+        if (!unionMembers(now).every(isStringLike)) {
+          this.checkNumeric(left, now, "left");
           if (!unionMembers(r).every(isStringLike)) this.checkNumeric(e.right, r, "right");
         }
         break;
+      }
       default:
-        this.checkNumeric(left, declared, "left");
+        this.checkNumeric(left, this.speculate(() => this.expr(left)).value, "left");
         this.checkNumeric(e.right, r, "right");
     }
     if (this.flow) {
@@ -2661,25 +2706,36 @@ export class Checker {
     this.flow = target.flows.reduce<Flow>((a, b) => join(a, b), after);
   }
 
-  /** Forgets what is known about names a loop assigns, since the loop may come round again. */
+  /** Forgets what is known about names a loop assigns, since the loop may come round again. A name keeps its
+   * narrowed type when everything the loop assigns to it already fits that type. */
   private killAssigned(n: A.Node): void {
     if (!this.flow) return;
-    const roots = new Set<Sym>();
+    const roots = new Map<Sym, A.Expr[] | null>();
     const bf = this.boundOf(n);
     const visit = (x: A.Node) => {
       if (x.kind === "Assign" || x.kind === "Update") {
         let target: A.Expr = x.kind === "Assign" ? x.left : x.arg;
+        const direct = target.kind === "Ident";
         while (target.kind === "Member" || target.kind === "Index" || target.kind === "Paren") target = target.kind === "Paren" ? target.expr : target.object;
         if (target.kind === "Ident") {
           const sym = bf?.values.get(target);
-          if (sym) roots.add(sym);
+          if (sym) {
+            const list = roots.has(sym) ? roots.get(sym)! : [];
+            if (list && direct && x.kind === "Assign" && x.op === "=") list.push(x.right);
+            roots.set(sym, direct ? list : null);
+          }
         }
       }
       forEach(x, visit);
     };
     visit(n);
     if (!roots.size) return;
-    for (const [k, v] of [...this.flow]) if (roots.has(v.root)) this.flow.delete(k);
+    for (const [k, v] of [...this.flow]) {
+      if (!roots.has(v.root)) continue;
+      const rhs = roots.get(v.root);
+      const keeps = rhs && k === `#${v.root.id}` && rhs.every((r) => this.assignable(this.widenDeep(this.speculate(() => this.expr(r)).value), v.t));
+      if (!keeps) this.flow.delete(k);
+    }
   }
 
   private tryStmt(s: A.Try): void {
@@ -3371,7 +3427,7 @@ export class Checker {
     return t;
   }
 
-  private textTypes = new Map<string, Type>();
+  private textTypes = SHARED.text;
 
   private typeFromText(text: string): Type {
     let t = this.textTypes.get(text);

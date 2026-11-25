@@ -19,6 +19,9 @@ const RESERVED = new Set([
   "switch", "this", "throw", "true", "try", "typeof", "var", "void", "while", "with",
 ]);
 
+/** Words that are names in sloppy JavaScript but reserved in a module, which every file here is. */
+const STRICT_RESERVED = new Set(["yield", "let", "static", "implements", "interface", "package", "private", "protected", "public"]);
+
 const TYPE_KEYWORDS = new Set(["string", "number", "boolean", "unknown", "never", "void", "undefined", "null", "object", "any", "symbol", "bigint"]);
 
 const BINARY_PREC: Record<string, number> = {
@@ -184,6 +187,7 @@ class Parser {
   private ident(allowReserved = false): A.Ident {
     if (this.tok.type !== "name") this.fail("Identifier expected.");
     if (!allowReserved && !this.tok.escaped && RESERVED.has(this.tok.value)) this.fail(`Identifier expected. '${this.tok.value}' is a reserved word that cannot be used here.`);
+    if (!allowReserved && this.mode !== "dts" && STRICT_RESERVED.has(this.tok.value)) this.fail(`Identifier expected. '${this.tok.value}' is a reserved word in strict mode. Modules are automatically in strict mode.`);
     const t = this.advance();
     return { kind: "Ident", name: t.value, escaped: !!t.escaped, start: t.start, end: t.end };
   }

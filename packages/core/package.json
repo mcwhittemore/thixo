@@ -15,7 +15,7 @@
   ],
   "scripts": {
     "build": "tsc -b",
-    "test": "node --import tsx --test \"test/**/*.test.ts\""
+    "test": "node --import tsx --test \"test/**/*.test.ts\" && node --import tsx --test test/budget.check.ts"
   },
   "exports": {
     ".": {

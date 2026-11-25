@@ -29,6 +29,7 @@ export interface ProgramFiles {
   /** Program path (`main.thx`) to its parsed file. */
   files: Map<string, A.SourceFile>;
   bound: Map<string, BoundFile>;
+  /** The host modules the program's files import, read. */
   modules: Map<string, ModuleInfo>;
   lib: Lib;
   /** What an import names: a declaration in another program file or a host module, or undefined. */
@@ -166,8 +167,14 @@ export function createProgramFiles(sources: SourceFiles, env: CompileEnv): Parse
       errors.push({ file: path, line: pos.line, column: pos.column, code: "thixo/syntax", message: `This is not valid syntax: ${r.error.message}`, hint: "In a .thx file `<T>value` is read as JSX. Write the value with its type on the declaration instead." });
     }
   }
+  // Only the modules some file imports are read: a host may offer many, and a program uses a few.
   const mods = new Map<string, ModuleInfo>();
-  for (const [spec, decl] of Object.entries(env.modules)) mods.set(spec, getModule(spec, decl.dts));
+  for (const file of files.values())
+    for (const st of file.statements)
+      if (st.kind === "Import") {
+        const spec = st.source.value;
+        if (!mods.has(spec) && Object.prototype.hasOwnProperty.call(env.modules, spec)) mods.set(spec, getModule(spec, env.modules[spec].dts));
+      }
   const bound = new Map<string, BoundFile>();
   for (const [path, file] of files) bound.set(path, bindFile(file, "program", libInfo.global));
 
