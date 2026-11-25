@@ -11,7 +11,7 @@
   },
   "scripts": {
     "build": "tsc -b packages/core packages/cli packages/react",
-    "test": "npm run test -w @thixo/core -w thixo -w thixo-bench",
+    "test": "npm run test -w @thixo/core -w @thixo/cli -w thixo-bench",
     "typecheck": "tsc -b packages/core packages/cli packages/react && tsc -p bench",
     "bench": "npm run bench -w thixo-bench --"
   },

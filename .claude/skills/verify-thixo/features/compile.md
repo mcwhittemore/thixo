@@ -14,9 +14,9 @@ stdout, with a JSON summary for tools.
 
 ## How to get to it (user POV)
 
-- `npx thixo compile <folder> -o out.js` (the README's command).
-- `npx thixo compile <folder>/main.thx`.
-- `npx thixo compile <folder> --json`.
+- `npx @thixo/cli compile <folder> -o out.js` (the README's command).
+- `npx @thixo/cli compile <folder>/main.thx`.
+- `npx @thixo/cli compile <folder> --json`.
 
 ## Driving it with verify-thixo
 

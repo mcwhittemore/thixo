@@ -14,7 +14,7 @@ functions, and anything else is frozen data.
 
 ## How to get to it (user POV)
 
-- `npx thixo compile <folder> --modules decls.json`, then `mount(el, await load(code), { modules: { name: value } })`.
+- `npx @thixo/cli compile <folder> --modules decls.json`, then `mount(el, await load(code), { modules: { name: value } })`.
 
 ## Driving it with verify-thixo
 

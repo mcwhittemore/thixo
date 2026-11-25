@@ -20,5 +20,5 @@ A language that reads as TypeScript and React and compiles to JavaScript that ca
 ## Commands
 
 - `npm install`, then `npm run build` builds the packages. `npm test` runs the packages' tests and the arena's.
-- `npx thixo compile <folder> -o out.js` compiles a program.
+- `npx @thixo/cli compile <folder> -o out.js` compiles a program.
 - `npm run bench -- --goal <id>` runs an agent against one goal. It spends real money; ask before running it.
