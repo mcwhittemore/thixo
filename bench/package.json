@@ -9,9 +9,9 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "*",
+    "@thixo/core": "*",
+    "@thixo/react": "*",
     "thixo": "*",
-    "thixo-cli": "*",
-    "thixo-react": "*",
     "zod": "*"
   }
 }

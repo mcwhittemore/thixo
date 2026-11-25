@@ -1,5 +1,5 @@
 {
-  "name": "thixo-react",
+  "name": "@thixo/react",
   "version": "0.1.0",
   "description": "Mount a compiled thixo program in the browser with React, in a box it cannot draw out of.",
   "type": "module",
@@ -17,10 +17,13 @@
     }
   },
   "dependencies": {
-    "thixo": "0.1.0"
+    "@thixo/core": "0.1.0"
   },
   "peerDependencies": {
     "react": ">=18",
     "react-dom": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

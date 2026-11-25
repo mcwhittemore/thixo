@@ -1,5 +1,5 @@
 {
-  "name": "thixo-cli",
+  "name": "thixo",
   "version": "0.1.0",
   "description": "The thixo command: compile a folder of .thx files to one JavaScript module.",
   "type": "module",
@@ -22,6 +22,6 @@
     }
   },
   "dependencies": {
-    "thixo": "0.1.0"
+    "@thixo/core": "0.1.0"
   }
 }

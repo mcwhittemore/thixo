@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Mounts a compiled thixo program in headless Chromium with thixo-react and saves screenshots and render.json.
+# Mounts a compiled thixo program in headless Chromium with @thixo/react and saves screenshots and render.json.
 # usage: render.sh <compiled.js> --out <dir> [--wait <ms>] [--no-poke]
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

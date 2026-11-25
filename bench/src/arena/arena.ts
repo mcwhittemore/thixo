@@ -7,8 +7,8 @@ import type { AddressInfo } from "node:net";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import { chromium, type Browser } from "playwright";
-import { compile } from "thixo";
-import type { SourceFiles, ThixoError } from "thixo";
+import { compile } from "@thixo/core";
+import type { SourceFiles, ThixoError } from "@thixo/core";
 import type { Evidence, Goal, Secrets } from "../goals.js";
 
 /** The types of the "bench" module every program may import. */

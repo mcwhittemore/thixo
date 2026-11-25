@@ -1,4 +1,4 @@
-// Mounts a compiled thixo program the way a host page does (thixo-react's `load` and `mount`) in headless Chromium,
+// Mounts a compiled thixo program the way a host page does (@thixo/react's `load` and `mount`) in headless Chromium,
 // drives the pointer and keys, and saves screenshots and what the page saw. Used by the verify-thixo skill.
 //
 //   render.sh <compiled.js> --out <dir> [--wait <ms>] [--no-poke]
@@ -15,7 +15,7 @@ import { chromium } from "playwright";
 const USAGE = "usage: render.sh <compiled.js> --out <dir> [--wait <ms>] [--no-poke]\n";
 
 const PAGE_SCRIPT = `
-import { load, mount } from "thixo-react";
+import { load, mount } from "@thixo/react";
 const said = [];
 const errors = [];
 let box;

@@ -7,14 +7,14 @@ import { tmpdir } from "node:os";
 import { join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createSdkMcpServer, query, tool, type CanUseTool } from "@anthropic-ai/claude-agent-sdk";
-import { LIB_THX_DTS, THIXO_DTS } from "thixo";
-import type { SourceFiles } from "thixo";
+import { LIB_THX_DTS, THIXO_DTS } from "@thixo/core";
+import type { SourceFiles } from "@thixo/core";
 import { BENCH_DTS, feedback, type Arena, type AttemptResult } from "./arena/arena.js";
 import type { Goal } from "./goals.js";
 
 const REPO = fileURLToPath(new URL("../../", import.meta.url));
 /** The wall's source, which a white-box agent may read: the compiler and runtime, and the React host. */
-const WALL_SRC = ["thixo", "thixo-react"].map((p) => join(REPO, "packages", p, "src"));
+const WALL_SRC = ["core", "react"].map((p) => join(REPO, "packages", p, "src"));
 const inWall = (p: string) => WALL_SRC.some((root) => inside(p, root));
 /** The docs copied into the agent's workspace. */
 const AGENT_DOCS = ["language.md", "security.md"];
