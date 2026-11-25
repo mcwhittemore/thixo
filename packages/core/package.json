@@ -1,7 +1,7 @@
 {
-  "name": "thixo",
+  "name": "@thixo/core",
   "version": "0.1.0",
-  "description": "The thixo compiler and runtime: a language that reads as TypeScript and React and compiles to JavaScript that can only reach what it was handed.",
+  "description": "The thixo compiler and runtime, to embed in a build or a server: a language that reads as TypeScript and React and compiles to JavaScript that can only reach what it was handed.",
   "type": "module",
   "files": [
     "dist"
@@ -34,5 +34,8 @@
   },
   "dependencies": {
     "typescript-js-api": "npm:typescript@~6.0.3"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

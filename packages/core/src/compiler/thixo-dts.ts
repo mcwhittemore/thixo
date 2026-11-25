@@ -1,4 +1,4 @@
-// The declarations of the built-in "thixo" module: the hooks every program gets. `thixo-react` implements them.
+// The declarations of the built-in "thixo" module: the hooks every program gets. `@thixo/react` implements them.
 
 export const THIXO_DTS = `
 /** A value that survives renders, and the function that changes it. */

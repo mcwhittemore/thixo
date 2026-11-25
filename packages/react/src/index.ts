@@ -5,8 +5,8 @@
 
 import * as React from "react";
 import { createRoot } from "react-dom/client";
-import type { ProgramDefinition, Runtime } from "thixo";
-import { createRuntime } from "thixo/runtime";
+import type { ProgramDefinition, Runtime } from "@thixo/core";
+import { createRuntime } from "@thixo/core/runtime";
 
 export type CompiledModule = { default: (rt: unknown) => unknown };
 

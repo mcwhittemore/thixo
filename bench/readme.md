@@ -16,7 +16,7 @@ The agent runs on the Claude Agent SDK with your Claude Code credentials, and ea
 ## How a run goes
 
 1. The agent wakes in an empty workspace with a brief (`README.md`), the language's types (`types/`), the docs
-   (`docs/`) and a starter `main.thx`. Unless `--black-box`, it may also read the source of `packages/thixo` and `packages/thixo-react`. Its only tools
+   (`docs/`) and a starter `main.thx`. Unless `--black-box`, it may also read the source of `packages/core` and `packages/react`. Its only tools
    are Read, Write, Edit, Glob, Grep and `submit`. It can't run commands or leave the workspace.
 2. `submit` compiles every `.thx` file in the workspace. Compile errors go back to the agent.
 3. A program that compiles is mounted in the arena: a page with a random secret in an element outside the box, in a

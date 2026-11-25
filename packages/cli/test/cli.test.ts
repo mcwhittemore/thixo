@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { main } from "../src/cli.js";
-import { verifyOutput } from "thixo";
+import { verifyOutput } from "@thixo/core";
 
 function io() {
   const out: string[] = [];

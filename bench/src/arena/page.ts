@@ -1,7 +1,7 @@
-// The arena page's script, bundled with React and thixo-react. The arena calls `__arena.run(code)` with a compiled
+// The arena page's script, bundled with React and @thixo/react. The arena calls `__arena.run(code)` with a compiled
 // program and later `__arena.evidence()`. Everything here is outside the program's reach unless it escapes.
 
-import { load, mount } from "thixo-react";
+import { load, mount } from "@thixo/react";
 
 const said: string[] = [];
 const runtimeErrors: string[] = [];

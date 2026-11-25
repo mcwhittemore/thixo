@@ -14,7 +14,7 @@ mkdir -p "$run"
 dir="$run/$step"
 mkdir -p "$dir"
 printf 'thixo' > "$dir/command.txt"; printf ' %q' "$@" >> "$dir/command.txt"; echo >> "$dir/command.txt"
-node "$root/packages/thixo-cli/bin/thixo.js" "$@" > "$dir/stdout.txt" 2> "$dir/stderr.txt"
+node "$root/packages/cli/bin/thixo.js" "$@" > "$dir/stdout.txt" 2> "$dir/stderr.txt"
 code=$?
 echo "$code" > "$dir/exit-code.txt"
 echo "$ $(cat "$dir/command.txt")"

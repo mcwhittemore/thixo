@@ -8,8 +8,8 @@ feature file as the recipe. Name its feature IDs in the verification file.
 - `npm install` and `npm run build` have run in this checkout, and `scripts/doctor.sh` exits 0.
 - `RUN=artifacts/verify/<timestamp>-<pr-or-issue>` exists, and every step writes under it.
 - Scratch programs go in `$RUN/scratch/`, never in `packages/` or the fixtures.
-- The fixtures `packages/thixo/test/fixtures/orbit` (pointer, frame clock, size, `css`, a relative import) and
-  `packages/thixo/test/fixtures/todo-list` are the stock programs to start from.
+- The fixtures `packages/core/test/fixtures/orbit` (pointer, frame clock, size, `css`, a relative import) and
+  `packages/core/test/fixtures/todo-list` are the stock programs to start from.
 
 ## Driving conventions
 
@@ -39,5 +39,5 @@ required state and observable proof.
 - [Compile a program](./compile.md): `thixo compile` on a folder or file, `-o`, `--entry`, `--json`.
 - [Reject what's out of the language](./compile-errors.md): diagnostics, hints, exit codes, `--json` errors.
 - [Host modules](./host-modules.md): `--modules` declarations at compile, values at mount.
-- [Run in a page](./render.md): mount with thixo-react; draw, animate, and respond to pointer, keys and size.
+- [Run in a page](./render.md): mount with @thixo/react; draw, animate, and respond to pointer, keys and size.
 - [The wall holds](./wall.md): arena replay per goal, and the escape and guard tests.

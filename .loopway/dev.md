@@ -13,7 +13,7 @@ epic bot owns it: end your turn without a comment. If the `epic` label shows up 
 ## Before you change anything
 
 - Read `AGENTS.md` and `contributing.md`. Their rules beat your habits: kebab-case names, a lean in `docs/language.md`
-  is not a decision, `docs/security.md` and `bench/src/goals.ts` stay in step, and `packages/thixo/src/contract.ts`
+  is not a decision, `docs/security.md` and `bench/src/goals.ts` stay in step, and `packages/core/src/contract.ts`
   changes with its readme.
 - Restate the issue as a done-when: what will be true, and how you will show it. If the issue doesn't say enough to
   write one, or the change needs a decision the owner hasn't made (a lean, a new goal, a public type), call
