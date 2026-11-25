@@ -15,6 +15,13 @@ else r.errors;    // [{ file, line, column, code, message, hint? }]
 - `verifyOutput(code)` parses emitted code again and fails if it names anything it did not declare. `compile` runs
   it before returning.
 - `THIXO_DTS` and `LIB_THX_DTS` are the types of the built-in module and of the language's own lib.
+- A host module's `dts` uses the types the language reads (see [the language](../../docs/language.md)): a
+  conditional or mapped type in it is a compile error, as is a name it uses that doesn't exist. Each module's
+  declarations are checked once per process.
+
+It has no dependencies. The parser, the type check and the hash are its own, and nothing in the compile path needs
+Node, so a host can compile on an edge worker, in a browser or in Node. `test/budget.test.ts` holds the package to
+a size and a speed: the bundle under 100 KB gzipped, and the readme's Spin compiled in under 5 ms.
 
 ## `@thixo/core/runtime`
 
@@ -23,4 +30,5 @@ it; a host that brings its own renderer can use it directly.
 
 ## Tests
 
-`npm test` runs the suites in `test/` with `node --import tsx --test`.
+`npm test` runs the suites in `test/` with `node --import tsx --test`. `test/like-typescript.test.ts` runs each of
+its programs through TypeScript as well, which is a dev dependency only.

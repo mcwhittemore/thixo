@@ -83,6 +83,8 @@ export interface Sig {
   ret(): Type;
   /** `x is T`: the parameter it names and the type. */
   pred?(): { index: number; type: Type } | undefined;
+  /** A type parameter's constraint, read where the signature was declared (inside an interface, with its arguments). */
+  tconstraint?(tp: TParam): Type | undefined;
   /** A type parameter's default, for when a call gives nothing to infer it from. */
   tdefault?(tp: TParam): Type | undefined;
   /** Declared with method syntax, so its parameters are compared both ways. */

@@ -33,7 +33,7 @@ through gives a program the page, which is why the wall is tested by agents whos
 
 ## Three layers
 
-1. **At compile.** The TypeScript checker runs with the language's own lib and nothing else, so a name that isn't
+1. **At compile.** The type check runs with the language's own lib and nothing else, so a name that isn't
    imported, declared or a built-in doesn't exist. The emitter walks every node and has a case for each one it
    allows; any other kind is an error. Nothing reaches the output that the emitter did not write.
 2. **The output check.** `verifyOutput` parses the emitted module and fails if it names anything it did not

@@ -760,6 +760,10 @@ export class Checker {
           const d = (typeParams ?? []).find((x) => x.name.name === tp.name)?.default;
           return d ? this.typeFromNode(d, env) : undefined;
         },
+        tconstraint: (tp) => {
+          const c = (typeParams ?? []).find((x) => x.name.name === tp.name)?.constraint;
+          return c ? this.typeFromNode(c, env) : undefined;
+        },
         pred:
           returnType?.kind === "TypePredicate" && returnType.type && !returnType.asserts
             ? () => {
@@ -867,6 +871,12 @@ export class Checker {
           ? (tp) => {
               const d = s.tdefault!(tp);
               return d && this.instantiate(d, m);
+            }
+          : undefined,
+        tconstraint: s.tconstraint
+          ? (tp) => {
+              const c = s.tconstraint!(tp);
+              return c && this.instantiate(c, m);
             }
           : undefined,
         pred: pred
@@ -2087,8 +2097,28 @@ export class Checker {
             return index < 0 ? undefined : () => ({ index, type: pt });
           })()
         : undefined;
-    const s = sig(params, declared ?? ret, { tparams: tps, method: f.kind === "Method", decl: f, pred });
+    const s = sig(params, declared ?? ret, { tparams: tps, method: f.kind === "Method", decl: f, pred: pred ?? this.inferredPredicate(f, visible, params, declared ? undefined : ret) });
     return fnType(s, { literal: true });
+  }
+
+  /** `(x) => x !== undefined` is a type guard, as TypeScript infers it: true only when `x` has the narrower type, and
+   * false only when it doesn't. */
+  private inferredPredicate(f: A.FunctionLike, visible: A.Param[], params: Param[], ret: Type | undefined): (() => { index: number; type: Type }) | undefined {
+    if (!ret || f.async || !visible.length || visible[0].target.kind !== "Ident" || !f.body) return undefined;
+    if (!unionMembers(ret).every((m) => isLitOf(m, "boolean"))) return undefined;
+    let body: A.Expr | undefined;
+    if (f.body.kind !== "Block") body = f.body;
+    else if (f.body.body.length === 1 && f.body.body[0].kind === "Return") body = f.body.body[0].arg;
+    if (!body) return undefined;
+    const sym = this.boundOf(visible[0].target)?.decls.get(visible[0].target);
+    if (!sym || sym.assigned) return undefined;
+    const key = `#${sym.id}`;
+    const declared = params[0].type;
+    const yes = this.narrow(new Map(), body, true).get(key)?.t;
+    const no = this.narrow(new Map(), body, false).get(key)?.t ?? declared;
+    if (!yes || yes === declared || yes.k === "never") return undefined;
+    if (unionMembers(no).some((m) => this.assignable(m, yes))) return undefined;
+    return () => ({ index: 0, type: yes });
   }
 
   /** Checks a function's body and returns its return type: the declared one, or the one its returns give. */
@@ -3103,7 +3133,7 @@ export class Checker {
         m = new Map();
         s.tparams.forEach((tp, i) => {
           const tn = typeArgNodes[i];
-          m.set(tp.id, tn ? this.typeFromNode(tn, EMPTY_ENV) : (tp.constraint() ?? T.unknown));
+          m.set(tp.id, tn ? this.typeFromNode(tn, EMPTY_ENV) : (this.constraintIn(s, tp) ?? T.unknown));
         });
       } else m = this.inferArgs(s, args);
       inst = this.instantiateSig(s, m);
@@ -3176,7 +3206,7 @@ export class Checker {
     const m: Mapper = new Map();
     for (const tp of s.tparams) {
       const c = cands.get(tp.id)!;
-      m.set(tp.id, c.length ? this.fix(s, tp, c) : (s.tdefault?.(tp) ?? tp.constraint() ?? T.unknown));
+      m.set(tp.id, c.length ? this.fix(s, tp, c) : (s.tdefault?.(tp) ?? this.constraintIn(s, tp) ?? T.unknown));
     }
     return this.checkConstraints(s, m);
   }
@@ -3185,7 +3215,7 @@ export class Checker {
   private fix(s: Sig, tp: TParam, cands: Type[]): Type {
     const real = cands.filter((c) => !(c.k === "any" && c.error));
     const list = real.length ? real : cands;
-    const c = tp.constraint();
+    const c = this.constraintIn(s, tp);
     const primitive = !!c && (c.k === "deferred" || unionMembers(c).some((m) => m.k === "string" || m.k === "number" || m.k === "lit"));
     const ret = s.ret();
     const topLevel = unionMembers(ret).some((m) => m.k === "tparam" && m.id === tp.id);
@@ -3197,10 +3227,14 @@ export class Checker {
     return base.reduce((acc, x) => (this.assignable(acc, x) ? x : acc));
   }
 
+  private constraintIn(s: Sig, tp: TParam): Type | undefined {
+    return s.tconstraint ? s.tconstraint(tp) : tp.constraint();
+  }
+
   /** Each inferred type argument that breaks its parameter's constraint becomes the constraint. */
   private checkConstraints(s: Sig, m: Mapper): Mapper {
     for (const tp of s.tparams) {
-      const c = tp.constraint();
+      const c = this.constraintIn(s, tp);
       const t = m.get(tp.id);
       if (!c || !t) continue;
       const ci = this.instantiate(c, m);
@@ -3391,8 +3425,9 @@ export class Checker {
       const m: Mapper = new Map();
       for (const tp of s.tparams) {
         const c = cands.get(tp.id)!;
-        m.set(tp.id, c.length ? this.fix(s, tp, c) : (s.tdefault?.(tp) ?? tp.constraint() ?? T.unknown));
+        m.set(tp.id, c.length ? this.fix(s, tp, c) : (s.tdefault?.(tp) ?? this.constraintIn(s, tp) ?? T.unknown));
       }
+      this.checkConstraints(s, m);
       s = this.instantiateSig(s, m);
     }
     const ret = s.ret();

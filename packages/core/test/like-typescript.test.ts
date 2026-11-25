@@ -400,6 +400,16 @@ export default function Eff() {
   }, [ticks]);
   return <p>{ticks}</p>;
 }`,
+  "filters that narrow, as TypeScript infers them": `
+type Tile = { kind: "wall" } | { kind: "door"; open: boolean };
+export default function Fi() {
+  const maybe = [1, undefined, 3];
+  const nums = maybe.filter((x) => x !== undefined);
+  const tiles: Tile[] = [{ kind: "wall" }, { kind: "door", open: true }];
+  const doors = tiles.filter((t) => t.kind === "door");
+  const named = ["a", null].filter((s) => s !== null);
+  return <p>{nums.map((n) => n.toFixed(1)).join()}{doors.map((d) => String(d.open)).join()}{named.join()}</p>;
+}`,
   "a reducer-style update": `
 type Action = { type: "add"; text: string } | { type: "clear" };
 type State = { items: string[] };
@@ -453,6 +463,7 @@ const REFUSED: Record<string, string> = {
   "a missing hook argument": `useFrame();`,
   "a css value of the wrong type": `const c = css({ padding: true });`,
   "a Math function that doesn't exist": `const n = Math.florr(1.5);`,
+  "a filter that doesn't narrow": `const xs = [1, undefined].filter((x) => x !== 1); const s = xs.map((x) => x.toFixed());`,
   "a Math function given a string": `const n = Math.floor("1.5");`,
   "an Error made from a number": `const e = new Error(1);`,
   "a field read on a union without narrowing": `type R = { ok: true; value: number } | { ok: false; error: string }; function f(r: R) { return r.value; }`,
