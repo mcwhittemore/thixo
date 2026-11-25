@@ -2,6 +2,13 @@
   "name": "@thixo/core",
   "version": "0.1.0",
   "description": "The thixo compiler and runtime, to embed in a build or a server: a language that reads as TypeScript and React and compiles to JavaScript that can only reach what it was handed.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mcwhittemore/thixo.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/mcwhittemore/thixo#readme",
   "type": "module",
   "files": [
     "dist"
