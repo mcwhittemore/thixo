@@ -1,0 +1,10 @@
+export interface Point {
+  x: number;
+  y: number;
+}
+
+/** Where a body `index` of `count` sits at `time` seconds, around `center`. */
+export function orbit(center: Point, radius: number, index: number, count: number, time: number): Point {
+  const angle = (index / count) * Math.PI * 2 + time;
+  return { x: center.x + Math.cos(angle) * radius, y: center.y + Math.sin(angle) * radius };
+}

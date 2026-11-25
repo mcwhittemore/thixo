@@ -1,0 +1,27 @@
+{
+  "name": "thixo-cli",
+  "version": "0.1.0",
+  "description": "The thixo command: compile a folder of .thx files to one JavaScript module.",
+  "type": "module",
+  "files": [
+    "dist",
+    "bin"
+  ],
+  "bin": {
+    "thixo": "./bin/thixo.js"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "node --conditions=thixo-source --import tsx --test \"test/**/*.test.ts\""
+  },
+  "exports": {
+    ".": {
+      "thixo-source": "./src/cli.ts",
+      "types": "./dist/cli.d.ts",
+      "default": "./dist/cli.js"
+    }
+  },
+  "dependencies": {
+    "thixo": "0.1.0"
+  }
+}

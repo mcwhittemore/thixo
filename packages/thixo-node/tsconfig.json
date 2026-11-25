@@ -1,5 +1,0 @@
-{
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "rootDir": "src", "outDir": "dist" },
-  "include": ["src"], "references": [{ "path": "../core" }, { "path": "../thixo-anthropic" },{ "path": "../thixo-sql" }, { "path": "../thx" }]
-}

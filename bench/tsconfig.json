@@ -1,0 +1,5 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": { "noEmit": true, "composite": false, "declaration": false, "rootDir": "..", "allowImportingTsExtensions": false, "customConditions": ["thixo-source"] },
+  "include": ["src", "test"]
+}

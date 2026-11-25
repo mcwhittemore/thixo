@@ -1,0 +1,26 @@
+{
+  "name": "thixo-react",
+  "version": "0.1.0",
+  "description": "Mount a compiled thixo program in the browser with React, in a box it cannot draw out of.",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "exports": {
+    ".": {
+      "thixo-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "thixo": "0.1.0"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  }
+}
