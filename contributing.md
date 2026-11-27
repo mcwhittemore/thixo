@@ -11,6 +11,25 @@
 4. **Record what was settled.** When the owner settles a question, turn the matching lean in the docs into a plain
    statement.
 
+## Versions and releases
+
+Every merge to `main` publishes to npm. `.github/workflows/release.yml` publishes each package in `packages/` whose
+version isn't on npm yet, `@thixo/core` first, and tags the commit `<name>@<version>`. So a pull request that changes
+what a package ships raises that package's version, and `.github/workflows/versions.yml` fails it if it doesn't
+(`npm run check-versions -- origin/main` runs the same check).
+
+- **What counts as a change:** anything in the package's folder except `test/`, including `package.json` fields
+  other than `version`.
+- **Pick the bump by [semver](https://semver.org).** From 1.0.0: major for a breaking change, minor for a new
+  feature, patch for a fix. While a package is 0.x: minor for a breaking change, patch for everything else.
+  A breaking change is one that can make a working program, host or build stop working: a public type in
+  `contract.ts`, an export, a CLI flag or exit code, or the language rejecting a program it accepted. A tighter wall
+  that rejects what was a hole is a fix.
+- **Bump once per pull request,** from the version on `main`, not once per commit.
+- **Pins move with it.** `@thixo/react` and `@thixo/cli` pin `@thixo/core` to an exact version. Raising core means
+  updating both pins, which is a change to both packages, so they need a new version too (patch, unless they change
+  in some other way).
+
 ## Rules for the documents
 
 - What is not settled is written down as a lean or as open. Nothing is left implied.

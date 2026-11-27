@@ -35,7 +35,10 @@ when the pull request merges or closes.
    `docs/security.md` changed, `bench/src/goals.ts` must change with it, and the other way round.
 4. **The rules in AGENTS.md.** `contract.ts` changed without its readme; a lean in `docs/language.md` presented as a
    decision; non-kebab-case names; scope beyond the issue.
-5. **What it could break.** For changes to shared code, use `pstack:blast-radius`. For a change to the wall, use
+5. **The versions.** Every merge publishes to npm. Run `npm run check-versions -- origin/<base>`. Then judge each bump
+   against [contributing.md](../contributing.md#versions-and-releases): a breaking change shipped as a patch, or a
+   bump on a package that didn't change, is a P2. A package that changed without a bump is a P1, and CI fails on it too.
+6. **What it could break.** For changes to shared code, use `pstack:blast-radius`. For a change to the wall, use
    `pstack:interrogate` and try to write a program that gets through.
 
 Never run `npm run bench -- --goal <id>`: it spends money. Ask with `mcp__loopway__ask` if you think it's needed.
