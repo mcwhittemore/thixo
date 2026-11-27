@@ -18,18 +18,17 @@ function run(command: string, args: string[]): void {
   execFileSync(command, args, { cwd: root, stdio: "inherit" });
 }
 
-const tags: string[] = [];
 for (const { manifest } of publishOrder(readWorkspaces(root))) {
   const { name, version } = manifest;
   if (published(name, version)) {
     console.log(`${name}@${version} is already on npm.`);
     continue;
   }
-  run("npm", ["publish", "--workspace", name, ...(dryRun ? ["--dry-run"] : [])]);
-  tags.push(`${name}@${version}`);
-}
-
-if (!dryRun && tags.length > 0) {
-  for (const tag of tags) run("git", ["tag", tag]);
-  run("git", ["push", "origin", ...tags]);
+  if (dryRun) {
+    run("npm", ["publish", "--workspace", name, "--dry-run"]);
+    continue;
+  }
+  run("npm", ["publish", "--workspace", name]);
+  run("git", ["tag", `${name}@${version}`]);
+  run("git", ["push", "origin", `${name}@${version}`]);
 }

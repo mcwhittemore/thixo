@@ -57,7 +57,7 @@ test("a source change without a new version fails", () => {
   r.commit();
   const problems = checkVersions(r.dir, "base");
   assert.equal(problems.length, 1);
-  assert.match(problems[0], /^@thixo\/react changed but its version is still 0\.1\.0/);
+  assert.match(problems[0], /^@thixo\/react changed but its version, 0\.1\.0, is not above 0\.1\.0/);
 });
 
 test("a source change with a new version passes", () => {
@@ -73,7 +73,7 @@ test("a lower version fails", () => {
   r.write("packages/react/src/index.ts", "export const b = 2;\n");
   r.write("packages/react/package.json", manifest("@thixo/react", "0.0.9", { "@thixo/core": "0.1.0" }));
   r.commit();
-  assert.match(checkVersions(r.dir, "base")[0], /@thixo\/react changed but its version is still 0\.0\.9/);
+  assert.match(checkVersions(r.dir, "base")[0], /@thixo\/react changed but its version, 0\.0\.9, is not above 0\.1\.0/);
 });
 
 test("raising core without updating the pins in its dependents fails", () => {
@@ -94,7 +94,7 @@ test("updating a pin is a change to the dependent, so it needs a new version too
   r.commit();
   const problems = checkVersions(r.dir, "base");
   assert.equal(problems.length, 1);
-  assert.match(problems[0], /^@thixo\/react changed but its version is still 0\.1\.0/);
+  assert.match(problems[0], /^@thixo\/react changed but its version, 0\.1\.0, is not above 0\.1\.0/);
 
   r.write("packages/react/package.json", manifest("@thixo/react", "0.1.1", { "@thixo/core": "0.2.0" }));
   r.commit();
@@ -130,7 +130,7 @@ test("a pull request behind its base must raise its version above the base's", (
   r.write("packages/react/src/index.ts", "export const b = 2;\n");
   r.write("packages/react/package.json", manifest("@thixo/react", "0.1.1", { "@thixo/core": "0.1.0" }));
   r.commit();
-  assert.match(checkVersions(r.dir, "base")[0], /still 0\.1\.1\. Raise it above 0\.1\.1/);
+  assert.match(checkVersions(r.dir, "base")[0], /0\.1\.1, is not above 0\.1\.1\. Raise it above 0\.1\.1/);
 });
 
 test("versions compare by number, not by text", () => {

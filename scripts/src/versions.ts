@@ -100,7 +100,7 @@ export function checkVersions(repo: string, base: string): string[] {
     const baseVersion = (JSON.parse(before) as Manifest).version;
     if (compareVersions(version, baseVersion) <= 0) {
       problems.push(
-        `${name} changed but its version is still ${version}. Raise it above ${baseVersion} by semver: see contributing.md, Versions and releases.`,
+        `${name} changed but its version, ${version}, is not above ${baseVersion}. Raise it above ${baseVersion} by semver: see contributing.md, Versions and releases.`,
       );
     }
   }
