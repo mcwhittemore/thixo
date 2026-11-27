@@ -2,7 +2,9 @@
 // shape the compiler is meant to write: one default-exported function of `rt`, whose only way to touch anything is
 // a call to one of rt's named members, and which names nothing it did not declare.
 
-import ts from "../compiler/ts-api.js";
+import type * as A from "../compiler/syntax/ast.js";
+import { lineCol } from "../compiler/syntax/ast.js";
+import { parse } from "../compiler/syntax/parser.js";
 
 /** The members of `rt` compiled code may name. */
 export const RT_NAMES: ReadonlySet<string> = new Set([
@@ -64,40 +66,39 @@ interface Scope {
 
 export function verifyOutput(code: string): { ok: true } | { ok: false; errors: string[] } {
   const errors: string[] = [];
-  const sf = ts.createSourceFile("program.js", code, ts.ScriptTarget.ES2022, true, ts.ScriptKind.JS);
-  const parseDiagnostics = (sf as unknown as { parseDiagnostics?: readonly ts.Diagnostic[] }).parseDiagnostics ?? [];
-  for (const d of parseDiagnostics) errors.push(`syntax: ${ts.flattenDiagnosticMessageText(d.messageText, " ")}`);
-  if (errors.length) return { ok: false, errors };
+  const parsed = parse(code, "program.js", "js");
+  if (parsed.error) return { ok: false, errors: [`syntax: ${parsed.error.message}`] };
+  const sf = parsed.file;
 
-  const where = (n: ts.Node) => {
-    const p = sf.getLineAndCharacterOfPosition(n.getStart(sf));
-    return `${p.line + 1}:${p.character + 1}`;
+  const where = (n: A.Node) => {
+    const p = lineCol(sf, n.start);
+    return `${p.line}:${p.column}`;
   };
-  const fail = (n: ts.Node, what: string) => {
+  const fail = (n: A.Node, what: string) => {
     errors.push(`${where(n)} ${what}`);
   };
 
   const root = sf.statements[0];
-  const mods = root && ts.canHaveModifiers(root) ? (ts.getModifiers(root) ?? []).map((m) => m.kind) : [];
+  const mods = root && "modifiers" in root ? (root.modifiers as A.Modifier[]).map((m) => m.name) : [];
   if (
     sf.statements.length !== 1 ||
-    !ts.isFunctionDeclaration(root) ||
+    root.kind !== "FunctionDecl" ||
     root.name ||
-    root.asteriskToken ||
+    root.generator ||
     mods.length !== 2 ||
-    mods[0] !== ts.SyntaxKind.ExportKeyword ||
-    mods[1] !== ts.SyntaxKind.DefaultKeyword ||
-    root.parameters.length !== 1 ||
-    !ts.isIdentifier(root.parameters[0].name) ||
-    root.parameters[0].name.text !== "rt" ||
-    root.parameters[0].initializer ||
-    root.parameters[0].dotDotDotToken ||
+    mods[0] !== "export" ||
+    mods[1] !== "default" ||
+    root.params.length !== 1 ||
+    root.params[0].target.kind !== "Ident" ||
+    root.params[0].target.name !== "rt" ||
+    root.params[0].init ||
+    root.params[0].rest ||
     !root.body
   ) {
     return { ok: false, errors: ["the module must be exactly `export default function (rt) { ... }`"] };
   }
-  const first = root.body.statements[0];
-  if (!first || !ts.isExpressionStatement(first) || !ts.isStringLiteral(first.expression) || first.expression.text !== "use strict")
+  const first = root.body.body[0];
+  if (!first || first.kind !== "ExprStmt" || first.expr.kind !== "Str" || first.expr.value !== "use strict")
     errors.push("the function body must start with \"use strict\"");
 
   const rootScope: Scope = { names: new Set(["rt"]) };
@@ -107,248 +108,226 @@ export function verifyOutput(code: string): { ok: true } | { ok: false; errors: 
     return undefined;
   };
 
-  const declare = (id: ts.Node, scope: Scope) => {
-    if (!ts.isIdentifier(id)) {
+  const declare = (id: A.Node, scope: Scope) => {
+    if (id.kind !== "Ident") {
       fail(id, "a declaration binds something other than a plain name");
       return;
     }
-    if (id.text === "rt") fail(id, "`rt` is declared again");
-    if (BANNED_NAMES.has(id.text)) fail(id, `\`${id.text}\` is declared`);
-    scope.names.add(id.text);
+    if (id.name === "rt") fail(id, "`rt` is declared again");
+    if (BANNED_NAMES.has(id.name)) fail(id, `\`${id.name}\` is declared`);
+    scope.names.add(id.name);
   };
 
-  const hoist = (stmts: readonly ts.Statement[], scope: Scope) => {
+  const hoist = (stmts: readonly A.Statement[], scope: Scope) => {
     for (const s of stmts) {
-      if (ts.isFunctionDeclaration(s) && s.name) declare(s.name, scope);
-      if (ts.isVariableStatement(s)) for (const d of s.declarationList.declarations) declare(d.name, scope);
+      if (s.kind === "FunctionDecl" && s.name) declare(s.name, scope);
+      if (s.kind === "VarDecl") for (const d of s.decls) declare(d.target, scope);
     }
   };
 
-  const block = (stmts: readonly ts.Statement[], parent: Scope, inAsync = false, scope: Scope = { names: new Set(), parent }) => {
+  const block = (stmts: readonly A.Statement[], parent: Scope, inAsync = false, scope: Scope = { names: new Set(), parent }) => {
     hoist(stmts, scope);
     for (const s of stmts) statement(s, scope, inAsync);
   };
 
-  const fnLike = (f: ts.FunctionDeclaration | ts.FunctionExpression | ts.ArrowFunction, scope: Scope, inAsync: boolean) => {
+  const fnLike = (f: A.FunctionDecl | A.FunctionExpr, scope: Scope, inAsync: boolean) => {
     const fscope: Scope = { names: new Set(), parent: scope };
-    if (ts.isFunctionExpression(f) && f.name) declare(f.name, fscope);
-    for (const p of f.parameters) {
-      if (p.initializer) fail(p, "a parameter has a default value");
-      declare(p.name, fscope);
+    if (f.kind === "Function" && f.name) declare(f.name, fscope);
+    for (const p of f.params) {
+      if (p.init) fail(p, "a parameter has a default value");
+      declare(p.target, fscope);
     }
-    if (!f.body || !ts.isBlock(f.body)) {
+    if (!f.body || f.body.kind !== "Block") {
       fail(f, "a function without a block body");
       return;
     }
-    hoist(f.body.statements, fscope);
-    for (const s of f.body.statements) statement(s, fscope, inAsync);
+    hoist(f.body.body, fscope);
+    for (const s of f.body.body) statement(s, fscope, inAsync);
   };
 
-  const varList = (list: ts.VariableDeclarationList, scope: Scope, inAsync: boolean) => {
-    if (!(list.flags & (ts.NodeFlags.Const | ts.NodeFlags.Let))) fail(list, "a declaration that is not `const` or `let`");
-    for (const d of list.declarations) {
-      if (!ts.isIdentifier(d.name)) fail(d, "a destructuring declaration");
-      if (d.initializer) expression(d.initializer, scope, inAsync);
+  const varList = (list: A.VarDecl, scope: Scope, inAsync: boolean) => {
+    if (list.declKind !== "const" && list.declKind !== "let") fail(list, "a declaration that is not `const` or `let`");
+    for (const d of list.decls) {
+      if (d.target.kind !== "Ident") fail(d, "a destructuring declaration");
+      if (d.init) expression(d.init, scope, inAsync);
     }
   };
 
-  function statement(s: ts.Statement, scope: Scope, inAsync = false): void {
+  function statement(s: A.Statement, scope: Scope, inAsync = false): void {
     switch (s.kind) {
-      case ts.SyntaxKind.VariableStatement:
-        if (ts.getModifiers(s as ts.VariableStatement)?.length) fail(s, "a modifier on a declaration");
-        return varList((s as ts.VariableStatement).declarationList, scope, inAsync);
-      case ts.SyntaxKind.FunctionDeclaration: {
-        const f = s as ts.FunctionDeclaration;
-        if (f.asteriskToken || ts.getModifiers(f)?.length) fail(f, "a generator, async or exported inner function");
-        return fnLike(f, scope, false);
-      }
-      case ts.SyntaxKind.ExpressionStatement:
-        return expression((s as ts.ExpressionStatement).expression, scope, inAsync);
-      case ts.SyntaxKind.IfStatement: {
-        const i = s as ts.IfStatement;
-        expression(i.expression, scope, inAsync);
-        statement(i.thenStatement, scope, inAsync);
-        if (i.elseStatement) statement(i.elseStatement, scope, inAsync);
+      case "VarDecl":
+        if (s.modifiers.length) fail(s, "a modifier on a declaration");
+        return varList(s, scope, inAsync);
+      case "FunctionDecl":
+        if (s.generator || s.modifiers.length) fail(s, "a generator, async or exported inner function");
+        return fnLike(s, scope, false);
+      case "ExprStmt":
+        return expression(s.expr, scope, inAsync);
+      case "If":
+        expression(s.test, scope, inAsync);
+        statement(s.then, scope, inAsync);
+        if (s.else) statement(s.else, scope, inAsync);
         return;
-      }
-      case ts.SyntaxKind.WhileStatement:
-      case ts.SyntaxKind.DoStatement: {
-        const w = s as ts.WhileStatement;
-        expression(w.expression, scope, inAsync);
-        return statement(w.statement, scope, inAsync);
-      }
-      case ts.SyntaxKind.ForStatement: {
-        const f = s as ts.ForStatement;
+      case "While":
+      case "DoWhile":
+        expression(s.test, scope, inAsync);
+        return statement(s.body, scope, inAsync);
+      case "For": {
         const fs: Scope = { names: new Set(), parent: scope };
-        if (f.initializer) {
-          if (ts.isVariableDeclarationList(f.initializer)) {
-            for (const d of f.initializer.declarations) declare(d.name, fs);
-            varList(f.initializer, fs, inAsync);
-          } else expression(f.initializer, fs, inAsync);
+        if (s.init) {
+          if (s.init.kind === "VarDecl") {
+            for (const d of s.init.decls) declare(d.target, fs);
+            varList(s.init, fs, inAsync);
+          } else expression(s.init, fs, inAsync);
         }
-        if (f.condition) expression(f.condition, fs, inAsync);
-        if (f.incrementor) expression(f.incrementor, fs, inAsync);
-        return statement(f.statement, fs, inAsync);
+        if (s.test) expression(s.test, fs, inAsync);
+        if (s.update) expression(s.update, fs, inAsync);
+        return statement(s.body, fs, inAsync);
       }
-      case ts.SyntaxKind.ForOfStatement: {
-        const f = s as ts.ForOfStatement;
-        if (f.awaitModifier) fail(f, "`for await`");
+      case "ForOf": {
+        if (s.await) fail(s, "`for await`");
         const fs: Scope = { names: new Set(), parent: scope };
-        expression(f.expression, scope, inAsync);
-        if (!ts.isVariableDeclarationList(f.initializer) || f.initializer.declarations.length !== 1) fail(f, "a for-of without one declaration");
+        expression(s.right, scope, inAsync);
+        if (s.left.kind !== "VarDecl" || s.left.decls.length !== 1) fail(s, "a for-of without one declaration");
         else {
-          declare(f.initializer.declarations[0].name, fs);
-          varList(f.initializer, fs, inAsync);
+          declare(s.left.decls[0].target, fs);
+          varList(s.left, fs, inAsync);
         }
-        return statement(f.statement, fs, inAsync);
+        return statement(s.body, fs, inAsync);
       }
-      case ts.SyntaxKind.ReturnStatement: {
-        const r = s as ts.ReturnStatement;
-        if (r.expression) expression(r.expression, scope, inAsync);
+      case "Return":
+        if (s.arg) expression(s.arg, scope, inAsync);
         return;
-      }
-      case ts.SyntaxKind.BreakStatement:
-      case ts.SyntaxKind.ContinueStatement:
-        if ((s as ts.BreakStatement).label) fail(s, "a label");
+      case "Break":
+      case "Continue":
+        if (s.label) fail(s, "a label");
         return;
-      case ts.SyntaxKind.ThrowStatement:
-        return expression((s as ts.ThrowStatement).expression, scope, inAsync);
-      case ts.SyntaxKind.TryStatement: {
-        const t = s as ts.TryStatement;
-        block(t.tryBlock.statements, scope, inAsync);
-        if (t.catchClause) {
+      case "Throw":
+        return expression(s.arg, scope, inAsync);
+      case "Try": {
+        block(s.block.body, scope, inAsync);
+        if (s.handler) {
           const cs: Scope = { names: new Set(), parent: scope };
-          if (t.catchClause.variableDeclaration) declare(t.catchClause.variableDeclaration.name, cs);
-          block(t.catchClause.block.statements, cs, inAsync);
+          if (s.param) declare(s.param, cs);
+          block(s.handler.body, cs, inAsync);
         }
-        if (t.finallyBlock) block(t.finallyBlock.statements, scope, inAsync);
+        if (s.finalizer) block(s.finalizer.body, scope, inAsync);
         return;
       }
-      case ts.SyntaxKind.Block:
-        return block((s as ts.Block).statements, scope, inAsync);
-      case ts.SyntaxKind.SwitchStatement: {
-        const sw = s as ts.SwitchStatement;
-        expression(sw.expression, scope, inAsync);
+      case "Block":
+        return block(s.body, scope, inAsync);
+      case "Switch": {
+        expression(s.disc, scope, inAsync);
         const cs: Scope = { names: new Set(), parent: scope };
-        for (const c of sw.caseBlock.clauses) hoist(c.statements, cs);
-        for (const c of sw.caseBlock.clauses) {
-          if (ts.isCaseClause(c)) expression(c.expression, cs, inAsync);
-          for (const st of c.statements) statement(st, cs, inAsync);
+        for (const c of s.cases) hoist(c.body, cs);
+        for (const c of s.cases) {
+          if (c.test) expression(c.test, cs, inAsync);
+          for (const st of c.body) statement(st, cs, inAsync);
         }
         return;
       }
-      case ts.SyntaxKind.EmptyStatement:
+      case "Empty":
         return;
       default:
-        fail(s, `statement kind ${ts.SyntaxKind[s.kind]}`);
+        fail(s, `statement kind ${s.kind}`);
     }
   }
 
-  const isRtMember = (e: ts.Expression, scope: Scope): boolean =>
-    ts.isPropertyAccessExpression(e) &&
-    !e.questionDotToken &&
-    ts.isIdentifier(e.expression) &&
-    e.expression.text === "rt" &&
+  const isRtMember = (e: A.Expr, scope: Scope): boolean =>
+    e.kind === "Member" &&
+    !e.optional &&
+    !e.inChain &&
+    e.object.kind === "Ident" &&
+    e.object.name === "rt" &&
     resolves("rt", scope) === rootScope &&
-    ts.isIdentifier(e.name) &&
-    RT_NAMES.has(e.name.text);
+    e.prop.kind === "Ident" &&
+    RT_NAMES.has(e.prop.name);
 
-  const isAsyncThunk = (e: ts.Expression): e is ts.ParenthesizedExpression =>
-    ts.isParenthesizedExpression(e) &&
-    ts.isArrowFunction(e.expression) &&
-    e.expression.parameters.length === 0 &&
-    !!ts.getModifiers(e.expression)?.some((m) => m.kind === ts.SyntaxKind.AsyncKeyword) &&
-    ts.isBlock(e.expression.body);
+  const isAsyncThunk = (e: A.Expr): e is A.Paren & { expr: A.Arrow & { body: A.Block } } =>
+    e.kind === "Paren" && e.expr.kind === "Arrow" && e.expr.params.length === 0 && e.expr.async && e.expr.body.kind === "Block";
 
-  function expression(e: ts.Expression, scope: Scope, inAsync: boolean): void {
+  const text = (n: A.Node) => code.slice(n.start, n.end).slice(0, 40);
+
+  function expression(e: A.Expr, scope: Scope, inAsync: boolean): void {
     switch (e.kind) {
-      case ts.SyntaxKind.Identifier: {
-        const id = e as ts.Identifier;
-        if (BANNED_NAMES.has(id.text)) fail(id, `\`${id.text}\` is named`);
-        if (!resolves(id.text, scope)) fail(id, `\`${id.text}\` is not declared`);
+      case "Ident":
+        if (BANNED_NAMES.has(e.name)) fail(e, `\`${e.name}\` is named`);
+        if (!resolves(e.name, scope)) fail(e, `\`${e.name}\` is not declared`);
         return;
-      }
-      case ts.SyntaxKind.NumericLiteral:
-      case ts.SyntaxKind.StringLiteral:
-      case ts.SyntaxKind.TrueKeyword:
-      case ts.SyntaxKind.FalseKeyword:
-      case ts.SyntaxKind.NullKeyword:
+      case "Num":
+      case "Str":
+      case "Bool":
+      case "Null":
         return;
-      case ts.SyntaxKind.ParenthesizedExpression:
-        return expression((e as ts.ParenthesizedExpression).expression, scope, inAsync);
-      case ts.SyntaxKind.PropertyAccessExpression:
-        if (!isRtMember(e, scope)) fail(e, `a field read other than rt.<member>: \`${e.getText(sf).slice(0, 40)}\``);
+      case "Paren":
+        return expression(e.expr, scope, inAsync);
+      case "Member":
+        if (!isRtMember(e, scope)) fail(e, `a field read other than rt.<member>: \`${text(e)}\``);
         return;
-      case ts.SyntaxKind.CallExpression: {
-        const c = e as ts.CallExpression;
-        if (c.questionDotToken) fail(c, "an optional call");
-        if (isRtMember(c.expression, scope)) {
+      case "Call": {
+        if (e.optional || e.inChain) fail(e, "an optional call");
+        if (isRtMember(e.callee, scope)) {
           // ok
-        } else if (isAsyncThunk(c.expression) && c.arguments.length === 0) {
-          const arrow = c.expression.expression as ts.ArrowFunction;
+        } else if (isAsyncThunk(e.callee) && e.args.length === 0) {
           const as: Scope = { names: new Set(), parent: scope };
-          const body = arrow.body as ts.Block;
-          hoist(body.statements, as);
-          for (const s of body.statements) statement(s, as, true);
+          const body = e.callee.expr.body;
+          hoist(body.body, as);
+          for (const s of body.body) statement(s, as, true);
           return;
-        } else fail(c, `a call of something other than rt.<member>: \`${c.expression.getText(sf).slice(0, 40)}\``);
-        for (const a of c.arguments) {
-          if (ts.isSpreadElement(a)) fail(a, "a spread argument");
+        } else fail(e, `a call of something other than rt.<member>: \`${text(e.callee)}\``);
+        for (const a of e.args) {
+          if (a.kind === "Spread") fail(a, "a spread argument");
           else expression(a, scope, inAsync);
         }
         return;
       }
-      case ts.SyntaxKind.BinaryExpression: {
-        const b = e as ts.BinaryExpression;
-        const op = b.operatorToken.getText(sf);
-        if (ASSIGN.has(op)) {
-          if (!ts.isIdentifier(b.left)) fail(b, "an assignment to something other than a name");
-          else if (b.left.text === "rt") fail(b, "an assignment to rt");
-        } else if (!BINARY.has(op)) fail(b, `the operator ${op}`);
-        expression(b.left, scope, inAsync);
-        expression(b.right, scope, inAsync);
+      case "Assign":
+        if (e.left.kind !== "Ident") fail(e, "an assignment to something other than a name");
+        else if (e.left.name === "rt") fail(e, "an assignment to rt");
+        if (!ASSIGN.has(e.op)) fail(e, `the operator ${e.op}`);
+        expression(e.left, scope, inAsync);
+        expression(e.right, scope, inAsync);
         return;
-      }
-      case ts.SyntaxKind.PrefixUnaryExpression:
-      case ts.SyntaxKind.PostfixUnaryExpression: {
-        const u = e as ts.PrefixUnaryExpression;
-        const inc = u.operator === ts.SyntaxKind.PlusPlusToken || u.operator === ts.SyntaxKind.MinusMinusToken;
-        if (inc && (!ts.isIdentifier(u.operand) || u.operand.text === "rt")) fail(u, "++ or -- on something other than a name");
-        return expression(u.operand, scope, inAsync);
-      }
-      case ts.SyntaxKind.TypeOfExpression:
-        return expression((e as ts.TypeOfExpression).expression, scope, inAsync);
-      case ts.SyntaxKind.VoidExpression: {
-        const v = (e as ts.VoidExpression).expression;
-        if (!ts.isNumericLiteral(v) || v.text !== "0") fail(e, "void of something other than 0");
+      case "Binary":
+        if (!BINARY.has(e.op)) fail(e, `the operator ${e.op}`);
+        expression(e.left, scope, inAsync);
+        expression(e.right, scope, inAsync);
         return;
-      }
-      case ts.SyntaxKind.ConditionalExpression: {
-        const c = e as ts.ConditionalExpression;
-        expression(c.condition, scope, inAsync);
-        expression(c.whenTrue, scope, inAsync);
-        expression(c.whenFalse, scope, inAsync);
+      case "Update":
+        if (e.arg.kind !== "Ident" || e.arg.name === "rt") fail(e, "++ or -- on something other than a name");
+        return expression(e.arg, scope, inAsync);
+      case "Unary":
+        if (e.op === "void") {
+          if (e.arg.kind !== "Num" || e.arg.raw !== "0") fail(e, "void of something other than 0");
+          return;
+        }
+        if (e.op === "delete") {
+          fail(e, "expression kind delete");
+          return;
+        }
+        return expression(e.arg, scope, inAsync);
+      case "Cond":
+        expression(e.test, scope, inAsync);
+        expression(e.cons, scope, inAsync);
+        expression(e.alt, scope, inAsync);
         return;
-      }
-      case ts.SyntaxKind.AwaitExpression:
+      case "Await":
         if (!inAsync) fail(e, "await outside the compiler's async wrapper");
-        return expression((e as ts.AwaitExpression).expression, scope, inAsync);
-      case ts.SyntaxKind.FunctionExpression: {
-        const f = e as ts.FunctionExpression;
-        if (f.asteriskToken || ts.getModifiers(f)?.length) fail(f, "a generator or async function expression");
-        return fnLike(f, scope, false);
-      }
-      case ts.SyntaxKind.ArrayLiteralExpression:
-        for (const el of (e as ts.ArrayLiteralExpression).elements) {
-          if (ts.isSpreadElement(el) || ts.isOmittedExpression(el)) fail(el, "a spread or hole in a list");
+        return expression(e.arg, scope, inAsync);
+      case "Function":
+        if (e.generator || e.modifiers.length) fail(e, "a generator or async function expression");
+        return fnLike(e, scope, false);
+      case "Array":
+        for (const el of e.elements) {
+          if (el.kind === "Spread" || el.kind === "Hole") fail(el, "a spread or hole in a list");
           else expression(el, scope, inAsync);
         }
         return;
       default:
-        fail(e, `expression kind ${ts.SyntaxKind[e.kind]}`);
+        fail(e, `expression kind ${e.kind}`);
     }
   }
 
-  block(root.body.statements.slice(1), rootScope);
+  block(root.body.body.slice(1), rootScope);
   return errors.length ? { ok: false, errors } : { ok: true };
 }

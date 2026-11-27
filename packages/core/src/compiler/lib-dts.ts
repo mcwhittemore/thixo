@@ -346,7 +346,8 @@ type ThxCss = ThxStyle & { [state: \`:\${string}\`]: ThxStyle } & { [media: \`@m
 `;
 }
 
-function attrType(tag: string, name: string, kind: AttrKind): string {
+/** The type of one attribute of a raw element, as type text. */
+export function attrType(tag: string, name: string, kind: AttrKind): string {
   const tokens = TOKEN_VALUES[tag]?.[name] ?? TOKEN_VALUES["*"]?.[name];
   switch (kind) {
     case "text":
@@ -374,6 +375,11 @@ function attrType(tag: string, name: string, kind: AttrKind): string {
   }
 }
 
+const JSX_CORE = `  interface Element { readonly __thxElement: never; }
+  type ElementType = string | ((props: never) => ThxNode);
+  interface ElementChildrenAttribute { children: {}; }
+  interface IntrinsicAttributes { key?: string | number; }`;
+
 function jsxDts(): string {
   const elements = elementTags()
     .map((tag) => {
@@ -386,10 +392,7 @@ function jsxDts(): string {
     })
     .join("\n");
   return `declare namespace JSX {
-  interface Element { readonly __thxElement: never; }
-  type ElementType = string | ((props: never) => ThxNode);
-  interface ElementChildrenAttribute { children: {}; }
-  interface IntrinsicAttributes { key?: string | number; }
+${JSX_CORE}
   interface IntrinsicElements {
 ${elements}
   }
@@ -397,8 +400,18 @@ ${elements}
 `;
 }
 
+/** The props every raw element takes besides its own attributes. */
+export const ELEMENT_COMMON_PROPS = `      key?: string | number;
+      children?: ThxNode;
+      [aria: \`aria-\${string}\`]: string | number | boolean | undefined;
+      [data: \`data-\${string}\`]: string | number | boolean | undefined;`;
+
 /** The text of the language's lib, as a `.d.ts` file. */
 export const LIB_THX_DTS: string = `${CORE}\n${styleDts()}\n${jsxDts()}`;
+
+/** The lib as the checker reads it: the same, except that each raw element's props are built when a program uses
+ * the element, from the same attribute table. */
+export const LIB_CHECK_DTS: string = `${CORE}\n${styleDts()}\ndeclare namespace JSX {\n${JSX_CORE}\n  interface IntrinsicElements {}\n}\n`;
 
 /** Globals program code may name. Everything else the lib declares exists only for the checker. */
 export const BUILTIN_GLOBALS: ReadonlySet<string> = new Set([

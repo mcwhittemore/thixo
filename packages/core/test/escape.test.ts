@@ -548,3 +548,73 @@ describe("budget", () => {
     assert.equal(app.errors[0].name, "ThxStop");
   });
 });
+
+// The compiler reads source with its own parser, and the output check reads the compiler's output with the same
+// parser. If that parser read code differently from the engine that runs it, a program could mean one thing to the
+// check and another to the page. These run the same text both ways and compare.
+describe("the compiler reads code the way the engine does", () => {
+  async function leaked(body: string): Promise<unknown[]> {
+    const r = compile({ "main.thx": plugin(body) }, testOptions());
+    if (!r.ok) throw new Error(r.errors.map((e) => `${e.code} ${e.message}`).join("\n"));
+    assert.equal(verifyOutput(r.code).ok, true);
+    const app = await fakeApp(r.code);
+    app.render();
+    return app.leaked;
+  }
+
+  test("strings survive the trip through emitted code unchanged", async () => {
+    const tricky = [" ", " ", "\ud800", "\udfff", "</script>", "${x}", "`", "\\", '"', "'", "\u0000", "\n\r\t", "<!--", "-->", "﻿", "é", "😀", "*/", "//"];
+    const all = tricky.join("|");
+    const [got] = await leaked(`leak(${JSON.stringify(all)});`);
+    assert.equal(got, all);
+  });
+
+  test("operators group and associate as JavaScript says", async () => {
+    const exprs = [
+      "2 ** 3 ** 2",
+      "-(2 ** 2)",
+      "1 - -1",
+      "+ +1",
+      "1 + 2 * 3 - 4 / 2 % 3",
+      "(1 ?? 2) || 3",
+      "1 < 2 === true",
+      "7 & 3 | 8 ^ 1",
+      "1 << 2 >> 1 >>> 0",
+      "true ? false ? 1 : 2 : 3",
+      "typeof 1 + 'x'",
+      "Number(!0) + Number(!1)",
+      "`a${`b${1 + 1}c`}d`",
+      "[1, 2, 3].map((x) => x * 2).filter((x) => x > 2).length",
+      "'abc'.split('').reverse().join('')",
+    ];
+    const got = await leaked(exprs.map((e) => `leak(${e});`).join("\n"));
+    assert.deepEqual(got, exprs.map((e) => (0, eval)(e)));
+  });
+
+  test("line breaks end statements where JavaScript ends them", async () => {
+    const got = await leaked(`let a = 1
+let b = a
+++b
+leak(a); leak(b);
+const c = 2
+const d = c
+- 1
+leak(d);
+function f() {
+  return
+  1;
+}
+leak(f() === undefined);`);
+    assert.deepEqual(got, [1, 2, 1, true]);
+  });
+
+  test("an optional chain stops where JavaScript stops it", async () => {
+    const got = await leaked(`const o: { a?: { b: { c: number } } } = {};
+const p: { a?: { b: { c: number } } } = { a: { b: { c: 3 } } };
+leak(o.a?.b.c === undefined);
+leak(p.a?.b.c);
+const f: (() => number) | undefined = undefined;
+leak(f?.() === undefined);`);
+    assert.deepEqual(got, [true, 3, true]);
+  });
+});

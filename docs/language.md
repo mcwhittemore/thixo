@@ -72,7 +72,7 @@ values to `mount` under the same names. Anything else a program imports is a com
 | Text | Template strings, and the usual string, number and list methods. |
 | Built-ins | `Math`, `Date`, `JSON`, `Map`, `Set`. Each is the language's own, with a fixed list of methods. |
 | JSX | Raw HTML and SVG elements from an allowlist, components, fragments, props, children, event handlers. |
-| Types | TypeScript's annotations: `type`, `interface`, unions, generics, optional fields. Checked at compile. |
+| Types | TypeScript's annotations: `type`, `interface`, unions, intersections, generics, optional fields, tuples, `keyof`, `typeof`, and the lib's `Partial`, `Required`, `Readonly`, `Pick`, `Omit`, `Record`, `Exclude`, `Extract`, `NonNullable`, `Parameters`, `ReturnType` and `Awaited`. Checked at compile. |
 
 ## What is out
 
@@ -83,6 +83,7 @@ values to `mount` under the same names. Anything else a program imports is a com
 | Classes, `this`, `new` on anything but the built-ins, prototypes, `constructor`, `__proto__` | This is where JavaScript subsets have been escaped. Components are functions. |
 | `Proxy`, `Reflect`, `Symbol`, getters and setters, `with`, `var`, `delete`, labels, regular expressions | Each lets code do something its text doesn't show, or run unbounded inside one call. |
 | `any`, `as`, `// @ts-ignore`, non-null `!` | Each switches the type checker off. The types are part of the wall. |
+| Conditional types, mapped types, `infer` | Types a component doesn't need. **Lean:** the compiler checks types itself, without TypeScript, and reads only the types listed under "What is in". |
 | `<script>`, `<iframe>`, `<object>`, `<embed>`, `<form action>`, `id`, attributes that take code, raw HTML | Each runs code the language does not control, or reaches out of the box. |
 | Refs and the real event object | Both are handles on the page. A handler gets plain data: the value, the key, the position. |
 | `==` and `!=` | Only `===` and `!==`. |
@@ -100,6 +101,12 @@ This is the list an agent is given.
   stopped with an error.
 - **Imports are checked against a list,** and anything not in the language is a compile error. There are no
   warnings.
+- **The type check is the compiler's own.** It reads the types under "What is in" the way TypeScript does, and a
+  test runs the same programs through both to keep them agreeing. **Lean:** where it can't follow TypeScript it
+  refuses rather than guesses. A `let` declared without a value takes the types of what is assigned to it, and a
+  comparison between types that can't overlap is not an error. A function made inside an `if` keeps the narrowing
+  of a `const`, but not of a `let` that is assigned anywhere, so `let x: string | undefined = "a"; const f = () =>
+  x.length;` is refused where TypeScript accepts it.
 
 ## Addresses
 

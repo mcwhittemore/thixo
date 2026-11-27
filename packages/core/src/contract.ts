@@ -7,7 +7,7 @@ export type SourceFiles = Record<string, string>;
 
 /** One module a program may import, as the compiler sees it. */
 export interface ModuleDecl {
-  /** TypeScript declarations for the module's exports, as the text of a `.d.ts` file. */
+  /** Declarations for the module's exports, as the text of a `.d.ts` file, in the types the language reads. */
   dts: string;
 }
 

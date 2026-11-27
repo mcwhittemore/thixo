@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { compile, envOf, LIB_THX_DTS, sourceHash, THIXO_DTS, verifyOutput } from "../src/index.js";
 import type { SourceFiles } from "../src/contract.js";
+import { sha256 } from "../src/compiler/hash.js";
 import { testOptions } from "./fixtures/env.js";
 import { all, compileOrThrow, fakeApp, text } from "./helpers/host.js";
 
@@ -92,6 +93,30 @@ describe("the entry", () => {
     const r = compileOrThrow({ "main.thx": `${HEAD}import { x } from "./lib";\nexport default function App() { leak(x); return null; }\n`, "lib.thx": "export const x = 1;\n" });
     assert.deepEqual(r.imports, ["@app/probe", "thixo"]);
   });
+  test("a host module's declarations that name a missing type, or use a type the language doesn't read, are errors", () => {
+    const app = 'import { f } from "@host/m";\nexport default function App() { return <p>{f()}</p>; }\n';
+    const missing = compile({ "main.thx": app }, { modules: { "@host/m": { dts: "export declare function f(): Missing;" } } });
+    assert.equal(missing.ok, false);
+    if (!missing.ok) assert.ok(missing.errors.some((e) => e.code === "thixo/env-type" && e.file === "@host/m" && /Cannot find name 'Missing'/.test(e.message)));
+    const conditional = compile({ "main.thx": app }, { modules: { "@host/m": { dts: "export declare function f<T>(): T extends string ? number : string;" } } });
+    assert.equal(conditional.ok, false);
+    if (!conditional.ok) assert.ok(conditional.errors.some((e) => e.code === "thixo/env-type" && /Conditional types/.test(e.message)));
+  });
+  test("a host module's declarations are checked once, and their errors still reach every compile", () => {
+    const modules = { "@host/once": { dts: "export declare function f(): Missing;" } };
+    const app = 'import { f } from "@host/once";\nexport default function App() { return null; }\n';
+    for (let i = 0; i < 2; i++) {
+      const r = compile({ "main.thx": app }, { modules });
+      assert.equal(r.ok, false);
+      if (!r.ok) assert.equal(r.errors.filter((e) => e.code === "thixo/env-type").length, 1);
+    }
+  });
+  test("words a module reserves are not names, as in TypeScript", () => {
+    for (const word of ["yield", "let", "static", "interface", "private"]) {
+      const errs = errorsOf({ "main.thx": wrapBody(`const ${word} = 1;`) });
+      assert.ok(errs.some((e) => e.code === "thixo/syntax" && e.message.includes(`'${word}' is a reserved word in strict mode`)), word);
+    }
+  });
   test("a host can't replace the built-in thixo module", () => {
     assert.throws(() => envOf({ modules: { thixo: { dts: "export declare const x: number;" } } }), /built-in/);
   });
@@ -101,6 +126,13 @@ describe("the entry", () => {
   test("sourceHash is stable across key order and changes with content", () => {
     assert.equal(sourceHash({ "a.thx": "1", "main.thx": "2" }), sourceHash({ "main.thx": "2", "a.thx": "1" }));
     assert.notEqual(sourceHash({ "main.thx": "2" }), sourceHash({ "main.thx": "3" }));
+  });
+  test("sha256 is the standard one: these hex digests are node:crypto's", () => {
+    assert.equal(sha256(""), "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+    assert.equal(sha256("abc"), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+    assert.equal(sha256("héllo wörld ✓ 🚀"), "c1a19c07e61550d4eb0bec9e7259bbf521b29ef90cede8cc2b5170f4046a7373");
+    assert.equal(sha256("a".repeat(56)), "b35439a4ac6f0948b6d6f9e3c6af0f5f590ce20f1bde7090ef7970686ec6738a");
+    assert.equal(sha256("x".repeat(1000)), "44f8354494a5ba03ba1792a8d3e9c534c47a9181980fde7a3f44b06ef2ae7c7f");
   });
 });
 
