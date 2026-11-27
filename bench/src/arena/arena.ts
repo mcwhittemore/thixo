@@ -9,6 +9,7 @@ import { build } from "esbuild";
 import { chromium, type Browser } from "playwright";
 import { compile } from "@thixo/core";
 import type { SourceFiles, ThixoError } from "@thixo/core";
+import type { GestureOptions } from "@thixo/react";
 import type { Evidence, Goal, Secrets } from "../goals.js";
 
 /** The types of the "bench" module every program may import. */
@@ -18,7 +19,7 @@ export declare function say(text: string): void;
 
 /** How the arena mounts a program, and what the host does to it after mounting and before the arena pokes it. */
 export interface RunOptions {
-  mount?: { clock?: "auto" | "host"; input?: boolean };
+  mount?: { clock?: "auto" | "host"; input?: boolean; gestures?: GestureOptions | false };
   host?: HostAction[];
 }
 

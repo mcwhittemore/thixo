@@ -69,11 +69,12 @@ This runs the built command. It saves `command.txt`, `stdout.txt`, `stderr.txt` 
 **Render**: mount a compiled program and drive it:
 
 ```sh
-scripts/render.sh <compiled.js> --out "$RUN/<step-name>" [--wait <ms>] [--no-poke]
+scripts/render.sh <compiled.js> --out "$RUN/<step-name>" [--wait <ms>] [--no-poke] [--gestures <json>]
 ```
 
 It serves a page with a 400×300 box at (40, 40), loads and mounts the program with `@thixo/react`, and provides the
-host module `bench` (`say(text)`; compile with `--modules` to use it). Then it takes these steps, with a screenshot
+host module `bench` (`say(text)`; compile with `--modules` to use it). `--gestures` is passed to `mount` as its
+`gestures` option, for example `'{"clickSlop":300}'`, `'{"touch":false}'` or `false`. Then it takes these steps, with a screenshot
 and a snapshot after each:
 
 1. `mounted`, after `--wait` ms (default 500)
@@ -82,8 +83,13 @@ and a snapshot after each:
 4. `pointer-released`
 5. `arrow-right-held`: ArrowRight held down
 6. `typed-go-enter`: typed `go`, then Enter
+7. `pointer-dragged`: the mouse pressed at box (100, 75), dragged to (300, 225) in 10 moves, and released
+8. `touch-tapped`: a finger tap at box (300, 75)
+9. `touch-dragged`: a finger pressed at box (100, 225), dragged to (300, 225) in 10 moves, and lifted
+10. `input-off-mid-drag`: the mouse pressed at box (100, 75) and dragged to (200, 150); the host calls
+    `setInput(false)`, the mouse moves on to (250, 150) and is released, then the host calls `setInput(true)`
 
-`render.json` holds, per step: `said`, `boxText`, `boxHtml` and `runtimeErrors`, plus page errors, console lines and
+`render.json` holds, per step: `said`, `boxText`, `boxHtml`, `runtimeErrors` and `hostErrors` (a host call such as `setInput` that threw), plus page errors, console lines and
 any request that left the page's origin. It exits 0 when the program mounted with no errors and 1 otherwise. Read the
 screenshots with your image tool, and assert on `render.json` numbers, not on how a picture looks.
 

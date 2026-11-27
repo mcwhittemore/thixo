@@ -121,7 +121,7 @@ describe("the entry", () => {
     assert.throws(() => envOf({ modules: { thixo: { dts: "export declare const x: number;" } } }), /built-in/);
   });
   test("the thixo module declares every hook", () => {
-    for (const name of ["useState", "useMemo", "useEffect", "useFrame", "usePointer", "useSize", "useKeys", "css"]) assert.match(THIXO_DTS, new RegExp(`function ${name}\\b`), name);
+    for (const name of ["useState", "useMemo", "useEffect", "useFrame", "usePointer", "useGesture", "useSize", "useKeys", "css"]) assert.match(THIXO_DTS, new RegExp(`function ${name}\\b`), name);
   });
   test("sourceHash is stable across key order and changes with content", () => {
     assert.equal(sourceHash({ "a.thx": "1", "main.thx": "2" }), sourceHash({ "main.thx": "2", "a.thx": "1" }));

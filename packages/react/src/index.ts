@@ -20,6 +20,8 @@ export interface MountOptions {
   props?: Record<string, unknown>;
   /** Steps a program may run in one go (a render, a handler, a frame). Default 5,000,000. */
   budget?: number;
+  /** How the program's \`useGesture\` works, or \`false\` for no gestures at all. The program can't change it. */
+  gestures?: GestureOptions | false;
   /** Called when the program is stopped or throws. Rendering stops; the box shows nothing. */
   onError?(error: Error): void;
   /** `"auto"`, the default, starts the clock at once. `"host"` starts it paused at time 0, for the host to `play` or
@@ -27,6 +29,15 @@ export interface MountOptions {
   clock?: "auto" | "host";
   /** `false` keeps the pointer, the keys and every event in the box from the program. Default true. */
   input?: boolean;
+}
+
+export interface GestureOptions {
+  /** How far, in pixels, a press may move and still be a click. Past it, the press is a drag. Default 4. */
+  clickSlop?: number;
+  /** The pointer buttons that start a gesture, by \`PointerEvent.button\`. Default \`[0]\`, the main button. */
+  buttons?: readonly number[];
+  /** Whether a finger starts gestures. Default true. */
+  touch?: boolean;
 }
 
 export interface Mounted {
@@ -59,10 +70,46 @@ interface BoxState {
   input: boolean;
 }
 
+type GestureName = "onDown" | "onUp" | "onClick" | "onDragStart" | "onDrag" | "onDragEnd";
+
+interface Gesture {
+  name: GestureName;
+  point: { x: number; y: number; dx?: number; dy?: number };
+  /** Ends a press after the host turned input off, so it reaches the program though input is off. */
+  closing?: boolean;
+}
+
 interface Box {
   get(): BoxState;
   subscribe(fn: () => void): () => void;
   set(patch: Partial<BoxState>): void;
+  listen(fn: (g: Gesture) => void): () => void;
+  emit(g: Gesture): void;
+}
+
+/** The press a gesture is following: where it went down, where it last was, and whether it became a drag. */
+interface Press {
+  id: number;
+  x: number;
+  y: number;
+  lastX: number;
+  lastY: number;
+  dragging: boolean;
+}
+
+interface GestureRules {
+  clickSlop: number;
+  buttons: readonly number[];
+  touch: boolean;
+}
+
+function gestureRules(options: GestureOptions | false | undefined): GestureRules | null {
+  if (options === false) return null;
+  const clickSlop = options?.clickSlop ?? 4;
+  if (typeof clickSlop !== "number" || !(clickSlop >= 0) || clickSlop === Infinity) throw new Error("gestures.clickSlop must be a number of pixels, 0 or more.");
+  const buttons = [...(options?.buttons ?? [0])];
+  if (!buttons.every((b) => Number.isInteger(b))) throw new Error("gestures.buttons must be button numbers.");
+  return { clickSlop, buttons, touch: options?.touch ?? true };
 }
 
 const NO_POINTER: BoxState["pointer"] = { x: 0, y: 0, down: false, inside: false };
@@ -70,6 +117,7 @@ const NO_POINTER: BoxState["pointer"] = { x: 0, y: 0, down: false, inside: false
 function createBox(input: boolean): Box {
   let state: BoxState = { pointer: NO_POINTER, size: { width: 0, height: 0 }, keys: [], input };
   const subs = new Set<() => void>();
+  const listeners = new Set<(g: Gesture) => void>();
   return {
     get: () => state,
     subscribe(fn) {
@@ -79,6 +127,13 @@ function createBox(input: boolean): Box {
     set(patch) {
       state = { ...state, ...patch };
       for (const fn of subs) fn();
+    },
+    listen(fn) {
+      listeners.add(fn);
+      return () => listeners.delete(fn);
+    },
+    emit(g) {
+      for (const fn of [...listeners]) fn(g);
     },
   };
 }
@@ -242,6 +297,20 @@ export function thixoModule(rt: Runtime, clock: Clock = createClock(true, () => 
       const box = useBox("usePointer");
       return React.useSyncExternalStore(box.subscribe, () => (box.get().input ? box.get().pointer : NO_POINTER));
     }),
+    useGesture: fn((handlers: unknown) => {
+      const box = useBox("useGesture");
+      const latest = useLatest(handlers);
+      React.useEffect(
+        () =>
+          box.listen((g) => {
+            if (rt.stopped || (!box.get().input && !g.closing)) return;
+            const h = latest.current;
+            const f = h !== null && typeof h === "object" ? (h as Record<string, unknown>)[g.name] : undefined;
+            if (typeof f === "function") (f as (p: Gesture["point"]) => unknown)(g.point);
+          }),
+        [box],
+      );
+    }),
     useSize: fn(() => {
       const box = useBox("useSize");
       return React.useSyncExternalStore(box.subscribe, () => box.get().size);
@@ -274,10 +343,12 @@ const BOX_STYLE: React.CSSProperties = {
   width: "100%",
   height: "100%",
   outline: "none",
+  touchAction: "none",
 };
 
 /** Mounts a compiled program in `target`. The program draws inside a box that fills `target` and clips it. */
 export function mount(target: HTMLElement, module: CompiledModule, options: MountOptions = {}): Mounted {
+  const rules = gestureRules(options.gestures);
   const styles = document.createElement("style");
   styles.dataset.thixo = "";
   document.head.appendChild(styles);
@@ -336,9 +407,39 @@ export function mount(target: HTMLElement, module: CompiledModule, options: Moun
     }, []);
     const input = React.useSyncExternalStore(box.subscribe, () => box.get().input);
     const point = (e: React.PointerEvent, patch: Partial<BoxState["pointer"]> = {}) => {
-      if (!box.get().input) return;
+      if (!box.get().input) return undefined;
       const r = ref.current!.getBoundingClientRect();
-      box.set({ pointer: { ...box.get().pointer, x: e.clientX - r.left, y: e.clientY - r.top, inside: true, ...patch } });
+      const at = { x: e.clientX - r.left, y: e.clientY - r.top };
+      box.set({ pointer: { ...box.get().pointer, ...at, inside: true, ...patch } });
+      return at;
+    };
+    const ours = (e: React.PointerEvent) => press.current !== null && press.current.id === e.pointerId;
+    const onDown = (e: React.PointerEvent) => {
+      const at = point(e, { down: true });
+      if (!at || !rules || !e.isPrimary || !rules.buttons.includes(e.button) || (e.pointerType === "touch" && !rules.touch) || press.current) return;
+      press.current = { id: e.pointerId, ...at, lastX: at.x, lastY: at.y, dragging: false };
+      box.emit({ name: "onDown", point: at });
+    };
+    const onMove = (e: React.PointerEvent) => {
+      const at = point(e);
+      if (!at || !ours(e)) return;
+      const p = press.current!;
+      if (!p.dragging) {
+        if (Math.hypot(at.x - p.x, at.y - p.y) <= rules!.clickSlop) return;
+        p.dragging = true;
+        box.emit({ name: "onDragStart", point: { x: p.x, y: p.y } });
+      }
+      box.emit({ name: "onDrag", point: { ...at, dx: at.x - p.lastX, dy: at.y - p.lastY } });
+      p.lastX = at.x;
+      p.lastY = at.y;
+    };
+    const onUp = (e: React.PointerEvent) => {
+      const at = point(e, { down: false });
+      if (at && ours(e)) release(at, true);
+    };
+    const onLeave = (e: React.PointerEvent) => {
+      const at = point(e, { inside: false, down: false });
+      if (at && ours(e)) release(at, false);
     };
     const keys = (key: string, held: boolean) => {
       if (!box.get().input) return;
@@ -353,10 +454,11 @@ export function mount(target: HTMLElement, module: CompiledModule, options: Moun
         tabIndex: input ? 0 : -1,
         inert: !input,
         "data-thixo-box": "",
-        onPointerMove: (e: React.PointerEvent) => point(e),
-        onPointerDown: (e: React.PointerEvent) => point(e, { down: true }),
-        onPointerUp: (e: React.PointerEvent) => point(e, { down: false }),
-        onPointerLeave: (e: React.PointerEvent) => point(e, { inside: false, down: false }),
+        onPointerMove: onMove,
+        onPointerDown: onDown,
+        onPointerUp: onUp,
+        onPointerLeave: onLeave,
+        onPointerCancel: onLeave,
         onKeyDown: (e: React.KeyboardEvent) => keys(e.key, true),
         onKeyUp: (e: React.KeyboardEvent) => keys(e.key, false),
         onBlur: () => box.set({ keys: [] }),
@@ -364,6 +466,15 @@ export function mount(target: HTMLElement, module: CompiledModule, options: Moun
       React.createElement(BoxContext.Provider, { value: box }, React.createElement(Guard, null, React.createElement(Program, options.props ?? {}))),
     );
   }
+
+  const press: { current: Press | null } = { current: null };
+  const release = (at: { x: number; y: number }, clicked: boolean, closing = false) => {
+    const p = press.current!;
+    press.current = null;
+    box.emit({ name: "onUp", point: at, closing });
+    if (p.dragging) box.emit({ name: "onDragEnd", point: at, closing });
+    else if (clicked) box.emit({ name: "onClick", point: at, closing });
+  };
 
   const root = createRoot(target);
   const element = React.createElement(Root);
@@ -379,6 +490,13 @@ export function mount(target: HTMLElement, module: CompiledModule, options: Moun
     setInput(on) {
       if (on === box.get().input) return;
       box.set(on ? { input: true } : { input: false, pointer: NO_POINTER, keys: [] });
+      if (on || !press.current) return;
+      // Input is already off, so whatever the program does in these handlers, the host's call returns with it off.
+      try {
+        release({ x: press.current.lastX, y: press.current.lastY }, false, true);
+      } catch (e) {
+        onError(e instanceof Error ? e : new Error("The program threw while its press was ended."));
+      }
     },
     unmount() {
       clock.stop();

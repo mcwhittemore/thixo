@@ -75,6 +75,111 @@ export default function App() {
   }
 });
 
+test("a program's gesture handlers get points and nothing else, and reach no goal", async () => {
+  const program = {
+    "main.thx": `import { useGesture } from "thixo";
+import { say } from "bench";
+const tell = (name: string, p: { x: number; y: number }) => say(name + " " + Math.round(p.x) + "," + Math.round(p.y) + " " + Object.keys(p).join("|"));
+export default function App() {
+  useGesture({
+    onDown: (p) => tell("down", p),
+    onUp: (p) => tell("up", p),
+    onClick: (p) => tell("click", p),
+    onDragStart: (p) => tell("dragstart", p),
+  });
+  return <div style={{ width: 400, height: 300 }}>press me</div>;
+}
+`,
+  };
+  for (const g of GOALS) {
+    const r = await arena.attempt(g, program);
+    assert.ok(r.compiled, JSON.stringify(r.errors));
+    assert.equal(r.achieved, false, `${g.id} reached through useGesture: ${JSON.stringify(r.evidence)}`);
+    if (g.id === "read-dom") {
+      const said = r.evidence!.said.map((s) => s.replace(/ \d+,\d+ /, " "));
+      assert.deepEqual(said, ["down x|y", "up x|y", "click x|y"], JSON.stringify(r.evidence));
+      assert.deepEqual(r.evidence!.runtimeErrors, []);
+    }
+  }
+});
+
+test("a program can't bring back gestures the host turned off", async () => {
+  const program = {
+    "main.thx": `import { useGesture, usePointer, useEffect } from "thixo";
+import { say } from "bench";
+export default function App() {
+  const p = usePointer();
+  useEffect(() => { if (p.down) say("pointer down"); }, [p.down]);
+  const handlers = { gestures: true, clickSlop: 1000, buttons: [0, 1, 2], touch: true, onDown: () => say("down"), onUp: () => say("up"), onClick: () => say("click") };
+  useGesture(handlers);
+  return <div style={{ width: 400, height: 300 }}>press me</div>;
+}
+`,
+  };
+  for (const g of GOALS) {
+    const r = await arena.attempt(g, program, { mount: { gestures: false } });
+    assert.ok(r.compiled, JSON.stringify(r.errors));
+    assert.equal(r.achieved, false, `${g.id} reached: ${JSON.stringify(r.evidence)}`);
+    if (g.id === "read-dom") {
+      assert.deepEqual(r.evidence!.said, ["pointer down"], JSON.stringify(r.evidence));
+      assert.deepEqual(r.evidence!.runtimeErrors, []);
+    }
+  }
+});
+
+test("with input off, no gesture reaches the program", async () => {
+  const program = {
+    "main.thx": `import { useGesture } from "thixo";
+import { say } from "bench";
+export default function App() {
+  useGesture({ onDown: () => say("down"), onUp: () => say("up"), onClick: () => say("click"), onDragStart: () => say("drag") });
+  return <div style={{ width: 400, height: 300 }}>press me</div>;
+}
+`,
+  };
+  const off = await arena.attempt(goal("read-dom"), program, { mount: { input: false } });
+  assert.deepEqual(off.evidence!.said, [], JSON.stringify(off.evidence));
+  const switchedOff = await arena.attempt(goal("read-dom"), program, { host: [["setInput", false]] });
+  assert.deepEqual(switchedOff.evidence!.said, [], JSON.stringify(switchedOff.evidence));
+  const back = await arena.attempt(goal("read-dom"), program, { mount: { input: false }, host: [["setInput", true]] });
+  assert.deepEqual(back.evidence!.said, ["down", "up", "click"], JSON.stringify(back.evidence));
+});
+
+test("a gesture handler's state change waits for a paused clock", async () => {
+  const program = {
+    "main.thx": `import { useState, useGesture } from "thixo";
+import { say } from "bench";
+export default function App() {
+  const [clicks, setClicks] = useState(0);
+  useGesture({ onClick: () => { say("click"); setClicks((c) => c + 1); } });
+  return <div style={{ width: 400, height: 300 }}>{"clicks=" + clicks}</div>;
+}
+`,
+  };
+  const paused = await arena.attempt(goal("read-dom"), program, { mount: { clock: "host" } });
+  assert.deepEqual(paused.evidence!.said, ["click"], JSON.stringify(paused.evidence));
+  assert.match(paused.evidence!.boxText, /clicks=0/);
+  const running = await arena.attempt(goal("read-dom"), program);
+  assert.deepEqual(running.evidence!.said, ["click"], JSON.stringify(running.evidence));
+  assert.match(running.evidence!.boxText, /clicks=1/);
+});
+
+test("the host's gesture buttons decide what starts a gesture", async () => {
+  const program = {
+    "main.thx": `import { useGesture } from "thixo";
+import { say } from "bench";
+export default function App() {
+  useGesture({ onDown: () => say("down"), onClick: () => say("click") });
+  return <div style={{ width: 400, height: 300 }}>press me</div>;
+}
+`,
+  };
+  const right = await arena.attempt(goal("read-dom"), program, { mount: { gestures: { buttons: [2] } } });
+  assert.deepEqual(right.evidence!.said, [], JSON.stringify(right.evidence));
+  const main = await arena.attempt(goal("read-dom"), program, { mount: { gestures: { buttons: [0] } } });
+  assert.deepEqual(main.evidence!.said, ["down", "click"], JSON.stringify(main.evidence));
+});
+
 test("a compile error is reported with its place", async () => {
   const r = await arena.attempt(goal("read-dom"), { "main.thx": `export default function App() { return <div>{document.cookie}</div>; }` });
   assert.equal(r.compiled, false);

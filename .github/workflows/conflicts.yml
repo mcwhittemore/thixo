@@ -1,0 +1,50 @@
+name: conflicts
+
+# Labels every open pull request into main that can't merge cleanly with `conflicts`, and takes the label off once it
+# can. It runs when main moves (which is what makes other PRs conflict) and when a PR is opened or pushed to. It never
+# checks out PR code, so pull_request_target is safe here and lets it label PRs from forks.
+
+on:
+  push:
+    branches: [main]
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: conflicts
+  cancel-in-progress: false
+
+jobs:
+  label:
+    name: label conflicting PRs
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Make sure the label exists
+        run: gh label create conflicts --color B60205 --description "Can't merge into main cleanly" --force
+      - name: Label each open PR into main by whether it merges
+        run: |
+          set -euo pipefail
+          for pr in $(gh pr list --base main --state open --limit 200 --json number --jq '.[].number'); do
+            # GitHub works mergeability out in the background; UNKNOWN means it hasn't yet.
+            state=UNKNOWN
+            for _ in 1 2 3 4 5 6; do
+              state=$(gh pr view "$pr" --json mergeable --jq .mergeable)
+              [ "$state" != UNKNOWN ] && break
+              sleep 10
+            done
+            case "$state" in
+              CONFLICTING) gh pr edit "$pr" --add-label conflicts >/dev/null; echo "#$pr conflicts" ;;
+              MERGEABLE) gh pr edit "$pr" --remove-label conflicts >/dev/null 2>&1 || true; echo "#$pr merges" ;;
+              *) echo "#$pr: mergeability still $state, left as is" ;;
+            esac
+          done

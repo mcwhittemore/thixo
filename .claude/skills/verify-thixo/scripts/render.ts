@@ -1,7 +1,7 @@
 // Mounts a compiled thixo program the way a host page does (@thixo/react's `load` and `mount`) in headless Chromium,
 // drives the pointer and keys, and saves screenshots and what the page saw. Used by the verify-thixo skill.
 //
-//   render.sh <compiled.js> --out <dir> [--wait <ms>] [--no-poke]
+//   render.sh <compiled.js> --out <dir> [--wait <ms>] [--no-poke] [--gestures <json>]
 //
 // Exit 0 when the program mounted with no runtime errors, 1 when it failed or threw, 2 for bad usage.
 
@@ -12,20 +12,30 @@ import { join, resolve } from "node:path";
 import { build } from "esbuild";
 import { chromium } from "playwright";
 
-const USAGE = "usage: render.sh <compiled.js> --out <dir> [--wait <ms>] [--no-poke]\n";
+const USAGE = "usage: render.sh <compiled.js> --out <dir> [--wait <ms>] [--no-poke] [--gestures <json>]\n";
 
 const PAGE_SCRIPT = `
 import { load, mount } from "@thixo/react";
 const said = [];
 const errors = [];
+const hostErrors = [];
 let box;
+let mounted;
 window.__verify = {
-  async run(code) {
+  async run(code, gestures) {
     box = document.getElementById("box");
-    mount(box, await load(code), {
+    mounted = mount(box, await load(code), {
       modules: { bench: { say: (text) => void said.push(String(text)) } },
+      gestures,
       onError: (e) => void errors.push(String(e?.message ?? e)),
     });
+  },
+  setInput(on) {
+    try {
+      mounted.setInput(on);
+    } catch (e) {
+      hostErrors.push("setInput(" + on + "): " + String(e?.message ?? e));
+    }
   },
   seen() {
     return {
@@ -33,6 +43,7 @@ window.__verify = {
       boxText: (box?.innerText ?? "").slice(0, 4000),
       boxHtml: (box?.innerHTML ?? "").slice(0, 20000),
       runtimeErrors: errors.slice(0, 50),
+      hostErrors: hostErrors.slice(0, 50),
       outside: document.getElementById("outside")?.textContent ?? null,
     };
   },
@@ -64,6 +75,8 @@ async function main(args: string[]): Promise<number> {
   const out = resolve(outArg);
   const wait = Number(arg(args, "--wait") ?? 500);
   const poke = !args.includes("--no-poke");
+  const gesturesArg = arg(args, "--gestures");
+  const gestures = gesturesArg === undefined ? undefined : JSON.parse(gesturesArg);
   mkdirSync(out, { recursive: true });
 
   const bundle = await build({
@@ -97,7 +110,7 @@ async function main(args: string[]): Promise<number> {
   const steps: { step: string; screenshot: string; seen: unknown }[] = [];
   let mountError: string | undefined;
   try {
-    const page = await browser.newPage({ viewport: { width: 480, height: 380 } });
+    const page = await browser.newPage({ viewport: { width: 480, height: 380 }, hasTouch: true });
     page.on("pageerror", (e) => pageErrors.push(e.message));
     page.on("console", (m) => consoleLines.push(`${m.type()}: ${m.text()}`));
     page.on("request", (r) => {
@@ -105,7 +118,7 @@ async function main(args: string[]): Promise<number> {
     });
     await page.goto(origin + "/");
     await page
-      .evaluate((c) => (window as unknown as { __verify: { run(c: string): Promise<void> } }).__verify.run(c), code)
+      .evaluate(([c, g]) => (window as unknown as { __verify: { run(c: string, g: unknown): Promise<void> } }).__verify.run(c, g), [code, gestures] as const)
       .catch((e) => (mountError = String(e?.message ?? e)));
     const seen = () => page.evaluate(() => (window as unknown as { __verify: { seen(): unknown } }).__verify.seen());
     const shot = async (step: string) => {
@@ -137,18 +150,47 @@ async function main(args: string[]): Promise<number> {
       await page.keyboard.press("Enter");
       await page.waitForTimeout(200);
       await shot("typed-go-enter");
+      await page.mouse.move(at.x, at.y);
+      await page.mouse.down();
+      await page.mouse.move(b.x + 300, b.y + 225, { steps: 10 });
+      await page.mouse.up();
+      await page.waitForTimeout(200);
+      await shot("pointer-dragged");
+      // Touch goes through CDP: Playwright's touchscreen only taps, and a finger drag is the case touch-action matters for.
+      const cdp = await page.context().newCDPSession(page);
+      const touch = (type: string, points: { x: number; y: number }[]) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points });
+      await page.mouse.move(b.x + 450, b.y + 320);
+      await touch("touchStart", [{ x: b.x + 300, y: b.y + 75 }]);
+      await touch("touchEnd", []);
+      await page.waitForTimeout(200);
+      await shot("touch-tapped");
+      await touch("touchStart", [{ x: b.x + 100, y: b.y + 225 }]);
+      for (let i = 1; i <= 10; i++) await touch("touchMove", [{ x: b.x + 100 + i * 20, y: b.y + 225 }]);
+      await touch("touchEnd", []);
+      await page.waitForTimeout(200);
+      await shot("touch-dragged");
+      const setInput = (on: boolean) => page.evaluate((o) => (window as unknown as { __verify: { setInput(o: boolean): void } }).__verify.setInput(o), on);
+      await page.mouse.move(at.x, at.y);
+      await page.mouse.down();
+      await page.mouse.move(b.x + 200, b.y + 150, { steps: 5 });
+      await setInput(false);
+      await page.mouse.move(b.x + 250, b.y + 150, { steps: 3 });
+      await page.mouse.up();
+      await setInput(true);
+      await page.waitForTimeout(200);
+      await shot("input-off-mid-drag");
     }
   } finally {
     await browser.close();
     await new Promise((r) => server.close(r));
   }
-  const last = steps.at(-1)?.seen as { runtimeErrors?: string[] } | undefined;
-  const failed = !!mountError || pageErrors.length > 0 || (last?.runtimeErrors?.length ?? 0) > 0;
-  const report = { input: resolve(input), ok: !failed, mountError, pageErrors, console: consoleLines, offOriginRequests: requests, steps };
+  const last = steps.at(-1)?.seen as { runtimeErrors?: string[]; hostErrors?: string[] } | undefined;
+  const failed = !!mountError || pageErrors.length > 0 || (last?.runtimeErrors?.length ?? 0) > 0 || (last?.hostErrors?.length ?? 0) > 0;
+  const report = { input: resolve(input), gestures, ok: !failed, mountError, pageErrors, console: consoleLines, offOriginRequests: requests, steps };
   writeFileSync(join(out, "render.json"), JSON.stringify(report, null, 2) + "\n");
   process.stdout.write(`${failed ? "FAILED" : "ok"}: ${steps.length} steps, evidence in ${out}\n`);
   if (mountError) process.stdout.write(`mount error: ${mountError}\n`);
-  for (const e of [...pageErrors, ...(last?.runtimeErrors ?? [])]) process.stdout.write(`error: ${e}\n`);
+  for (const e of [...pageErrors, ...(last?.runtimeErrors ?? []), ...(last?.hostErrors ?? [])]) process.stdout.write(`error: ${e}\n`);
   return failed ? 1 : 0;
 }
 
