@@ -1,6 +1,6 @@
 {
   "name": "@thixo/core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "The thixo compiler and runtime, to embed in a build or a server: a language that reads as TypeScript and React and compiles to JavaScript that can only reach what it was handed.",
   "license": "MIT",
   "repository": {

@@ -51,6 +51,8 @@ hold:
   and readmes that describe that area.
 - **Not the wall.** It touches none of `packages/core/`, `packages/react/`, `docs/security.md`,
   `bench/src/goals.ts`, or a lean in `docs/language.md`. These are thixo's security boundary.
+- **Not the release.** It changes no package's `name`, `files`, `exports` or `bin`, and bumps no package to a new
+  major version (or, while 0.x, a new minor). Every merge publishes, and these are what a published user notices.
 - **Not the gates.** It touches none of `.github/`, `.loopway/`, or `.claude/skills/verify-thixo/`. A change to how
   work is checked can't approve itself.
 - **No P1 or P2 findings** from the review bot left open (fixed, or settled by `/dismiss`).

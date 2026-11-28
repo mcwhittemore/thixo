@@ -15,10 +15,13 @@ A language that reads as TypeScript and React and compiles to JavaScript that ca
   to the escape tests.
 - A new goal needs a cheat in `bench/test/arena.test.ts` that proves the arena can see it.
 - Name files and folders in kebab-case.
+- Every merge to `main` publishes to npm. A pull request that changes a package raises its version by semver, and
+  `@thixo/core`'s dependents update their pin when it moves: see [contributing.md](contributing.md#versions-and-releases).
 - [contributing.md](contributing.md) says how a change is made.
 
 ## Commands
 
 - `npm install`, then `npm run build` builds the packages. `npm test` runs the packages' tests and the arena's.
 - `npx @thixo/cli compile <folder> -o out.js` compiles a program.
+- `npm run check-versions -- origin/main` checks that every package the branch changed has a new version.
 - `npm run bench -- --goal <id>` runs an agent against one goal. It spends real money; ask before running it.

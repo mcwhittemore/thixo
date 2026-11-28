@@ -1,6 +1,6 @@
 {
   "name": "@thixo/react",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Mount a compiled thixo program in the browser with React, in a box it cannot draw out of.",
   "license": "MIT",
   "repository": {
@@ -24,7 +24,7 @@
     }
   },
   "dependencies": {
-    "@thixo/core": "0.1.0"
+    "@thixo/core": "0.1.1"
   },
   "peerDependencies": {
     "react": ">=18",

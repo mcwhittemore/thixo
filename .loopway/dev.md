@@ -55,6 +55,16 @@ On top of the skill:
 - Never run `npm run bench` without `replay`, or anything else that spends money, without asking first with
   `mcp__loopway__ask`.
 
+## Raise the versions
+
+Every merge to `main` publishes to npm, so the pull request carries its own version bumps. Follow
+[contributing.md](../contributing.md#versions-and-releases): for each package whose folder changed outside `test/`,
+raise `version` once from `main`'s by semver (while 0.x: minor for a breaking change, patch for anything else). If
+`@thixo/core` moves, update the exact pin in `@thixo/react` and `@thixo/cli`, and bump them too. Say in the pull
+request body which bump each package got and why. Run `npm install` so `package-lock.json` matches, and
+`npm run check-versions -- origin/main` before you push. When `main` moves under you and publishes the same version,
+raise yours again above it.
+
 Commit in small, working steps. Push the branch with git and open the pull request with `mcp__loopway__create_pr`
 against `main`. The body says `Closes #<N>` for every issue it covers, and what changed and why. Then, at once,
 write `verifications/pr-<PR>.md` from the skill's template, commit it, push, and run
