@@ -15,7 +15,8 @@ feature file as the recipe. Name its feature IDs in the verification file.
 
 - `scripts/` means `.claude/skills/verify-thixo/scripts/`.
 - Compile with `scripts/cli.sh`, never by importing the compiler. It's the user's path, and it records itself.
-- Mount with `scripts/render.sh` and assert on `render.json`. Screenshots are for a person to look at; numbers are
+- Mount with `scripts/render.sh` and assert on `render.json`. Open the demo site with `scripts/site.sh` and assert
+  on `site.json`. Screenshots are for a person to look at; numbers are
   the proof.
 - Replay with an absolute folder path.
 - Pick inputs where a broken build would give a different answer.
@@ -24,6 +25,8 @@ feature file as the recipe. Name its feature IDs in the verification file.
 
 - CLI proof: the command, the exit code, and the stdout or stderr line that matters.
 - Render proof: the step name and the `render.json` values that change because of the change.
+- Site proof: the step name and the `site.json` values (`boxes`, `text`, `errorText`, `boxesChanged`) that change
+  because of the change.
 - Wall proof: the replay's exit code and its report lines, plus the escape test failing before and passing after.
 - A feature you couldn't drive goes under Not verified, with the command you tried and why it failed. Never report
   one entry point as verified through another.
@@ -41,3 +44,5 @@ required state and observable proof.
 - [Host modules](./host-modules.md): `--modules` declarations at compile, values at mount.
 - [Run in a page](./render.md): mount with @thixo/react; draw, animate, and respond to pointer, keys and size.
 - [The wall holds](./wall.md): arena replay per goal, and the escape and guard tests.
+- [The demo site](./site.md): `packages/site` built, served under `/thixo/` and driven. Any change to `packages/site`
+  is verified here.
