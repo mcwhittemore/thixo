@@ -1,6 +1,6 @@
 {
   "name": "@thixo/react",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Mount a compiled thixo program in the browser with React, in a box it cannot draw out of.",
   "license": "MIT",
   "repository": {
