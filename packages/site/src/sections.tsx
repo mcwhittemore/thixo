@@ -1,6 +1,10 @@
 import type { ReactNode } from "react";
 import spin from "../programs/spin/main.thx";
+import { Gallery } from "./gallery.tsx";
 import { LiveProgram } from "./live-program.tsx";
+import { Source } from "./source.tsx";
+
+const SPIN = { "main.thx": spin };
 
 export interface Section {
   id: string;
@@ -19,12 +23,15 @@ export const SECTIONS: Section[] = [
           <code>@thixo/react</code>. It draws and animates inside its box, and can't reach anything else on this page.
         </p>
         <div className="live">
-          <LiveProgram source={spin} />
-          <pre data-testid="source">
-            <code>{spin}</code>
-          </pre>
+          <LiveProgram files={SPIN} />
+          <Source files={SPIN} />
         </div>
       </>
     ),
+  },
+  {
+    id: "gallery",
+    title: "Gallery",
+    body: () => <Gallery />,
   },
 ];

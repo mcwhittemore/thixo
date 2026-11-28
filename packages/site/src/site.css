@@ -14,3 +14,9 @@ main { padding: 24px; }
 @media (max-width: 640px) { .live { grid-template-columns: minmax(0, 1fr); } }
 .box { width: 240px; height: 240px; background: #fff; border: 1px solid #c7cfc9; border-radius: 6px; }
 .error { color: #a1251b; white-space: pre-wrap; }
+.gallery-item { margin-bottom: 24px; }
+.gallery-item h3 { margin: 0; }
+.gallery-item p { margin: 4px 0 8px; }
+.source { display: grid; gap: 8px; min-width: 0; }
+.source figure { margin: 0; }
+.source figcaption { font: 12px ui-monospace, monospace; color: #56625b; margin-bottom: 2px; }

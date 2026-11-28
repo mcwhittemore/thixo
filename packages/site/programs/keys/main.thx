@@ -1,0 +1,26 @@
+import { useState, useFrame, useKeys } from "thixo";
+
+const SPEED = 120;
+const SIDE = 240;
+const R = 10;
+
+function clamp(v: number): number {
+  return Math.min(SIDE - R, Math.max(R, v));
+}
+
+export default function Keys() {
+  const keys = useKeys();
+  const [at, setAt] = useState({ x: 120, y: 120 });
+  useFrame((_time, delta) => {
+    const dx = (keys.includes("ArrowRight") ? 1 : 0) - (keys.includes("ArrowLeft") ? 1 : 0);
+    const dy = (keys.includes("ArrowDown") ? 1 : 0) - (keys.includes("ArrowUp") ? 1 : 0);
+    if (dx === 0 && dy === 0) return;
+    setAt((p) => ({ x: clamp(p.x + dx * SPEED * delta), y: clamp(p.y + dy * SPEED * delta) }));
+  });
+  return (
+    <svg width="240" height="240">
+      <circle cx={at.x} cy={at.y} r={R} fill={keys.length > 0 ? "tomato" : "teal"} />
+      <text x="120" y="20" textAnchor="middle" fontSize="12" fill="#56625b">Click here, then hold the arrow keys</text>
+    </svg>
+  );
+}

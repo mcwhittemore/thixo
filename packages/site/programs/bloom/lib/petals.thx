@@ -1,0 +1,12 @@
+export interface Petal {
+  angle: number;
+  hue: number;
+}
+
+export function petals(count: number): Petal[] {
+  const out: Petal[] = [];
+  for (const i of Array.from({ length: count }, (_, n) => n)) {
+    out.push({ angle: (360 / count) * i, hue: (300 / count) * i });
+  }
+  return out;
+}

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { compile } from "@thixo/core";
 import { load, mount } from "@thixo/react";
 
-export function LiveProgram({ source }: { source: string }) {
+export function LiveProgram({ files }: { files: Record<string, string> }) {
   const box = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string>();
 
@@ -11,7 +11,7 @@ export function LiveProgram({ source }: { source: string }) {
     if (!element) return;
     let unmount: (() => void) | undefined;
     let stopped = false;
-    const result = compile({ "main.thx": source });
+    const result = compile(files);
     if (!result.ok) {
       setError(result.errors.map((e) => `${e.file}:${e.line}:${e.column} ${e.message}`).join("\n"));
       return;
@@ -27,7 +27,7 @@ export function LiveProgram({ source }: { source: string }) {
       stopped = true;
       unmount?.();
     };
-  }, [source]);
+  }, [files]);
 
   return (
     <div>
