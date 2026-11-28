@@ -1,6 +1,6 @@
 # @thixo/site
 
-The thixo demo site, live at [mcwhittemore.github.io/thixo](https://mcwhittemore.github.io/thixo/). It isn't
+The thixo demo site, live at [mcwhittemore.com/thixo](https://mcwhittemore.com/thixo/). It isn't
 published to npm.
 
 ```sh
