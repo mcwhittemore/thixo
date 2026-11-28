@@ -1,0 +1,29 @@
+import { useState, useFrame } from "thixo";
+import { petals } from "./lib/petals";
+
+const RING = petals(12);
+
+export default function Bloom() {
+  const [t, setT] = useState(0);
+  useFrame((time) => setT(time));
+  const open = 0.6 + 0.4 * Math.sin(t * 1.5);
+  return (
+    <svg width="240" height="240">
+      <g transform={`rotate(${t * 20} 120 120)`}>
+        {RING.map((p, i) => (
+          <ellipse
+            key={i}
+            cx="120"
+            cy={120 - 50 * open}
+            rx="14"
+            ry={40 * open}
+            fill={`hsl(${p.hue}, 70%, 60%)`}
+            opacity="0.8"
+            transform={`rotate(${p.angle} 120 120)`}
+          />
+        ))}
+      </g>
+      <circle cx="120" cy="120" r={12 + 4 * open} fill="#1d2421" />
+    </svg>
+  );
+}

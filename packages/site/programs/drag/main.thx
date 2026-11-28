@@ -1,0 +1,65 @@
+import { useState, useGesture } from "thixo";
+
+interface Tile {
+  x: number;
+  y: number;
+  color: string;
+}
+
+interface Board {
+  tiles: Tile[];
+  held: number;
+}
+
+const SIDE = 56;
+
+function under(tiles: Tile[], x: number, y: number): number {
+  let found = -1;
+  tiles.forEach((t, i) => {
+    if (x >= t.x && x <= t.x + SIDE && y >= t.y && y <= t.y + SIDE) found = i;
+  });
+  return found;
+}
+
+export default function Drag() {
+  const [board, setBoard] = useState<Board>({
+    tiles: [
+      { x: 24, y: 24, color: "tomato" },
+      { x: 120, y: 64, color: "teal" },
+      { x: 56, y: 140, color: "goldenrod" },
+    ],
+    held: -1,
+  });
+  useGesture({
+    onDragStart: (p) =>
+      setBoard((b) => {
+        const i = under(b.tiles, p.x, p.y);
+        if (i < 0) return b;
+        const rest = b.tiles.filter((_, j) => j !== i);
+        return { tiles: [...rest, b.tiles[i]], held: rest.length };
+      }),
+    onDrag: (p) =>
+      setBoard((b) =>
+        b.held < 0 ? b : { ...b, tiles: b.tiles.map((t, i) => (i === b.held ? { ...t, x: t.x + p.dx, y: t.y + p.dy } : t)) },
+      ),
+    onDragEnd: () => setBoard((b) => ({ ...b, held: -1 })),
+  });
+  return (
+    <svg width="240" height="240">
+      {board.tiles.map((t, i) => (
+        <rect
+          key={t.color}
+          x={t.x}
+          y={t.y}
+          width={SIDE}
+          height={SIDE}
+          rx={8}
+          fill={t.color}
+          stroke={i === board.held ? "#1d2421" : "none"}
+          strokeWidth={3}
+        />
+      ))}
+      <text x="120" y="228" textAnchor="middle" fontSize="12" fill="#56625b">Drag the tiles</text>
+    </svg>
+  );
+}
