@@ -1,16 +1,17 @@
 ---
 name: verify-thixo
-description: Prove a change to thixo works by driving it the way a user does. Compile programs with the real `thixo` command, mount them in headless Chromium with @thixo/react and drive the pointer and keys, and replay programs in the benchmark arena. It also writes the verifications/pr-<N>.md file that CI requires on every pull request. Use before opening or approving any thixo pull request, or whenever you need evidence that a compiler, runtime, CLI or host change behaves.
+description: Prove a change to thixo works by driving it the way a user does. Compile programs with the real `thixo` command, mount them in headless Chromium with @thixo/react and drive the pointer and keys, open the built demo site under /thixo/ and drive it, and replay programs in the benchmark arena. It also writes the verifications/pr-<N>.md file that CI requires on every pull request. Use before opening or approving any thixo pull request, or whenever you need evidence that a compiler, runtime, CLI or host change behaves.
 ---
 
 # Verify thixo
 
-thixo has three surfaces a user touches. Drive the one the change affects, and often more than one:
+thixo has four surfaces a user touches. Drive the one the change affects, and often more than one:
 
 | Surface | Who uses it | Driven with |
 | --- | --- | --- |
 | The `thixo compile` command | Authors and agents writing programs | `scripts/cli.sh` |
 | A compiled program mounted in a page by `@thixo/react` | Hosts and the people looking at the box | `scripts/render.sh` |
+| The demo site, `packages/site`, served under `/thixo/` | People deciding whether to use thixo | `scripts/site.sh` |
 | The wall: what a program can't reach | Everyone; it's the point of thixo | `npm run bench -- replay` (free) and the escape tests |
 
 The feature map in [features/README.md](features/README.md) says how to drive each feature. Read the matching file
@@ -93,6 +94,20 @@ and a snapshot after each:
 any request that left the page's origin. It exits 0 when the program mounted with no errors and 1 otherwise. Read the
 screenshots with your image tool, and assert on `render.json` numbers, not on how a picture looks.
 
+**Site**: build the demo site, serve it under `/thixo/` and drive it:
+
+```sh
+scripts/site.sh --out "$RUN/<step-name>" [--do <json | @file>] [--no-build] [--wait <ms>]
+```
+
+It runs `npm run build -w @thixo/site`, serves `packages/site/dist` under `/thixo/` on a random port, and opens it
+in a 1024×768 page. With no `--do` it shoots `loaded`, goes to `#live`, and shoots `frame-1` and, 300 ms later,
+`frame-2`. `--do` takes a list of actions instead (`goto`, `click`, `type`, `pointer`, `down`, `up`, `press`,
+`keyDown`, `keyUp`, `wait`, `frames`, `shot`; see [features/site.md](features/site.md)). It saves `build.txt`, a
+screenshot per shot, `page.txt`, and `site.json`: per shot the `url`, `text`, each box's HTML (`boxes`) and
+`errorText`, plus `pageErrors` (with `uncaught`, what each thrown value was), `consoleErrors`, `failedRequests`, `offOriginRequests` and `boxesChanged`. It exits 0
+when the site built and loaded with none of those errors, and 1 otherwise.
+
 **Wall**: replay a program in the arena, beside secrets it must not reach:
 
 ```sh
@@ -127,7 +142,7 @@ branch, and run `scripts/check-verification.sh <N>`.
 
 ## Cleanup
 
-Scripts clean up after themselves: `render.sh` closes the browser and the server it started, and `cli.sh` and replay
+Scripts clean up after themselves: `render.sh` and `site.sh` close the browser and the server they started, and `cli.sh` and replay
 are single processes. Nothing is left running. Never `pkill` Chromium or node by name; other runs may be using
 them.
 
@@ -136,7 +151,7 @@ Remove scratch programs you wrote for the run (`rm -rf "$RUN/scratch"`), but kee
 
 ## Isolation
 
-Runs don't share state. Each `render.sh` and arena replay listens on a random port with its own browser, and each
+Runs don't share state. Each `render.sh`, `site.sh` and arena replay listens on a random port with its own browser, and each
 run writes to its own `$RUN`. Parallel worktrees each need their own `npm install` and `npm run build`.
 
 ## Keeping this honest
