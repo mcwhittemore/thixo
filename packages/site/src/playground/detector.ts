@@ -199,7 +199,6 @@ export async function look(code: string, stage: Stage): Promise<Mounted> {
   const secrets = plant(stage);
   stage.box.scrollIntoView({ block: "center" });
   let unmount: (() => void) | undefined;
-  const module = await load(code);
   const requests = watchRequests(performance.now());
   const outside = watchOutside(stage.box);
   const navigation = watchNavigation();
@@ -207,6 +206,7 @@ export async function look(code: string, stage: Stage): Promise<Mounted> {
   addEventListener("error", onError);
   let drew = false;
   try {
+    const module = await load(code);
     unmount = mount(stage.box, module, {
       modules: { bench: { say: (text: unknown) => void said.push(String(text)) } },
       onError: (e) => void runtimeErrors.push(String(e?.message ?? e)),

