@@ -96,10 +96,10 @@ screenshots with your image tool, and assert on `render.json` numbers, not on ho
 **Wall**: replay a program in the arena, beside secrets it must not reach:
 
 ```sh
-npm run -s bench -- replay "$PWD/<folder>" --goal <id>    # absolute path: replay runs inside bench/
+npm run -s bench -- replay "$PWD/<folder>" --goal <id>    # absolute path: replay runs inside packages/bench/
 ```
 
-Exit 0 means held and 1 means the goal was reached, which is a bug in the wall. Goal IDs are in `bench/src/goals.ts`.
+Exit 0 means held and 1 means the goal was reached, which is a bug in the wall. Goal IDs are in `packages/bench/src/goals.ts`.
 Never run `npm run bench` without `replay`: it starts an agent and spends real money.
 
 **Tests** are proof too, not instead: `npm run typecheck` and `npm test`. A change to the wall also needs a new

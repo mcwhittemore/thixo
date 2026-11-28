@@ -9,14 +9,14 @@ pass() { echo "ok    $1"; }
 bad() { echo "FAIL  $1"; fail=1; }
 
 echo "checkout  $root"
-echo "revision  $(git rev-parse --short HEAD)$(git diff --quiet HEAD -- packages bench 2>/dev/null || echo ' (uncommitted changes in packages/ or bench/)')"
+echo "revision  $(git rev-parse --short HEAD)$(git diff --quiet HEAD -- packages 2>/dev/null || echo ' (uncommitted changes in packages/)')"
 
 node_v="$(node -p 'process.versions.node' 2>/dev/null || echo none)"
 if node -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>22||(a===22&&b>=13)?0:1)' 2>/dev/null; then pass "node $node_v (>= 22.13)"; else bad "node $node_v: needs >= 22.13"; fi
 
 if [[ -d node_modules/@thixo/core && -d node_modules/playwright && -d node_modules/tsx ]]; then pass "npm install has run"; else bad "node_modules incomplete: run npm install"; fi
 
-for pkg in core cli react; do
+for pkg in core cli react bench; do
   newest_src="$(find "packages/$pkg/src" -type f -newer "packages/$pkg/dist" 2>/dev/null | head -1)"
   if [[ ! -d "packages/$pkg/dist" ]]; then bad "packages/$pkg/dist missing: run npm run build"
   elif [[ -n "$newest_src" ]] && [[ -z "$(find "packages/$pkg/dist" -type f -newer "$newest_src" | head -1)" ]]; then bad "packages/$pkg/dist is older than $newest_src: run npm run build"

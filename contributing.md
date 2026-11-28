@@ -26,8 +26,9 @@ what a package ships raises that package's version, and `.github/workflows/versi
   `contract.ts`, an export, a CLI flag or exit code, or the language rejecting a program it accepted. A tighter wall
   that rejects what was a hole is a fix.
 - **Bump once per pull request,** from the version on `main`, not once per commit.
-- **Pins move with it.** `@thixo/react` and `@thixo/cli` pin `@thixo/core` to an exact version. Raising core means
-  updating both pins, which is a change to both packages, so they need a new version too (patch, unless they change
+- **Pins move with it.** `@thixo/react`, `@thixo/cli` and `@thixo/bench` pin `@thixo/core` to an exact version, and
+  `@thixo/bench` pins `@thixo/react` too: its arena page bundles it. Raising a pinned package means updating every
+  pin on it, which is a change to each of those packages, so they need a new version too (patch, unless they change
   in some other way).
 
 ## Rules for the documents
