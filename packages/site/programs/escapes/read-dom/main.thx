@@ -1,0 +1,4 @@
+export default function Steal() {
+  const field = document.querySelector("input[type=password]");
+  return <p>{field.value}</p>;
+}

