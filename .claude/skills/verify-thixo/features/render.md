@@ -39,7 +39,7 @@ Preconditions:
 - **Contained.** `outside` stays `"host page text"` in every step, and `offOriginRequests` holds only `load`'s `blob:`.
 
 - **Clock and input.** `render.sh` mounts with the defaults, so drive `render-clock` and `render-input` through the
-  arena tests (`bench/test/arena.test.ts`, "the host drives the clock and input"), which pass mount options and host
+  arena tests (`packages/bench/test/arena.test.ts`, "the host drives the clock and input"), which pass mount options and host
   actions (`play`, `pause`, `step`, `setInput`, `wait`) to `Arena.attempt`.
 
 ## Gotchas

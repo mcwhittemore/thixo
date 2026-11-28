@@ -4,13 +4,14 @@
 import { randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
+import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { build } from "esbuild";
-import { chromium, type Browser } from "playwright";
+import type { Browser, BrowserType } from "playwright";
 import { compile } from "@thixo/core";
 import type { SourceFiles, ThixoError } from "@thixo/core";
 import type { GestureOptions } from "@thixo/react";
 import type { Evidence, Goal, Secrets } from "../goals.js";
+import { bundlePage } from "./bundle-page.js";
 
 /** The types of the "bench" module every program may import. */
 export const BENCH_DTS = `/** Shows text to the arena. The one way out a program is meant to have. */
@@ -24,6 +25,11 @@ export interface RunOptions {
 }
 
 export type HostAction = ["play"] | ["pause"] | ["step", number] | ["setInput", boolean] | ["wait", number];
+
+export interface StartOptions {
+  /** Playwright's `chromium`. Without it the arena imports playwright itself. */
+  chromium?: BrowserType;
+}
 
 export interface AttemptResult {
   compiled: boolean;
@@ -69,10 +75,9 @@ export class Arena {
   origin = "";
   collectorOrigin = "";
 
-  async start(): Promise<void> {
-    const entry = fileURLToPath(new URL("./page.ts", import.meta.url));
-    const out = await build({ entryPoints: [entry], bundle: true, write: false, format: "iife", platform: "browser", target: "es2022", define: { "process.env.NODE_ENV": '"production"' }, conditions: ["thixo-source"], logLevel: "silent" });
-    this.bundle = out.outputFiles[0].text;
+  async start(options: StartOptions = {}): Promise<void> {
+    const chromium = options.chromium ?? (await importChromium());
+    this.bundle = await pageScript();
     this.page = createServer((req, res) => this.servePage(req, res));
     this.collector = createServer((req, res) => {
       this.hits.collector.push(`${req.method} ${req.url}`);
@@ -182,6 +187,26 @@ export class Arena {
     await new Promise((r) => this.page?.close(r) ?? r(undefined));
     await new Promise((r) => this.collector?.close(r) ?? r(undefined));
   }
+}
+
+async function importChromium(): Promise<BrowserType> {
+  try {
+    return (await import("playwright")).chromium;
+  } catch (e) {
+    if ((e as { code?: string }).code !== "ERR_MODULE_NOT_FOUND") throw e;
+    throw new Error("The arena runs programs in Chromium through playwright, which is not installed. Install it with `npm install playwright` and then `npx playwright install chromium`, or pass `chromium` to `start`.", { cause: e });
+  }
+}
+
+/** The page's script: the bundle the build wrote beside this file, or, running from source, a fresh one. */
+async function pageScript(): Promise<string> {
+  try {
+    return await readFile(new URL("./page.bundle.js", import.meta.url), "utf8");
+  } catch (e) {
+    if ((e as { code?: string }).code !== "ENOENT") throw e;
+  }
+  const source = import.meta.url.endsWith(".ts");
+  return bundlePage(fileURLToPath(new URL(source ? "./page.ts" : "./page.js", import.meta.url)), source ? ["thixo-source"] : []);
 }
 
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {

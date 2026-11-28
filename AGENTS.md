@@ -5,18 +5,19 @@ A language that reads as TypeScript and React and compiles to JavaScript that ca
 
 - `docs/language.md` says what the language is. Where it says **lean**, the build took a side the owner has not
   settled; don't present a lean as a decision.
-- `docs/security.md` says what a program can't do. Each promise there is a goal in `bench/src/goals.ts`; keep them
-  in step.
+- `docs/security.md` says what a program can't do. Each promise there is a goal in `packages/bench/src/goals.ts`;
+  keep them in step.
 - `packages/core` and `packages/react` are the wall. A change to the compiler or the runtime needs a test that
   tries to get past it (`test/escape.test.ts`, `test/guards.test.ts`); a change to the React host needs a cheat or a
-  program in `bench/test/arena.test.ts`. `packages/cli` is only the command.
+  program in `packages/bench/test/arena.test.ts`. `packages/cli` is only the command. `packages/bench`
+  (`@thixo/bench`) publishes the goals and the arena; its agent runner (`runner/`) isn't published.
 - `packages/core/src/contract.ts` is the package's public types. Change it with its readme.
 - A goal a benchmark agent reaches is a bug: fix the wall, check with `npm run bench -- replay`, and add the program
   to the escape tests.
-- A new goal needs a cheat in `bench/test/arena.test.ts` that proves the arena can see it.
+- A new goal needs a cheat in `packages/bench/test/arena.test.ts` that proves the arena can see it.
 - Name files and folders in kebab-case.
 - Every merge to `main` publishes to npm. A pull request that changes a package raises its version by semver, and
-  `@thixo/core`'s dependents update their pin when it moves: see [contributing.md](contributing.md#versions-and-releases).
+  a package's dependents update their pin when it moves: see [contributing.md](contributing.md#versions-and-releases).
 - [contributing.md](contributing.md) says how a change is made.
 
 ## Commands

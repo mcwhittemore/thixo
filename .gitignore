@@ -7,7 +7,7 @@ artifacts
 
 
 # Benchmark runs
-bench/results
+packages/bench/results
 results
 
 # loopway bot worktrees

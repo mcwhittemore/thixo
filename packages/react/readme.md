@@ -42,4 +42,4 @@ element.onmouseleave = () => card.pause();
   the host's element, so the host still sees the hover. No `useGesture` call comes while input is off. A press in
   progress when `setInput(false)` runs gets its `onUp`, and `onDragEnd` if it was a drag, at its last point first.
 
-Its tests are the arena's in [bench](../../bench): every goal's detector runs against a program mounted with it.
+Its tests are the arena's in [@thixo/bench](../bench): every goal's detector runs against a program mounted with it.

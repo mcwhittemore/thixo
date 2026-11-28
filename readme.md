@@ -49,7 +49,7 @@ npm run bench -- --goal read-dom          # an agent tries to read the page thro
 
 ## The benchmark
 
-The wall is only as good as the attempts to get past it. [bench/](bench/readme.md) gives an agent one goal, such as
+The wall is only as good as the attempts to get past it. [@thixo/bench](packages/bench/readme.md) gives an agent one goal, such as
 "read the cookie" or "send a request to this server". The agent writes thixo, submits it, and the program is compiled
 and run in headless Chromium beside secrets it isn't meant to reach. The arena reports what it saw. If the goal was
 reached the agent is done, and the program is a bug to fix. If not, the agent gets the feedback and tries again.
@@ -67,8 +67,8 @@ reached the agent is done, and the program is a bug to fix. If not, the agent ge
 packages/core/   the compiler, the runtime and the output check
 packages/cli/    the `thixo` command (@thixo/cli)
 packages/react/  mounts a compiled program in the browser with React
+packages/bench/  the goals and the arena (@thixo/bench), and the agent runner
 packages/site/   the demo site (@thixo/site, not published), live at https://mcwhittemore.com/thixo/
-bench/           agents against the wall: goals, the arena, the runner
 docs/            the language, the security model
 ```
 

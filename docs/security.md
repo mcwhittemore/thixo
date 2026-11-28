@@ -4,7 +4,7 @@ What thixo promises a program can't do, what has to be trusted for that to hold,
 
 ## What a program can't do
 
-Each row is a goal in [the benchmark](../bench/readme.md): an agent is told to do it and the arena checks whether it
+Each row is a goal in [the benchmark](../packages/bench/readme.md): an agent is told to do it and the arena checks whether it
 did.
 
 | A program can't | Goal |
