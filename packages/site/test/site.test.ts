@@ -1,21 +1,29 @@
-import { test } from "node:test";
+import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { createServer } from "node:http";
+import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { extname, join, normalize } from "node:path";
-import { chromium } from "playwright";
+import { compile } from "@thixo/core";
+import { chromium, type Browser, type Page } from "playwright";
 import { buildSite } from "../src/build.ts";
+import { ESCAPES } from "../src/escapes.ts";
+import { formatErrors } from "../src/format-errors.ts";
 
 const TYPES: Record<string, string> = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css" };
 
-test("the built site compiles the spinner, animates it and shows how to install thixo, under a subpath", async (t) => {
-  const dist = mkdtempSync(join(tmpdir(), "thixo-site-"));
-  t.after(() => rmSync(dist, { recursive: true, force: true }));
+let dist: string;
+let server: Server;
+let browser: Browser;
+let page: Page;
+const problems: string[] = [];
+
+before(async () => {
+  dist = mkdtempSync(join(tmpdir(), "thixo-site-"));
   await buildSite(dist);
 
-  const server = createServer((req, res) => {
+  server = createServer((req, res) => {
     const path = new URL(req.url ?? "/", "http://x").pathname;
     if (!path.startsWith("/thixo/")) {
       res.statusCode = 404;
@@ -33,13 +41,10 @@ test("the built site compiles the spinner, animates it and shows how to install 
     }
   });
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
-  t.after(() => server.close());
   const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
-  const browser = await chromium.launch();
-  t.after(() => browser.close());
-  const page = await browser.newPage();
-  const problems: string[] = [];
+  browser = await chromium.launch();
+  page = await browser.newPage();
   page.on("pageerror", (e) => problems.push(`pageerror: ${e.message}`));
   page.on("console", (m) => {
     if (m.type() === "error" || m.type() === "warning") problems.push(`${m.type()}: ${m.text()}`);
@@ -47,8 +52,16 @@ test("the built site compiles the spinner, animates it and shows how to install 
   page.on("response", (r) => {
     if (r.status() >= 400) problems.push(`${r.status()} ${r.url()}`);
   });
-
   await page.goto(`${origin}/thixo/`);
+});
+
+after(async () => {
+  await browser?.close();
+  server?.close();
+  rmSync(dist, { recursive: true, force: true });
+});
+
+test("the built site compiles the spinner, animates it and shows how to install thixo, under a subpath", async () => {
   const rect = page.locator('[data-testid="box"] rect');
   await rect.waitFor();
   const first = await rect.getAttribute("transform");
@@ -63,6 +76,22 @@ test("the built site compiles the spinner, animates it and shows how to install 
   const install = await page.locator("#install").innerText();
   for (const step of ["npm i @thixo/core @thixo/react", "npx @thixo/cli compile <folder> -o out.js", "await load(code)"]) {
     assert.ok(install.includes(step), `the install panel shows ${step}`);
+  }
+  assert.deepEqual(problems, []);
+});
+
+test("each escape on the site still fails to compile as thx, with the error the page shows", async () => {
+  assert.equal(await page.locator("#escapes .escape").count(), ESCAPES.length);
+  for (const escape of ESCAPES) {
+    const thx = readFileSync(new URL(`../programs/escapes/${escape.id}/main.thx`, import.meta.url), "utf8");
+    const result = compile({ "main.thx": thx });
+    assert.equal(result.ok, false, `${escape.id} must not compile`);
+    if (result.ok) continue;
+
+    const pair = page.locator(`[data-testid="escape-${escape.id}"]`);
+    assert.equal((await pair.locator('[data-testid="js"]').innerText()).trim(), escape.js);
+    assert.equal((await pair.locator('[data-testid="thx"]').innerText()).trim(), thx.trim());
+    assert.equal((await pair.locator('[data-testid="error"]').innerText()).trim(), formatErrors(result.errors));
   }
   assert.deepEqual(problems, []);
 });

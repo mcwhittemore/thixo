@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { compile } from "@thixo/core";
 import { load, mount } from "@thixo/react";
+import { formatErrors } from "./format-errors.ts";
 
 export function LiveProgram({ source }: { source: string }) {
   const box = useRef<HTMLDivElement>(null);
@@ -13,7 +14,7 @@ export function LiveProgram({ source }: { source: string }) {
     let stopped = false;
     const result = compile({ "main.thx": source });
     if (!result.ok) {
-      setError(result.errors.map((e) => `${e.file}:${e.line}:${e.column} ${e.message}`).join("\n"));
+      setError(formatErrors(result.errors));
       return;
     }
     load(result.code).then(

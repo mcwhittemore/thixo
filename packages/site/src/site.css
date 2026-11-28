@@ -14,3 +14,8 @@ main { padding: 24px; }
 @media (max-width: 640px) { .live { grid-template-columns: minmax(0, 1fr); } }
 .box { width: 240px; height: 240px; background: #fff; border: 1px solid #c7cfc9; border-radius: 6px; }
 .error { color: #a1251b; white-space: pre-wrap; }
+.escape { margin-bottom: 24px; }
+.escape h3 { margin: 0 0 8px; }
+.escape h4 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: #56625b; }
+.pair { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); align-items: start; }
+.compile-error { margin-top: 8px; background: #3a1d1a; color: #ffd9d4; white-space: pre-wrap; }

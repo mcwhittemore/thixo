@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import spin from "../programs/spin/main.thx";
+import { Escapes } from "./escapes-section.tsx";
 import { LiveProgram } from "./live-program.tsx";
 
 export interface Section {
@@ -26,5 +27,10 @@ export const SECTIONS: Section[] = [
         </div>
       </>
     ),
+  },
+  {
+    id: "escapes",
+    title: "Escapes",
+    body: () => <Escapes />,
   },
 ];
