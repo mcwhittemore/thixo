@@ -10,7 +10,7 @@ holds its shape at rest, flows when you work it
 thixo is a language that reads as TypeScript and React, and compiles to JavaScript that can run in your page
 without being able to reach it. A thixo program can draw, animate and respond to the pointer inside the box it is
 mounted in. It can't read the page around it, touch the network, run JavaScript of its own, or do anything the host
-didn't hand it.
+didn't hand it. See one run at [mcwhittemore.com/thixo](https://mcwhittemore.com/thixo/).
 
 It exists for code written by agents. When a person asks an agent for something and the agent writes code, that
 code should be able to do only what the person can see it doing.
@@ -68,7 +68,7 @@ packages/core/   the compiler, the runtime and the output check
 packages/cli/    the `thixo` command (@thixo/cli)
 packages/react/  mounts a compiled program in the browser with React
 packages/bench/  the goals and the arena (@thixo/bench), and the agent runner
-packages/site/   the demo site (@thixo/site, not published): `npm run build -w @thixo/site` writes dist/
+packages/site/   the demo site (@thixo/site, not published), live at https://mcwhittemore.com/thixo/
 docs/            the language, the security model
 ```
 
