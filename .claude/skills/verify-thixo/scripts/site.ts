@@ -41,6 +41,17 @@ type Action =
 
 const DEFAULT_ACTIONS: Action[] = [{ shot: "loaded" }, { goto: "#live" }, { shot: "frame-1" }, { wait: 300 }, { shot: "frame-2" }];
 
+// A thrown value that isn't an Error reaches Playwright's pageerror as "Object"; this records what it was.
+const UNCAUGHT = `
+window.__uncaught = [];
+const describe = (v) => {
+  if (v instanceof Error) return v.name + ": " + v.message;
+  try { return JSON.stringify(v) ?? String(v); } catch { return String(v); }
+};
+window.addEventListener("error", (e) => window.__uncaught.push(describe(e.error ?? e.message)));
+window.addEventListener("unhandledrejection", (e) => window.__uncaught.push("unhandled rejection: " + describe(e.reason)));
+`;
+
 interface Seen {
   url: string;
   text: string;
@@ -152,10 +163,12 @@ async function main(args: string[]): Promise<number> {
   const failedRequests: string[] = [];
   const offOriginRequests: string[] = [];
   const steps: ({ step: string; screenshot: string } & Seen)[] = [];
+  const uncaught: string[] = [];
   let actionError: string | undefined;
   try {
     const page = await browser.newPage({ viewport: { width: 1024, height: 768 }, hasTouch: true });
     page.setDefaultTimeout(5000);
+    await page.addInitScript(UNCAUGHT);
     page.on("pageerror", (e) => pageErrors.push(e.message));
     page.on("console", (m) => {
       consoleLines.push(`${m.type()}: ${m.text()}`);
@@ -182,6 +195,7 @@ async function main(args: string[]): Promise<number> {
       }
     }
     writeFileSync(join(out, "page.txt"), (await seen(page)).text + "\n");
+    uncaught.push(...(await page.evaluate(() => (window as unknown as { __uncaught: string[] }).__uncaught)));
   } finally {
     await browser.close();
     await new Promise((r) => server.close(r));
@@ -191,10 +205,10 @@ async function main(args: string[]): Promise<number> {
   const failed = !!actionError || pageErrors.length + consoleErrors.length + failedRequests.length + errorText.length > 0;
   const first = steps[0]?.boxes ?? [];
   const boxesChanged = first.map((html, i) => steps.some((s) => s.boxes[i] !== html));
-  const report = { url: origin + BASE, ok: !failed, actionError, pageErrors, consoleErrors, failedRequests, errorText, offOriginRequests, boxesChanged, console: consoleLines, steps };
+  const report = { url: origin + BASE, ok: !failed, actionError, pageErrors, uncaught, consoleErrors, failedRequests, errorText, offOriginRequests, boxesChanged, console: consoleLines, steps };
   writeFileSync(join(out, "site.json"), JSON.stringify(report, null, 2) + "\n");
   process.stdout.write(`${failed ? "FAILED" : "ok"}: ${steps.length} steps, evidence in ${out}\n`);
-  for (const e of [actionError, ...pageErrors, ...consoleErrors, ...failedRequests, ...errorText]) if (e) process.stdout.write(`error: ${e}\n`);
+  for (const e of [actionError, ...uncaught, ...consoleErrors, ...failedRequests, ...errorText]) if (e) process.stdout.write(`error: ${e}\n`);
   return failed ? 1 : 0;
 }
 

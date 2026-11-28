@@ -105,7 +105,7 @@ in a 1024×768 page. With no `--do` it shoots `loaded`, goes to `#live`, and sho
 `frame-2`. `--do` takes a list of actions instead (`goto`, `click`, `type`, `pointer`, `down`, `up`, `press`,
 `keyDown`, `keyUp`, `wait`, `frames`, `shot`; see [features/site.md](features/site.md)). It saves `build.txt`, a
 screenshot per shot, `page.txt`, and `site.json`: per shot the `url`, `text`, each box's HTML (`boxes`) and
-`errorText`, plus `pageErrors`, `consoleErrors`, `failedRequests`, `offOriginRequests` and `boxesChanged`. It exits 0
+`errorText`, plus `pageErrors` (with `uncaught`, what each thrown value was), `consoleErrors`, `failedRequests`, `offOriginRequests` and `boxesChanged`. It exits 0
 when the site built and loaded with none of those errors, and 1 otherwise.
 
 **Wall**: replay a program in the arena, beside secrets it must not reach:

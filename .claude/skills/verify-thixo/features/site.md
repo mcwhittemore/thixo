@@ -58,6 +58,8 @@ Preconditions:
 - `ok` is false when the page logs a console error, a request fails (status 400 or more), or any `.error` element
   has text. A section that shows an error on purpose (a compile error a reader is meant to see) makes `errorText`
   non-empty: assert on its content rather than on `ok`.
+- A program's run-time error can reach the page as a plain object, which Playwright's `pageErrors` records as
+  `"Object"`. `uncaught` has what it was, for example `{"name":"Error","message":"boom-37"}`.
 - `type` clicks the element's centre first, so the pointer moves there.
 - Box coordinates from `pointer` with `in` count from the element's border edge; the program sees them 1 px less
   inside the box's border.
