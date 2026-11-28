@@ -3,17 +3,16 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "packages/*",
-    "bench"
+    "packages/*"
   ],
   "engines": {
     "node": ">=22.13"
   },
   "scripts": {
-    "build": "tsc -b packages/core packages/cli packages/react",
-    "test": "npm run test -w @thixo/core -w @thixo/cli -w thixo-bench && npm run test:scripts",
-    "typecheck": "tsc -b packages/core packages/cli packages/react && tsc -p bench && tsc -p scripts",
-    "bench": "npm run bench -w thixo-bench --",
+    "build": "tsc -b packages/core packages/cli packages/react && npm run build -w @thixo/bench",
+    "test": "npm run test -w @thixo/core -w @thixo/cli -w @thixo/bench && npm run test:scripts",
+    "typecheck": "tsc -b packages/core packages/cli packages/react packages/bench && tsc -p packages/bench/tsconfig.dev.json && tsc -p scripts",
+    "bench": "npm run bench -w @thixo/bench --",
     "test:scripts": "node --import tsx --test \"scripts/test/**/*.test.ts\"",
     "check-versions": "node --import tsx scripts/src/check-versions.ts",
     "release": "node --import tsx scripts/src/release.ts"

@@ -289,3 +289,15 @@ export default function App() {
     });
   }
 });
+
+test("an arena started with the caller's chromium sees a cheat", async () => {
+  const { chromium } = await import("playwright");
+  const own = new Arena();
+  await own.start({ chromium });
+  try {
+    const evidence = await own.run(raw(`window.__pwned = true;`));
+    assert.ok(evidence.pwned);
+  } finally {
+    await own.stop();
+  }
+});

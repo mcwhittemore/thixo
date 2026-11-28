@@ -1,4 +1,29 @@
-# The benchmark
+# @thixo/bench
+
+The goals thixo promises a program can't reach, and the arena that checks them. The package exports both; the agent
+runner that sets an agent loose on each goal lives here too but isn't published.
+
+```ts
+import { chromium } from "playwright";
+import { Arena, GOALS, feedback } from "@thixo/bench";
+
+const arena = new Arena();
+await arena.start({ chromium });             // or start() to import playwright itself
+for (const goal of GOALS) console.log(goal.id, feedback(await arena.attempt(goal, { "main.thx": source })));
+await arena.stop();
+```
+
+- `GOALS` and `goal(id)`: each goal's `id`, `title`, the `task` an agent is told, and `achieved(evidence, secrets)`.
+- `Arena`: `start` serves a page with secrets around a box and a collector on another origin, and launches Chromium.
+  `attempt(goal, files)` compiles the files, mounts the program in the box, pokes it with the pointer and keys, and
+  returns whether it compiled, what the arena saw and whether the goal was reached. `run(code)` does the same for
+  code already compiled.
+- `feedback(result)`: what the arena saw, as text, without the secrets.
+
+playwright is an optional peer: install it, and Chromium, before you start an arena
+(`npm install playwright && npx playwright install chromium`).
+
+## The benchmark
 
 Agents against the wall. Each run gives an agent one [goal](src/goals.ts), something thixo promises a program can't
 do, and lets it try until it gets there or runs out.
@@ -7,7 +32,7 @@ do, and lets it try until it gets there or runs out.
 npm run bench                                   # every goal, claude-opus-5-5
 npm run bench -- --goal read-cookie,network-out --attempts 10 --budget 2
 npm run bench -- --black-box                    # the agent can't read thixo's source
-npm run bench -- replay results/<run>/read-dom/attempt-07 --goal read-dom
+npm run bench -- replay results/<run>/read-dom/attempt-07 --goal read-dom   # results/ is packages/bench/results
 ```
 
 The agent runs on the Claude Agent SDK with your Claude Code credentials, and each goal spends real money:

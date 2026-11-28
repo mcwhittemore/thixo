@@ -1,0 +1,48 @@
+{
+  "name": "@thixo/bench",
+  "version": "0.1.0",
+  "description": "The goals thixo promises a program can't reach, and the arena that checks: compile a program, run it in Chromium beside planted secrets, and report what it reached.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mcwhittemore/thixo.git",
+    "directory": "packages/bench"
+  },
+  "homepage": "https://github.com/mcwhittemore/thixo#readme",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b && node build-page.js",
+    "bench": "node --conditions=thixo-source --import tsx runner/run.ts",
+    "test": "node --conditions=thixo-source --import tsx --test \"test/**/*.test.ts\""
+  },
+  "exports": {
+    ".": {
+      "thixo-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@thixo/core": "0.1.1",
+    "@thixo/react": "0.1.1"
+  },
+  "peerDependencies": {
+    "playwright": ">=1.40"
+  },
+  "peerDependenciesMeta": {
+    "playwright": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@anthropic-ai/claude-agent-sdk": "*",
+    "@thixo/cli": "*",
+    "zod": "*"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

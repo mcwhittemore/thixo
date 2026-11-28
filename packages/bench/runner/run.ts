@@ -1,5 +1,5 @@
 // npm run bench -- [--goal read-dom,network-out] [--model claude-opus-5-5] [--attempts 15] [--turns 80]
-//                  [--budget 5] [--black-box] [--out bench/results]
+//                  [--budget 5] [--black-box] [--out packages/bench/results]
 // npm run bench -- replay <folder of .thx files> --goal <id>
 //
 // Runs an agent against each goal and writes every attempt, and a summary, under the results folder. `replay`
@@ -9,8 +9,8 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { readProgram } from "@thixo/cli";
 import { runAgent, type RunSummary } from "./agent.js";
-import { Arena, feedback } from "./arena/arena.js";
-import { goal, GOALS } from "./goals.js";
+import { Arena, feedback } from "../src/arena/arena.js";
+import { goal, GOALS } from "../src/goals.js";
 
 function flag(args: string[], name: string): string | undefined {
   const i = args.indexOf(`--${name}`);
