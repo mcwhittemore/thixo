@@ -1,0 +1,16 @@
+* { box-sizing: border-box; }
+body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #1d2421; background: #f6f7f5; }
+a { color: #0f6e6e; }
+pre { margin: 0; padding: 12px 14px; overflow-x: auto; background: #1d2421; color: #e8efe9; border-radius: 6px; font: 13px/1.5 ui-monospace, monospace; }
+.header { padding: 32px 24px 24px; background: #fff; border-bottom: 1px solid #dde2de; }
+.header h1 { margin: 0; font-size: 32px; }
+.tagline { margin: 4px 0 20px; font-size: 20px; }
+.install { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.install h2 { margin: 0 0 6px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.04em; color: #56625b; }
+.nav { display: flex; gap: 16px; padding: 12px 24px; border-bottom: 1px solid #dde2de; }
+main { padding: 24px; }
+.section h2 { margin-top: 0; }
+.live { display: grid; gap: 16px; grid-template-columns: 240px minmax(0, 1fr); align-items: start; }
+@media (max-width: 640px) { .live { grid-template-columns: minmax(0, 1fr); } }
+.box { width: 240px; height: 240px; background: #fff; border: 1px solid #c7cfc9; border-radius: 6px; }
+.error { color: #a1251b; white-space: pre-wrap; }
