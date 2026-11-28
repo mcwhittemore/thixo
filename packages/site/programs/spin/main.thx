@@ -1,0 +1,11 @@
+import { useState, useFrame } from "thixo";
+
+export default function Spin() {
+  const [t, setT] = useState(0);
+  useFrame((time) => setT(time));
+  return (
+    <svg width="200" height="200">
+      <rect x="70" y="70" width="60" height="60" fill="teal" transform={`rotate(${t * 90} 100 100)`} />
+    </svg>
+  );
+}

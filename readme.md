@@ -68,6 +68,7 @@ packages/core/   the compiler, the runtime and the output check
 packages/cli/    the `thixo` command (@thixo/cli)
 packages/react/  mounts a compiled program in the browser with React
 packages/bench/  the goals and the arena (@thixo/bench), and the agent runner
+packages/site/   the demo site (@thixo/site, not published): `npm run build -w @thixo/site` writes dist/
 docs/            the language, the security model
 ```
 
