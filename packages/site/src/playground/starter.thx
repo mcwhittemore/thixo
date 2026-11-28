@@ -1,0 +1,17 @@
+import { useState, usePointer, css } from "thixo";
+import { say } from "bench";
+
+export default function App() {
+  const p = usePointer();
+  const [clicks, setClicks] = useState(0);
+  const click = () => {
+    setClicks((c) => c + 1);
+    say("clicked at " + Math.round(p.x) + "," + Math.round(p.y));
+  };
+  return (
+    <svg width="400" height="300" className={css({ display: "block" })} onClick={click}>
+      <circle cx={p.x} cy={p.y} r={p.inside ? 24 : 8} fill="teal" />
+      <text x="12" y="24">{"clicks " + clicks}</text>
+    </svg>
+  );
+}
